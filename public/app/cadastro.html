@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Criar cadastro — Coworking Odontológico</title>
+  <meta name="theme-color" content="#1f6feb">
+  <link rel="manifest" href="../../manifest.webmanifest">
+  <link rel="stylesheet" href="../../assets/css/base.css">
+  <script src="../../assets/js/brand.js" defer></script>
+</head>
+<body data-no-wpp>
+  <header class="topbar">
+    <div class="container">
+      <a class="marca" href="../index.html">Coworking <span>Odontológico</span></a>
+      <a class="muted" href="login.html">Já tenho conta</a>
+    </div>
+  </header>
+
+  <main class="container container-sm" style="padding:32px 16px">
+    <div class="card stack" id="box-form">
+      <div>
+        <h1>Criar cadastro</h1>
+        <p class="muted">Preencha seus dados e envie os documentos. A gestão analisa e libera suas reservas.</p>
+      </div>
+
+      <div id="aviso" class="aviso aviso-atencao" style="display:none"></div>
+
+      <form id="form-cad" class="stack" autocomplete="on">
+        <div class="campo">
+          <label for="nome">Nome completo *</label>
+          <input id="nome" type="text" required autocomplete="name" placeholder="Seu nome">
+        </div>
+        <div class="row">
+          <div class="grow campo">
+            <label for="telefone">Telefone / WhatsApp *</label>
+            <input id="telefone" type="tel" required inputmode="tel" autocomplete="tel" placeholder="(61) 90000-0000">
+          </div>
+          <div class="grow campo">
+            <label for="profissao">Profissão *</label>
+            <select id="profissao" required>
+              <option value="">Selecione…</option>
+              <option value="odonto">Odontologia (Dentista)</option>
+              <option value="hof">Harmonização Orofacial (HOF)</option>
+              <option value="estetica">Estética</option>
+              <option value="outro">Outra área da saúde</option>
+            </select>
+          </div>
+        </div>
+        <div class="campo">
+          <label for="cro">Nº do conselho (CRO / outro) *</label>
+          <input id="cro" type="text" required placeholder="Ex.: CRO-DF 00000">
+        </div>
+        <div class="row">
+          <div class="grow campo">
+            <label for="email">E-mail *</label>
+            <input id="email" type="email" required autocomplete="email" placeholder="voce@exemplo.com">
+          </div>
+          <div class="grow campo">
+            <label for="senha">Senha *</label>
+            <input id="senha" type="password" required minlength="6" autocomplete="new-password" placeholder="mínimo 6 caracteres">
+          </div>
+        </div>
+
+        <hr style="border:none;border-top:1px solid var(--linha);margin:4px 0">
+        <p class="muted" style="margin:0;font-size:.9rem"><strong>Documentos</strong> (foto ou PDF nítido)</p>
+
+        <div class="campo">
+          <label for="doc-rg">RG ou CNH *</label>
+          <input id="doc-rg" type="file" accept="image/*,application/pdf" required>
+        </div>
+        <div class="campo">
+          <label for="doc-carteirinha">Carteirinha do conselho (CRO etc.) *</label>
+          <input id="doc-carteirinha" type="file" accept="image/*,application/pdf" required>
+        </div>
+        <div class="campo">
+          <label for="doc-comprovante">Comprovante de residência *</label>
+          <input id="doc-comprovante" type="file" accept="image/*,application/pdf" required>
+        </div>
+
+        <button class="btn btn-primario btn-bloco" type="submit" id="btn-enviar">Enviar cadastro</button>
+        <p class="muted" style="font-size:.8rem;margin:0;text-align:center">
+          Ao enviar você concorda com os <a href="../termos.html">Termos</a> e a
+          <a href="../privacidade.html">Política de Privacidade</a>.
+        </p>
+      </form>
+    </div>
+
+    <!-- Tela de sucesso: cadastro em análise -->
+    <div class="card stack" id="box-ok" style="display:none;text-align:center">
+      <div style="font-size:2.4rem">🕵️</div>
+      <h1 style="margin:0">Cadastro em análise</h1>
+      <p class="muted" id="ok-msg">
+        Recebemos seus dados e documentos. A gestão vai revisar e liberar seu acesso —
+        você poderá reservar consultórios assim que for aprovado.
+      </p>
+      <a class="btn btn-neutro btn-bloco" href="login.html">Ir para o login</a>
+    </div>
+  </main>
+
+  <script src="../../config/config.js" onerror="console.warn('config.js ausente — modo demonstração')"></script>
+  <script src="../../assets/vendor/supabase.js"></script>
+  <script src="../../assets/js/db.js"></script>
+  <script>
+  (function () {
+    var DB = window.EnjoyDB;
+    var aviso = document.getElementById("aviso");
+    function mostrar(m) { aviso.textContent = m; aviso.className = "aviso aviso-atencao"; aviso.style.display = "block"; }
+    function limpaAviso() { aviso.style.display = "none"; }
+
+    if (!DB || !DB.pronto) {
+      mostrar("Modo demonstração: o cadastro real será liberado quando o banco estiver conectado.");
+    }
+
+    function extensao(file) {
+      var m = /\.([a-z0-9]+)$/i.exec(file.name || "");
+      return m ? m[1].toLowerCase() : (file.type === "application/pdf" ? "pdf" : "jpg");
+    }
+
+    async function subirDoc(userId, chave, file) {
+      var caminho = userId + "/" + chave + "." + extensao(file);
+      var r = await DB.client.storage.from("documentos").upload(caminho, file, {
+        upsert: true, contentType: file.type || undefined
+      });
+      if (r.error) throw new Error("Falha ao enviar " + chave + ": " + r.error.message);
+      return caminho;
+    }
+
+    document.getElementById("form-cad").addEventListener("submit", async function (e) {
+      e.preventDefault();
+      limpaAviso();
+
+      var nome = document.getElementById("nome").value.trim();
+      var telefone = document.getElementById("telefone").value.trim();
+      var profissao = document.getElementById("profissao").value;
+      var cro = document.getElementById("cro").value.trim();
+      var email = document.getElementById("email").value.trim();
+      var senha = document.getElementById("senha").value;
+      var fRg = document.getElementById("doc-rg").files[0];
+      var fCart = document.getElementById("doc-carteirinha").files[0];
+      var fComp = document.getElementById("doc-comprovante").files[0];
+
+      if (!nome || !telefone || !profissao || !cro || !email || !senha) { mostrar("Preencha todos os campos obrigatórios."); return; }
+      if (!fRg || !fCart || !fComp) { mostrar("Envie os três documentos."); return; }
+
+      if (!DB || !DB.pronto) { mostrar("Sem banco conectado — cadastro indisponível no modo demonstração."); return; }
+
+      var btn = document.getElementById("btn-enviar");
+      btn.disabled = true; btn.textContent = "Enviando…";
+
+      try {
+        // 1) cria a conta (guarda o nome nos metadados)
+        var su = await DB.client.auth.signUp({
+          email: email, password: senha,
+          options: { data: { nome: nome } }
+        });
+        if (su.error) {
+          if (/already registered|user already exists/i.test(su.error.message))
+            throw new Error("Já existe uma conta com esse e-mail. Faça login.");
+          throw su.error;
+        }
+
+        // 2) garante uma sessão pra poder subir docs + inserir perfil (RLS por auth.uid())
+        var user = su.data.user;
+        var sessao = su.data.session;
+        if (!sessao) {
+          var si = await DB.client.auth.signInWithPassword({ email: email, password: senha });
+          if (!si.error) { sessao = si.data.session; user = si.data.user; }
+        }
+
+        if (!sessao) {
+          // e-mail exige confirmação — não dá pra subir docs ainda
+          document.getElementById("box-form").style.display = "none";
+          document.getElementById("ok-msg").textContent =
+            "Enviamos um e-mail de confirmação para " + email + ". Confirme o e-mail e depois faça login para enviar seus documentos e concluir o cadastro.";
+          document.getElementById("box-ok").style.display = "block";
+          return;
+        }
+
+        // 3) sobe os 3 documentos na pasta do usuário
+        var rgUrl = await subirDoc(user.id, "rg", fRg);
+        var croUrl = await subirDoc(user.id, "carteirinha", fCart);
+        var compUrl = await subirDoc(user.id, "comprovante", fComp);
+
+        // 4) cria/atualiza o perfil (status default = em_aprovacao)
+        var up = await DB.client.from("perfis").upsert({
+          user_id: user.id,
+          nome: nome,
+          telefone: telefone,
+          tipo: "cliente",
+          cro: cro,
+          profissao: profissao,
+          docs: { rg_url: rgUrl, cro_url: croUrl, comprovante_url: compUrl }
+        }, { onConflict: "user_id" });
+        if (up.error) throw up.error;
+
+        document.getElementById("box-form").style.display = "none";
+        document.getElementById("box-ok").style.display = "block";
+      } catch (err) {
+        console.error(err);
+        mostrar("Não foi possível concluir: " + (err.message || err));
+        btn.disabled = false; btn.textContent = "Enviar cadastro";
+      }
+    });
+  })();
+  </script>
+</body>
+</html>

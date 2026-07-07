@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agende sua visita — Enjoy Coworking Odontológico | Águas Claras</title>
+  <meta name="description" content="Agende uma visita ao coworking odontológico da Enjoy em Águas Claras e ganhe a 1ª hora grátis. Consultórios equipados, biossegurança e reserva pelo app.">
+  <meta name="theme-color" content="#1f6feb">
+  <meta name="robots" content="noindex">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Agende sua visita — Enjoy Coworking Odontológico">
+  <meta property="og:description" content="Conheça o coworking odontológico em Águas Claras e ganhe a 1ª hora grátis.">
+  <link rel="manifest" href="../manifest.webmanifest">
+  <link rel="stylesheet" href="../assets/css/base.css">
+  <link rel="stylesheet" href="../assets/css/site.css">
+  <script src="../assets/js/brand.js" defer></script>
+
+  <!-- TRACKING: GTM/Pixel/Ads como na home (descomentar no go-live). Esta é a
+       LP de destino dos anúncios — o envio do form deve disparar a conversão. -->
+</head>
+<body>
+  <header class="topbar">
+    <div class="container">
+      <a class="marca" href="index.html"><span data-brand="nomeCurto">Enjoy</span> <span data-brand="tagline">Coworking</span></a>
+      <a class="btn btn-neutro" data-brand-href="whatsapp">WhatsApp</a>
+    </div>
+  </header>
+
+  <section class="hero-site" style="padding-bottom:40px">
+    <div class="container">
+      <div class="hero-grid">
+        <div class="stack">
+          <span class="selo-metro">📍 Águas Claras · em frente ao metrô</span>
+          <h1>Agende sua visita e ganhe a 1ª hora grátis</h1>
+          <p class="promessa">
+            Conheça os consultórios equipados, a biossegurança e o app. Comece a atender
+            esta semana, sem investir R$65 mil a R$200 mil num consultório próprio.
+          </p>
+          <div class="mini-provas">
+            <span>✓ <b>R$ 0</b> de contrato</span>
+            <span>✓ Reserva pelo <b>app</b></span>
+            <span>✓ Aberto <b>todo dia</b></span>
+          </div>
+
+          <!-- 3 provas -->
+          <div class="grid grid-3" style="margin-top:8px">
+            <div class="card"><h3 style="margin:0 0 4px">Pronto pra atender</h3><p class="muted" style="margin:0;font-size:.9rem">Cadeira, equipo, RX e esterilização no local.</p></div>
+            <div class="card"><h3 style="margin:0 0 4px">Pague só pelo uso</h3><p class="muted" style="margin:0;font-size:.9rem">A partir de R$ 75/h. Sem custo fixo.</p></div>
+            <div class="card"><h3 style="margin:0 0 4px">Sem burocracia</h3><p class="muted" style="margin:0;font-size:.9rem">Cadastro grátis e reserva em 1 minuto.</p></div>
+          </div>
+        </div>
+
+        <!-- FORM -->
+        <div class="card" id="box-form">
+          <h2 style="margin-bottom:4px">Quero agendar minha visita</h2>
+          <p class="muted" style="margin-bottom:16px">Deixe seus dados que entramos em contato para marcar o melhor horário.</p>
+
+          <div id="aviso" class="aviso aviso-atencao" style="display:none;margin-bottom:14px"></div>
+
+          <form id="form-lead" class="form-lead">
+            <div class="campo">
+              <label for="nome">Nome *</label>
+              <input id="nome" name="nome" type="text" required autocomplete="name" placeholder="Seu nome">
+            </div>
+            <div class="campo">
+              <label for="whatsapp">WhatsApp *</label>
+              <input id="whatsapp" name="whatsapp" type="tel" required autocomplete="tel" inputmode="tel" placeholder="(61) 90000-0000">
+            </div>
+            <div class="campo">
+              <label for="cro">CRO (opcional)</label>
+              <input id="cro" name="cro" type="text" placeholder="CRO-DF 00000">
+            </div>
+            <div class="campo">
+              <label for="momento">Momento de carreira</label>
+              <select id="momento" name="momento">
+                <option value="">Selecione…</option>
+                <option>Recém-formado(a) / começando</option>
+                <option>Autônomo(a) sem consultório fixo</option>
+                <option>Especialista buscando 2º endereço</option>
+                <option>HOF / estética</option>
+                <option>Atendo em outra cidade e venho a Brasília</option>
+                <option>Outro</option>
+              </select>
+            </div>
+            <button class="btn btn-primario btn-bloco" type="submit" style="margin-top:16px">Agendar visita</button>
+            <p class="muted" style="font-size:.8rem;margin:12px 0 0;text-align:center">
+              Ao enviar você concorda com nossa <a href="privacidade.html">Política de Privacidade</a>.
+            </p>
+          </form>
+
+          <div id="form-ok" class="form-ok" style="display:none">
+            <div class="check">✓</div>
+            <h3>Recebemos seu contato!</h3>
+            <p class="muted">Em breve falamos com você para marcar a visita. Se preferir adiantar:</p>
+            <a class="btn btn-primario btn-bloco" data-brand-href="whatsapp">Falar agora no WhatsApp</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="rodape">
+    <a href="index.html">Início</a> · <a href="precos.html">Preços</a> ·
+    <a href="privacidade.html">Privacidade</a> · <a href="termos.html">Termos</a>
+  </footer>
+
+  <script src="../config/config.js" onerror="console.warn('config.js ausente — modo WhatsApp')"></script>
+  <script src="../assets/vendor/supabase.js"></script>
+  <script src="../assets/js/db.js"></script>
+  <script>
+  (function () {
+    var form = document.getElementById("form-lead");
+    var aviso = document.getElementById("aviso");
+    function mostrar(m) { aviso.textContent = m; aviso.style.display = "block"; }
+    function sucesso() {
+      document.getElementById("form-lead").style.display = "none";
+      document.getElementById("form-ok").style.display = "block";
+      // TODO(tracking): disparar conversão aqui (fbq('track','Lead') / gtag Ads).
+    }
+
+    // captura UTM/origem pra atribuição de mídia
+    function utm() {
+      var p = new URLSearchParams(location.search), o = {};
+      ["utm_source","utm_medium","utm_campaign","utm_content","utm_term","gclid","fbclid"].forEach(function (k) {
+        if (p.get(k)) o[k] = p.get(k);
+      });
+      return o;
+    }
+
+    form.addEventListener("submit", async function (e) {
+      e.preventDefault();
+      aviso.style.display = "none";
+      var nome = document.getElementById("nome").value.trim();
+      var whatsapp = document.getElementById("whatsapp").value.trim();
+      var cro = document.getElementById("cro").value.trim();
+      var momento = document.getElementById("momento").value;
+      if (!nome || !whatsapp) { mostrar("Preencha nome e WhatsApp."); return; }
+
+      var btn = form.querySelector("button[type=submit]");
+      btn.disabled = true; btn.textContent = "Enviando…";
+
+      // 1) Com banco: grava via RPC pública registrar_lead
+      if (window.EnjoyDB && window.EnjoyDB.pronto) {
+        try {
+          var r = await window.EnjoyDB.client.rpc("registrar_lead", {
+            p_nome: nome, p_whatsapp: whatsapp, p_cro: cro || null,
+            p_momento: momento || null, p_origem: "site:visita",
+            p_utm: utm()
+          });
+          if (r.error) throw r.error;
+          sucesso(); return;
+        } catch (err) {
+          console.warn("registrar_lead falhou, caindo pro WhatsApp:", err);
+          // segue pro fallback abaixo
+        }
+      }
+
+      // 2) Fallback SEM banco: abre WhatsApp com mensagem pré-preenchida
+      var msg = "Olá! Quero agendar uma visita à Enjoy.\n" +
+                "Nome: " + nome + "\nWhatsApp: " + whatsapp +
+                (cro ? "\nCRO: " + cro : "") +
+                (momento ? "\nMomento: " + momento : "");
+      window.open(window.ENJOY_BRAND.waLink(msg), "_blank");
+      btn.disabled = false; btn.textContent = "Agendar visita";
+      sucesso();
+    });
+  })();
+  </script>
+</body>
+</html>

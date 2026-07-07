@@ -1,0 +1,558 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Financeiro — Gestão</title>
+  <meta name="theme-color" content="#1f6feb">
+  <link rel="manifest" href="../../manifest.webmanifest">
+  <link rel="stylesheet" href="../../assets/css/base.css">
+  <script src="../../assets/js/brand.js" defer></script>
+  <style>
+    .kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .kpi { background: var(--branco); border: 1px solid var(--linha); border-radius: var(--raio); padding: 16px; box-shadow: var(--sombra); }
+    .kpi .rotulo { font-size: .8rem; color: var(--cinza); margin: 0 0 6px; }
+    .kpi .valor { font-size: 1.4rem; font-weight: 800; letter-spacing: -.02em; margin: 0; }
+    .kpi .valor.pos { color: var(--verde); }
+    .kpi .valor.pend { color: var(--amarelo); }
+    @media (min-width: 720px) { .kpis { grid-template-columns: repeat(4, 1fr); } }
+    .fin-tab { width: 100%; border-collapse: collapse; font-size: .9rem; }
+    .fin-tab th, .fin-tab td { border-bottom: 1px solid var(--linha); padding: 10px 8px; text-align: left; }
+    .fin-tab th { background: var(--fundo); font-size: .8rem; color: var(--cinza); text-transform: uppercase; letter-spacing: .03em; }
+    .fin-tab td.num, .fin-tab th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .fin-tab tfoot td { font-weight: 800; border-top: 2px solid var(--linha); border-bottom: none; }
+    .duo { display: grid; grid-template-columns: 1fr; gap: 16px; }
+    @media (min-width: 720px) { .duo { grid-template-columns: 1fr 1fr; } }
+    .abas { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+    .abas a { display: inline-block; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--linha);
+              background: var(--branco); color: var(--tinta); font-weight: 600; font-size: .9rem; text-decoration: none; }
+    .abas a:hover { background: var(--fundo); }
+    .form-caixa { display: grid; grid-template-columns: 1fr; gap: 12px; }
+    .form-caixa .full { grid-column: 1 / -1; }
+    @media (min-width: 560px) { .form-caixa { grid-template-columns: 1fr 1fr; } }
+    @media (min-width: 900px) { .form-caixa { grid-template-columns: repeat(4, 1fr); } }
+    .caixa-tot { display: grid; grid-template-columns: 1fr; gap: 12px; margin: 16px 0; }
+    @media (min-width: 720px) { .caixa-tot { grid-template-columns: repeat(3, 1fr); } }
+    .caixa-tot .box { background: var(--branco); border: 1px solid var(--linha); border-radius: var(--raio); padding: 16px; box-shadow: var(--sombra); }
+    .caixa-tot .box .rotulo { font-size: .8rem; color: var(--cinza); margin: 0 0 6px; }
+    .caixa-tot .box .valor { font-size: 1.5rem; font-weight: 800; letter-spacing: -.02em; margin: 0; font-variant-numeric: tabular-nums; }
+    .caixa-tot .box.resultado { border-width: 2px; }
+    .caixa-tot .box.resultado.pos { border-color: var(--verde); }
+    .caixa-tot .box.resultado.neg { border-color: var(--vermelho); }
+    .caixa-tot .valor.entrada, .caixa-tot .valor.pos { color: var(--verde); }
+    .caixa-tot .valor.saida, .caixa-tot .valor.neg { color: var(--vermelho); }
+    .fin-tab td .lixo { background: none; border: none; color: var(--vermelho); cursor: pointer; font-size: 1rem; padding: 2px 6px; }
+    .filtros-caixa { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 4px; }
+    .filtros-caixa .campo { flex: 1 1 130px; min-width: 120px; }
+    .filtros-caixa label { margin-bottom: 4px; }
+  </style>
+</head>
+<body data-no-wpp>
+  <header class="topbar">
+    <div class="container">
+      <a class="marca" href="index.html">Coworking <span>Odontológico</span> · Gestão</a>
+      <nav class="row">
+        <a class="muted" href="gestao.html">Agenda</a>
+        <a class="muted" href="gestao-financeiro.html">Financeiro</a>
+        <a class="muted" href="#" id="link-sair">Sair</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container" style="padding:24px 16px" id="app" hidden>
+    <div class="row-between" style="margin-bottom:16px">
+      <div>
+        <h1 style="margin:0">Financeiro</h1>
+        <p class="muted" style="margin:0" id="periodo-label">—</p>
+      </div>
+      <div class="row">
+        <input id="mes" type="month" onclick="this.showPicker?.()">
+        <button class="btn btn-neutro" id="btn-csv">Exportar CSV</button>
+      </div>
+    </div>
+
+    <nav class="abas">
+      <a href="#resumo">Resumo do mês</a>
+      <a href="#livro-caixa">Livro Caixa</a>
+    </nav>
+
+    <div class="aviso aviso-info" style="margin-bottom:16px;display:none" id="aviso-demo">
+      Modo demonstração com dados de exemplo — o banco real ainda não foi conectado.
+    </div>
+    <span id="resumo"></span>
+
+    <!-- Resumo do mês -->
+    <div class="kpis" style="margin-bottom:16px">
+      <div class="kpi"><p class="rotulo">Faturamento (reservas)</p><p class="valor" id="kpi-fat">—</p></div>
+      <div class="kpi"><p class="rotulo">Recebido</p><p class="valor pos" id="kpi-rec">—</p></div>
+      <div class="kpi"><p class="rotulo">A receber</p><p class="valor pend" id="kpi-arec">—</p></div>
+      <div class="kpi"><p class="rotulo">Reservas no mês</p><p class="valor" id="kpi-res">—</p></div>
+    </div>
+
+    <section class="card">
+      <h2>Receitas por cliente</h2>
+      <div class="scroll-x">
+        <table class="fin-tab" id="tab-clientes">
+          <thead>
+            <tr><th>Cliente</th><th class="num">Faturado</th><th class="num">Recebido</th><th>Status</th><th class="num">Reservas</th></tr>
+          </thead>
+          <tbody></tbody>
+          <tfoot></tfoot>
+        </table>
+      </div>
+    </section>
+
+    <div class="duo" style="margin-top:16px">
+      <section class="card">
+        <h2>Quebra por produto</h2>
+        <div class="scroll-x">
+          <table class="fin-tab" id="tab-produtos">
+            <thead><tr><th>Produto</th><th class="num">Valor</th><th class="num">%</th></tr></thead>
+            <tbody></tbody><tfoot></tfoot>
+          </table>
+        </div>
+      </section>
+      <section class="card">
+        <h2>Quebra por sala</h2>
+        <div class="scroll-x">
+          <table class="fin-tab" id="tab-salas">
+            <thead><tr><th>Consultório</th><th class="num">Valor</th><th class="num">%</th></tr></thead>
+            <tbody></tbody><tfoot></tfoot>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <!-- ================= LIVRO CAIXA ================= -->
+    <section class="card" id="livro-caixa" style="margin-top:24px">
+      <div class="row-between" style="align-items:flex-start;flex-wrap:wrap;gap:8px">
+        <div>
+          <h2 style="margin:0">Livro Caixa</h2>
+          <p class="muted" style="margin:4px 0 0">Prestação de contas dos sócios — lance o que entrou e o que saiu (data retroativa permitida).</p>
+        </div>
+        <button class="btn btn-neutro" id="btn-csv-caixa">Exportar CSV</button>
+      </div>
+
+      <div class="aviso aviso-info" style="margin:12px 0;display:none" id="caixa-aviso-mock">
+        Modo demonstração — os lançamentos ficam salvos <strong>neste navegador</strong> (localStorage) até o banco conectar.
+      </div>
+
+      <form class="form-caixa" id="form-caixa" autocomplete="off">
+        <div class="campo">
+          <label for="f-tipo">Tipo</label>
+          <select id="f-tipo"><option value="entrada">Entrada (+)</option><option value="saida">Saída (−)</option></select>
+        </div>
+        <div class="campo">
+          <label for="f-valor">Valor (R$)</label>
+          <input id="f-valor" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00">
+        </div>
+        <div class="campo">
+          <label for="f-data">Data</label>
+          <input id="f-data" type="date" onclick="this.showPicker?.()">
+        </div>
+        <div class="campo">
+          <label for="f-categoria">Categoria</label>
+          <select id="f-categoria">
+            <option value="aluguel_sala">Aluguel de sala</option>
+            <option value="mensalidade">Mensalidade</option>
+            <option value="insumo">Insumo</option>
+            <option value="manutencao">Manutenção</option>
+            <option value="condominio">Condomínio</option>
+            <option value="energia">Energia</option>
+            <option value="repasse_socio">Repasse de sócio</option>
+            <option value="outro">Outro</option>
+          </select>
+        </div>
+        <div class="campo full">
+          <label for="f-descricao">Descrição</label>
+          <input id="f-descricao" type="text" maxlength="200" placeholder="Ex.: Aluguel sala C1 — Dra. Alyne">
+        </div>
+        <div class="campo full">
+          <label for="f-comprovante">Comprovante</label>
+          <input id="f-comprovante" type="file" accept="image/*,application/pdf">
+          <p class="muted" style="font-size:.8rem;margin:6px 0 0" id="f-comprovante-nota"></p>
+        </div>
+        <div class="campo full">
+          <button class="btn btn-primario" type="submit" id="btn-add-caixa">Adicionar lançamento</button>
+          <span class="muted" id="autosave-caixa" style="font-size:.8rem;margin-left:10px"></span>
+        </div>
+      </form>
+
+      <div class="filtros-caixa" style="margin-top:20px">
+        <div class="campo"><label for="cx-de">De</label><input id="cx-de" type="date" onclick="this.showPicker?.()"></div>
+        <div class="campo"><label for="cx-ate">Até</label><input id="cx-ate" type="date" onclick="this.showPicker?.()"></div>
+        <div class="campo"><label for="cx-tipo">Tipo</label>
+          <select id="cx-tipo"><option value="todos">Todos</option><option value="entrada">Só entradas</option><option value="saida">Só saídas</option></select>
+        </div>
+      </div>
+
+      <div class="caixa-tot">
+        <div class="box"><p class="rotulo">Total de entradas</p><p class="valor entrada" id="cx-tot-ent">—</p></div>
+        <div class="box"><p class="rotulo">Total de saídas</p><p class="valor saida" id="cx-tot-sai">—</p></div>
+        <div class="box resultado" id="cx-box-res"><p class="rotulo">Resultado</p><p class="valor" id="cx-tot-res">—</p></div>
+      </div>
+
+      <div class="scroll-x">
+        <table class="fin-tab" id="tab-caixa">
+          <thead>
+            <tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Cliente</th>
+                <th class="num">Entrada</th><th class="num">Saída</th><th>Comprov.</th><th></th></tr>
+          </thead>
+          <tbody></tbody><tfoot></tfoot>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="../../config/config.js" onerror="console.warn('config.js ausente — modo demonstração')"></script>
+  <script src="../../assets/vendor/supabase.js"></script>
+  <script src="../../assets/js/db.js"></script>
+  <script>
+  // ======================= RESUMO DO MÊS =======================
+  var FIN = (function () {
+    var DB = window.EnjoyDB;
+    var fBRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+    function brl(n) { return fBRL.format(n || 0); }
+    function pct(parte, total) { return total ? (parte/total*100).toFixed(1).replace(".", ",") + "%" : "0%"; }
+    function esc(s) { return String(s==null?"":s).replace(/[&<>"]/g, function (c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
+    function competencia(mesISO) {
+      var p = (mesISO || "").split("-");
+      var meses = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+      return p.length < 2 ? mesISO : meses[(+p[1])-1] + "/" + p[0];
+    }
+    function mesAtualLocal() { var d = new Date(); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0"); }
+    function rangeMes(mesISO) {
+      var p = (mesISO || mesAtualLocal()).split("-"), y = +p[0], m = +p[1];
+      return { ini: new Date(y, m-1, 1), fim: new Date(y, m, 1) };
+    }
+    function badge(status) {
+      var map = { "paga":"badge-verde", "em aberto":"badge-amarelo", "vencida":"badge-vermelho" };
+      return '<span class="badge ' + (map[status]||"badge-cinza") + '">' + status + "</span>";
+    }
+
+    var DADOS = { clientes: [], produtos: [], salas: [], fat: 0, rec: 0, res: 0 };
+
+    async function carregar(mesISO) {
+      if (!(DB && DB.pronto)) return carregarMock();
+      var r = rangeMes(mesISO);
+      var reservasP = DB.client.from("reservas")
+        .select("valor,cliente_id,sala_id,produto_id,perfis:cliente_id(nome),salas(nome),produtos_preco(nome)")
+        .gte("inicio", r.ini.toISOString()).lt("inicio", r.fim.toISOString())
+        .in("status", ["pendente","confirmada","concluida"]);
+      var pagP = DB.client.from("pagamentos").select("valor,cliente_id,status,pago_em")
+        .eq("status","pago").gte("pago_em", r.ini.toISOString()).lt("pago_em", r.fim.toISOString());
+      var res = await Promise.all([reservasP, pagP]);
+      var reservas = res[0].data || [], pagos = res[1].data || [];
+
+      var porCliente = {}, porProduto = {}, porSala = {};
+      var fat = 0, resCount = reservas.length;
+      reservas.forEach(function (rv) {
+        var v = Number(rv.valor) || 0; fat += v;
+        var cn = rv.perfis ? rv.perfis.nome : "—";
+        porCliente[rv.cliente_id] = porCliente[rv.cliente_id] || { nome: cn, faturado: 0, recebido: 0, reservas: 0 };
+        porCliente[rv.cliente_id].faturado += v; porCliente[rv.cliente_id].reservas++;
+        var pn = rv.produtos_preco ? rv.produtos_preco.nome : "Avulso/Outro";
+        porProduto[pn] = (porProduto[pn] || 0) + v;
+        var sn = rv.salas ? rv.salas.nome : "—";
+        porSala[sn] = (porSala[sn] || 0) + v;
+      });
+      var rec = 0;
+      pagos.forEach(function (p) {
+        var v = Number(p.valor) || 0; rec += v;
+        if (porCliente[p.cliente_id]) porCliente[p.cliente_id].recebido += v;
+      });
+
+      DADOS = {
+        clientes: Object.keys(porCliente).map(function (k) { var c = porCliente[k];
+          c.status = c.recebido >= c.faturado && c.faturado > 0 ? "paga" : "em aberto"; return c; }),
+        produtos: Object.keys(porProduto).map(function (k) { return { rotulo: k, valor: porProduto[k] }; }),
+        salas: Object.keys(porSala).map(function (k) { return { rotulo: k, valor: porSala[k] }; }),
+        fat: fat, rec: rec, res: resCount
+      };
+    }
+
+    function carregarMock() {
+      document.getElementById("aviso-demo").style.display = "block";
+      DADOS = {
+        clientes: [
+          { nome: "Dra. Alyne", faturado: 6000, recebido: 6000, status: "paga", reservas: 8 },
+          { nome: "Dra. Mariane", faturado: 4000, recebido: 4000, status: "paga", reservas: 4 },
+          { nome: "Dr. Paulo", faturado: 1239, recebido: 0, status: "em aberto", reservas: 6 }
+        ],
+        produtos: [{ rotulo: "Hora avulsa", valor: 750 }, { rotulo: "Planos", valor: 10000 }, { rotulo: "Taxa de cadastro", valor: 149 }, { rotulo: "Mercadinho", valor: 90 }],
+        salas: [{ rotulo: "Consultório 1 (RX)", valor: 6899 }, { rotulo: "Consultório 2", valor: 4340 }],
+        fat: 11239, rec: 10000, res: 18
+      };
+    }
+
+    function render() {
+      var d = DADOS, aReceber = d.fat - d.rec;
+      document.getElementById("kpi-fat").textContent  = brl(d.fat);
+      document.getElementById("kpi-rec").textContent  = brl(d.rec);
+      document.getElementById("kpi-arec").textContent = brl(aReceber);
+      document.getElementById("kpi-res").textContent  = d.res;
+
+      var tb = document.querySelector("#tab-clientes tbody");
+      tb.innerHTML = d.clientes.length ? d.clientes.map(function (c) {
+        return "<tr><td><strong>" + esc(c.nome) + "</strong></td>" +
+          '<td class="num">' + brl(c.faturado) + '</td><td class="num">' + brl(c.recebido) + "</td>" +
+          "<td>" + badge(c.status) + '</td><td class="num">' + c.reservas + "</td></tr>";
+      }).join("") : '<tr><td colspan="5" class="muted" style="text-align:center;padding:16px">Nenhuma receita neste mês.</td></tr>';
+      document.querySelector("#tab-clientes tfoot").innerHTML =
+        '<tr><td>Total</td><td class="num">' + brl(d.fat) + '</td><td class="num">' + brl(d.rec) + '</td><td></td><td class="num">' + d.res + "</td></tr>";
+
+      renderQuebra("#tab-produtos", d.produtos, d.fat);
+      renderQuebra("#tab-salas", d.salas, d.fat);
+    }
+    function renderQuebra(sel, arr, total) {
+      document.querySelector(sel + " tbody").innerHTML = arr.length ? arr.map(function (it) {
+        return "<tr><td>" + esc(it.rotulo) + '</td><td class="num">' + brl(it.valor) + '</td><td class="num">' + pct(it.valor, total) + "</td></tr>";
+      }).join("") : '<tr><td colspan="3" class="muted" style="text-align:center;padding:12px">Sem dados.</td></tr>';
+      document.querySelector(sel + " tfoot").innerHTML =
+        '<tr><td>Total</td><td class="num">' + brl(total) + '</td><td class="num">' + (total ? "100%" : "0%") + "</td></tr>";
+    }
+
+    function exportarCSV(mesISO) {
+      var comp = competencia(mesISO || mesAtualLocal()), sep = ";";
+      function n(v) { return String((v||0).toFixed(2)).replace(".", ","); }
+      function q(s) { return '"' + String(s==null?"":s).replace(/"/g, '""') + '"'; }
+      var linhas = [["Competência","Cliente","Faturado","Recebido","A receber","Status","Reservas"].map(q).join(sep)];
+      DADOS.clientes.forEach(function (c) {
+        linhas.push([comp, c.nome, n(c.faturado), n(c.recebido), n(c.faturado - c.recebido), c.status, c.reservas].map(q).join(sep));
+      });
+      linhas.push([comp, "TOTAL", n(DADOS.fat), n(DADOS.rec), n(DADOS.fat - DADOS.rec), "", DADOS.res].map(q).join(sep));
+      var blob = new Blob(["\uFEFF" + linhas.join("\r\n")], { type: "text/csv;charset=utf-8;" });
+      var url = URL.createObjectURL(blob), a = document.createElement("a");
+      a.href = url; a.download = "financeiro-enjoy-" + (mesISO || mesAtualLocal()) + ".csv";
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    }
+
+    return { carregar: carregar, render: render, exportarCSV: exportarCSV, competencia: competencia, mesAtualLocal: mesAtualLocal };
+  })();
+  </script>
+
+  <script>
+  // ======================= LIVRO CAIXA =======================
+  var CAIXA = (function () {
+    var DB = window.EnjoyDB;
+    var USA_DB = !!(DB && DB.pronto);
+    var LS_DADOS = "enjoy_caixa_mock", LS_RASCUNHO = "enjoy_caixa_draft";
+    var PERFIL_ID = null; // preenchido no boot (criado_por)
+
+    var fBRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+    function brl(n) { return fBRL.format(n || 0); }
+    function getHoje() { var d = new Date(); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); }
+    function fmtData(iso) { if (!iso) return ""; var p = String(iso).slice(0,10).split("-"); return p.length===3 ? p[2]+"/"+p[1]+"/"+p[0] : iso; }
+    function uid() { return "cx_" + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+    function esc(s) { return String(s==null?"":s).replace(/[&<>"]/g, function (c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
+    var CATEGORIAS = { aluguel_sala:"Aluguel de sala", mensalidade:"Mensalidade", insumo:"Insumo", manutencao:"Manutenção",
+      condominio:"Condomínio", energia:"Energia", repasse_socio:"Repasse de sócio", outro:"Outro" };
+    function catLabel(k) { return CATEGORIAS[k] || k; }
+
+    // ---- store: DB real ou localStorage ----
+    function seed() {
+      return [
+        { id: uid(), tipo:"entrada", valor:6000, descricao:"Aluguel sala C1 — Dra. Alyne", categoria:"aluguel_sala", data_lancamento:"2026-04-05", cliente:"Dra. Alyne", comprovante_url:null },
+        { id: uid(), tipo:"saida",   valor:1200, descricao:"Condomínio — abril", categoria:"condominio", data_lancamento:"2026-04-10", cliente:"", comprovante_url:null },
+        { id: uid(), tipo:"entrada", valor:4000, descricao:"Aluguel sala C2 — Dra. Mariane", categoria:"aluguel_sala", data_lancamento:"2026-05-05", cliente:"Dra. Mariane", comprovante_url:null },
+        { id: uid(), tipo:"saida",   valor: 950, descricao:"Manutenção do compressor", categoria:"manutencao", data_lancamento:"2026-05-18", cliente:"", comprovante_url:null }
+      ];
+    }
+    function lsCarregar() { try { var r = localStorage.getItem(LS_DADOS); if (r) return JSON.parse(r); } catch (e) {} var s = seed(); lsSalvar(s); return s; }
+    function lsSalvar(l) { try { localStorage.setItem(LS_DADOS, JSON.stringify(l)); } catch (e) {} }
+
+    async function listar(de, ate, tipo) {
+      if (USA_DB) {
+        var q = DB.client.from("lancamentos_caixa").select("id,tipo,valor,descricao,categoria,data_lancamento,comprovante_url,cliente_id,perfis:cliente_id(nome)")
+          .order("data_lancamento", { ascending: false });
+        if (de) q = q.gte("data_lancamento", de);
+        if (ate) q = q.lte("data_lancamento", ate);
+        if (tipo && tipo !== "todos") q = q.eq("tipo", tipo);
+        var r = await q;
+        if (r.error) { console.warn("lancamentos_caixa:", r.error.message); return []; }
+        return (r.data || []).map(function (l) { return {
+          id: l.id, tipo: l.tipo, valor: Number(l.valor), descricao: l.descricao, categoria: l.categoria,
+          data_lancamento: String(l.data_lancamento).slice(0,10), comprovante_url: l.comprovante_url,
+          cliente: l.perfis ? l.perfis.nome : "" }; });
+      }
+      var lista = lsCarregar().filter(function (l) {
+        if (de && l.data_lancamento < de) return false;
+        if (ate && l.data_lancamento > ate) return false;
+        if (tipo && tipo !== "todos" && l.tipo !== tipo) return false;
+        return true;
+      });
+      return lista.sort(function (a,b) { return a.data_lancamento < b.data_lancamento ? 1 : -1; });
+    }
+
+    async function inserir(obj, file) {
+      if (USA_DB) {
+        var caminho = null;
+        if (file) {
+          var ext = (/\.([a-z0-9]+)$/i.exec(file.name || "") || [,"dat"])[1];
+          var p = obj.data_lancamento.slice(0,7).replace("-","/"); // 2026/07
+          caminho = p + "/" + uid() + "." + ext;
+          var up = await DB.client.storage.from("comprovantes").upload(caminho, file, { upsert: true, contentType: file.type || undefined });
+          if (up.error) throw new Error("Falha no comprovante: " + up.error.message);
+        }
+        var r = await DB.client.from("lancamentos_caixa").insert({
+          tipo: obj.tipo, valor: obj.valor, descricao: obj.descricao, categoria: obj.categoria,
+          data_lancamento: obj.data_lancamento, comprovante_url: caminho, criado_por: PERFIL_ID
+        });
+        if (r.error) throw r.error;
+        return;
+      }
+      var lista = lsCarregar();
+      lista.push({ id: uid(), tipo: obj.tipo, valor: obj.valor, descricao: obj.descricao, categoria: obj.categoria,
+        data_lancamento: obj.data_lancamento, cliente: "", comprovante_url: file ? "(mock)" : null });
+      lsSalvar(lista);
+    }
+
+    async function excluir(id) {
+      if (USA_DB) { var r = await DB.client.from("lancamentos_caixa").delete().eq("id", id); if (r.error) throw r.error; return; }
+      lsSalvar(lsCarregar().filter(function (l) { return l.id !== id; }));
+    }
+
+    // ---- elementos ----
+    var elDe, elAte, elTipo, form, fTipo, fValor, fData, fCat, fDesc, fComp, elAutosave;
+
+    async function render() {
+      var lista = await listar(elDe.value, elAte.value, elTipo.value);
+      var totEnt = 0, totSai = 0;
+      lista.forEach(function (l) { if (l.tipo === "entrada") totEnt += l.valor; else totSai += l.valor; });
+      var res = totEnt - totSai;
+      document.getElementById("cx-tot-ent").textContent = brl(totEnt);
+      document.getElementById("cx-tot-sai").textContent = brl(totSai);
+      var elRes = document.getElementById("cx-tot-res"), box = document.getElementById("cx-box-res");
+      elRes.textContent = (res < 0 ? "− " : "") + brl(Math.abs(res));
+      elRes.className = "valor " + (res < 0 ? "neg" : "pos");
+      box.className = "box resultado " + (res < 0 ? "neg" : "pos");
+
+      var tb = document.querySelector("#tab-caixa tbody");
+      if (!lista.length) {
+        tb.innerHTML = '<tr><td colspan="8" class="muted" style="text-align:center;padding:20px">Nenhum lançamento no período.</td></tr>';
+      } else {
+        tb.innerHTML = lista.map(function (l) {
+          var comp = l.comprovante_url ? ('<a href="#" class="ver-comp" data-path="' + esc(l.comprovante_url) + '">📎</a>') : '<span class="muted">—</span>';
+          return "<tr>" +
+            "<td>" + fmtData(l.data_lancamento) + "</td><td>" + esc(l.descricao) + "</td><td>" + catLabel(l.categoria) + "</td>" +
+            "<td>" + (l.cliente ? esc(l.cliente) : '<span class="muted">—</span>') + "</td>" +
+            '<td class="num">' + (l.tipo === "entrada" ? '<span style="color:var(--verde)">' + brl(l.valor) + "</span>" : "—") + "</td>" +
+            '<td class="num">' + (l.tipo === "saida" ? '<span style="color:var(--vermelho)">' + brl(l.valor) + "</span>" : "—") + "</td>" +
+            "<td>" + comp + '</td><td><button class="lixo" title="Excluir" data-id="' + l.id + '">✕</button></td></tr>';
+        }).join("");
+      }
+      document.querySelector("#tab-caixa tfoot").innerHTML =
+        '<tr><td colspan="4">Resultado do período</td><td class="num">' + brl(totEnt) + '</td><td class="num">' + brl(totSai) +
+        '</td><td colspan="2" style="color:' + (res<0?"var(--vermelho)":"var(--verde)") + '">' + (res<0?"− ":"") + brl(Math.abs(res)) + "</td></tr>";
+      window.__caixaLista = lista; // p/ CSV
+    }
+
+    async function boot(perfilId) {
+      PERFIL_ID = perfilId;
+      elDe = document.getElementById("cx-de"); elAte = document.getElementById("cx-ate"); elTipo = document.getElementById("cx-tipo");
+      form = document.getElementById("form-caixa"); fTipo = document.getElementById("f-tipo"); fValor = document.getElementById("f-valor");
+      fData = document.getElementById("f-data"); fCat = document.getElementById("f-categoria"); fDesc = document.getElementById("f-descricao");
+      fComp = document.getElementById("f-comprovante"); elAutosave = document.getElementById("autosave-caixa");
+
+      document.getElementById("f-comprovante-nota").textContent = USA_DB
+        ? "O anexo sobe para o bucket privado “comprovantes”."
+        : "O anexo será enviado quando o banco conectar.";
+      if (!USA_DB) { document.getElementById("caixa-aviso-mock").style.display = "block"; }
+
+      // excluir (delegação)
+      document.querySelector("#tab-caixa tbody").addEventListener("click", async function (e) {
+        var verc = e.target.closest(".ver-comp");
+        if (verc) { e.preventDefault(); var u = await DB.urlAssinada("comprovantes", verc.getAttribute("data-path"), 3600); if (u) window.open(u, "_blank"); return; }
+        var b = e.target.closest(".lixo"); if (!b) return;
+        if (!confirm("Excluir este lançamento?")) return;
+        try { await excluir(b.getAttribute("data-id")); await render(); } catch (err) { alert("Erro ao excluir: " + err.message); }
+      });
+
+      // auto-save do formulário
+      var tmr = null;
+      function salvarRascunho() {
+        try { localStorage.setItem(LS_RASCUNHO, JSON.stringify({ tipo:fTipo.value, valor:fValor.value, data:fData.value, categoria:fCat.value, descricao:fDesc.value })); } catch (e) {}
+        elAutosave.textContent = "rascunho salvo";
+      }
+      function agendar() { elAutosave.textContent = "salvando…"; clearTimeout(tmr); tmr = setTimeout(salvarRascunho, 1000); }
+      (function restaurar() { try { var d = JSON.parse(localStorage.getItem(LS_RASCUNHO) || "null"); if (!d) return;
+        if (d.tipo) fTipo.value = d.tipo; if (d.valor) fValor.value = d.valor; if (d.data) fData.value = d.data;
+        if (d.categoria) fCat.value = d.categoria; if (d.descricao) fDesc.value = d.descricao; } catch (e) {} })();
+      [fTipo, fValor, fData, fCat, fDesc].forEach(function (el) { el.addEventListener("input", agendar); el.addEventListener("change", agendar); });
+
+      form.addEventListener("submit", async function (e) {
+        e.preventDefault();
+        var valor = parseFloat(fValor.value);
+        if (!(valor > 0)) { alert("Informe um valor maior que zero."); fValor.focus(); return; }
+        if (!fDesc.value.trim()) { alert("Informe a descrição."); fDesc.focus(); return; }
+        if (!fData.value) { alert("Informe a data."); fData.focus(); return; }
+        var btn = document.getElementById("btn-add-caixa"); btn.disabled = true; btn.textContent = "Salvando…";
+        try {
+          await inserir({ tipo: fTipo.value, valor: Math.round(valor*100)/100, descricao: fDesc.value.trim(), categoria: fCat.value, data_lancamento: fData.value }, fComp.files[0] || null);
+          fValor.value = ""; fDesc.value = ""; fData.value = getHoje(); fComp.value = "";
+          try { localStorage.removeItem(LS_RASCUNHO); } catch (e) {}
+          elAutosave.textContent = "lançamento adicionado";
+          await render(); fValor.focus();
+        } catch (err) { alert("Não foi possível salvar: " + err.message); }
+        btn.disabled = false; btn.textContent = "Adicionar lançamento";
+      });
+
+      document.getElementById("btn-csv-caixa").addEventListener("click", function () {
+        var lista = window.__caixaLista || [];
+        var sep = ";";
+        function n(v) { return String((v||0).toFixed(2)).replace(".", ","); }
+        function q(s) { return '"' + String(s==null?"":s).replace(/"/g, '""') + '"'; }
+        var linhas = [["Data","Tipo","Categoria","Descrição","Cliente","Entrada","Saída","Comprovante"].map(q).join(sep)];
+        var totEnt = 0, totSai = 0;
+        lista.forEach(function (l) {
+          if (l.tipo === "entrada") totEnt += l.valor; else totSai += l.valor;
+          linhas.push([fmtData(l.data_lancamento), (l.tipo==="entrada"?"Entrada":"Saída"), catLabel(l.categoria), l.descricao, l.cliente||"",
+            l.tipo==="entrada"?n(l.valor):"", l.tipo==="saida"?n(l.valor):"", l.comprovante_url?"Sim":"Não"].map(q).join(sep));
+        });
+        linhas.push(["","","","TOTAIS","",n(totEnt),n(totSai),""].map(q).join(sep));
+        linhas.push(["","","","RESULTADO","",n(totEnt-totSai),"",""].map(q).join(sep));
+        var blob = new Blob(["\uFEFF" + linhas.join("\r\n")], { type: "text/csv;charset=utf-8;" });
+        var url = URL.createObjectURL(blob), a = document.createElement("a");
+        a.href = url; a.download = "livro-caixa-enjoy-" + (elDe.value || "inicio") + "_a_" + (elAte.value || getHoje()) + ".csv";
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+      });
+
+      elDe.value = "2026-04-01"; elAte.value = getHoje(); fData.value = getHoje();
+      [elDe, elAte, elTipo].forEach(function (el) { el.addEventListener("change", render); });
+      await render();
+    }
+
+    return { boot: boot };
+  })();
+  </script>
+
+  <script>
+  // ======================= BOOT DA PÁGINA =======================
+  (function () {
+    var DB = window.EnjoyDB;
+    var app = document.getElementById("app");
+    document.getElementById("link-sair").addEventListener("click", function (e) {
+      e.preventDefault(); if (DB && DB.pronto) DB.sair(); else location.href = "login.html";
+    });
+
+    var elMes = document.getElementById("mes");
+    elMes.value = FIN.mesAtualLocal();
+    function labelPeriodo() { document.getElementById("periodo-label").textContent = "Competência " + FIN.competencia(elMes.value || FIN.mesAtualLocal()); }
+
+    async function recarregarResumo() { labelPeriodo(); await FIN.carregar(elMes.value); FIN.render(); }
+    elMes.addEventListener("change", recarregarResumo);
+    document.getElementById("btn-csv").addEventListener("click", function () { FIN.exportarCSV(elMes.value); });
+
+    (async function () {
+      var perfil = null;
+      if (DB && DB.pronto) perfil = await DB.exigirLogin({ exigirGestao: true });
+      app.hidden = false;
+      await recarregarResumo();
+      await CAIXA.boot(perfil ? perfil.id : null);
+    })();
+  })();
+  </script>
+</body>
+</html>

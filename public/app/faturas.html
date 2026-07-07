@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Faturas e extrato — Coworking Odontológico</title>
+  <meta name="theme-color" content="#1f6feb">
+  <link rel="manifest" href="../../manifest.webmanifest">
+  <link rel="stylesheet" href="../../assets/css/base.css">
+  <script src="../../assets/js/brand.js" defer></script>
+  <style>
+    .barra { height: 12px; background: var(--fundo); border: 1px solid var(--linha); border-radius: 999px; overflow: hidden; }
+    .barra > i { display: block; height: 100%; background: var(--azul); border-radius: 999px; transition: width .3s; }
+    .barra > i.excede { background: var(--amarelo); }
+    .extrato { width: 100%; border-collapse: collapse; font-size: .95rem; }
+    .extrato td { border-bottom: 1px solid var(--linha); padding: 12px 4px; vertical-align: top; }
+    .extrato td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .extrato .desc small { display: block; color: var(--cinza); font-weight: 400; font-size: .8rem; }
+    .extrato tfoot td { font-weight: 800; border-top: 2px solid var(--linha); border-bottom: none; }
+    .prev-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+    .prev-grid .bloco .rotulo { font-size: .78rem; color: var(--cinza); margin: 0 0 2px; }
+    .prev-grid .bloco .dado { font-size: 1.15rem; font-weight: 800; margin: 0; }
+  </style>
+</head>
+<body data-no-wpp>
+  <header class="topbar">
+    <div class="container">
+      <a class="marca" href="index.html">Coworking <span>Odontológico</span></a>
+      <a class="muted" href="index.html">← Início</a>
+    </div>
+  </header>
+
+  <main class="container" style="padding:24px 16px" id="app" hidden>
+    <div class="row-between" style="margin-bottom:16px">
+      <div>
+        <h1 style="margin:0">Faturas e extrato</h1>
+        <p class="muted" style="margin:0" id="perfil-label">—</p>
+      </div>
+      <input id="mes" type="month" onclick="this.showPicker?.()" style="max-width:180px">
+    </div>
+
+    <div class="aviso aviso-info" style="margin-bottom:16px;display:none" id="aviso-demo">
+      Modo demonstração com dados de exemplo — o banco real da Enjoy ainda não foi conectado.
+    </div>
+
+    <section class="card" id="sec-previsao">
+      <div class="row-between">
+        <h2 style="margin:0">Previsão de consumo</h2>
+        <span class="badge" id="prev-badge">—</span>
+      </div>
+      <div style="margin-top:14px">
+        <div class="row-between" style="margin-bottom:6px">
+          <span><strong id="horas-usadas">–</strong> <span class="muted">h usadas<span id="horas-plano-wrap"> de <span id="horas-plano">–</span> h do plano</span></span></span>
+          <span class="muted" id="prev-projecao">—</span>
+        </div>
+        <div class="barra"><i id="prev-barra" style="width:0"></i></div>
+      </div>
+      <div class="prev-grid">
+        <div class="bloco"><p class="rotulo">Projeção de horas no mês</p><p class="dado" id="prev-horas">—</p></div>
+        <div class="bloco"><p class="rotulo">Fatura prevista</p><p class="dado" id="prev-valor">—</p></div>
+      </div>
+      <p class="muted" style="font-size:.8rem;margin:12px 0 0" id="prev-nota"></p>
+    </section>
+
+    <section class="card">
+      <div class="row-between">
+        <h2 style="margin:0">Extrato do mês</h2>
+        <span class="muted" id="extrato-comp">—</span>
+      </div>
+      <table class="extrato" id="tab-extrato" style="margin-top:12px"><tbody></tbody><tfoot></tfoot></table>
+    </section>
+
+    <section class="card">
+      <h2>Minhas faturas</h2>
+      <div id="lista-faturas" class="stack"></div>
+      <p class="muted" style="font-size:.8rem;margin:16px 0 0">
+        Pagamento via Pix fica disponível quando o gateway estiver conectado.
+      </p>
+    </section>
+  </main>
+
+  <script src="../../config/config.js" onerror="console.warn('config.js ausente — modo demonstração')"></script>
+  <script src="../../assets/vendor/supabase.js"></script>
+  <script src="../../assets/js/db.js"></script>
+  <script>
+  (function () {
+    var DB = window.EnjoyDB;
+    var app = document.getElementById("app");
+    var fBRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+    function brl(n) { return fBRL.format(n || 0); }
+    function esc(s) { return String(s==null?"":s).replace(/[&<>"]/g, function (c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
+    var MESES = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+    function mesAtualLocal() { var d = new Date(); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0"); }
+    function competencia(mesISO) { var p = (mesISO||"").split("-"); return p.length<2 ? mesISO : MESES[(+p[1])-1] + "/" + p[0]; }
+    function badge(status) { var map = { "paga":"badge-verde","aberta":"badge-amarelo","em aberto":"badge-amarelo","vencida":"badge-vermelho","cancelada":"badge-cinza" };
+      return '<span class="badge ' + (map[status]||"badge-cinza") + '">' + status + "</span>"; }
+
+    var PERFIL = null;
+    var PLANO = { horas: 0, valor: 0, nome: "Avulso" };
+    var VALOR_HORA = 75;
+    var FATURAS = [];
+
+    // ============ MOCK ============
+    function renderMock() {
+      document.getElementById("aviso-demo").style.display = "block";
+      document.getElementById("perfil-label").textContent = "Dra. Alyne · Plano 20h/mês";
+      PLANO = { horas: 20, valor: 990, nome: "Plano 20h/mês" }; VALOR_HORA = 75;
+      renderPrevisao(18);
+      renderExtratoItens([
+        { desc: "Plano 20h/mês", detalhe: "18 de 20 h utilizadas", valor: 990 },
+        { desc: "Taxa de cadastro", detalhe: "cobrança única", valor: 149 }
+      ]);
+      FATURAS = [
+        { competencia: "2026-07-01", valor_total: 1139, status: "aberta", vencimento: "2026-08-10" },
+        { competencia: "2026-06-01", valor_total: 990, status: "paga" }
+      ];
+      renderFaturas();
+      app.hidden = false;
+    }
+
+    // ============ REAL ============
+    async function carregar(perfil) {
+      PERFIL = perfil;
+      var profTxt = { odonto:"Odontologia", hof:"HOF", estetica:"Estética" }[perfil && perfil.profissao] || "Profissional";
+      var assP = DB.client.from("assinaturas").select("produto_id,produtos_preco(nome,valor,regras)").eq("status","ativa").limit(1);
+      var horaP = DB.client.from("produtos_preco").select("valor").eq("tipo","hora").eq("ativo",true).limit(1);
+      var fatP = DB.client.from("faturas").select("competencia,valor_total,status,vencimento,itens").order("competencia", { ascending: false });
+      var r = await Promise.all([assP, horaP, fatP]);
+      var ass = r[0].data && r[0].data[0];
+      if (ass && ass.produtos_preco) {
+        PLANO = { horas: (ass.produtos_preco.regras && ass.produtos_preco.regras.horas_mes) || 0,
+                  valor: Number(ass.produtos_preco.valor) || 0, nome: ass.produtos_preco.nome };
+      }
+      if (r[1].data && r[1].data[0]) VALOR_HORA = Number(r[1].data[0].valor) || 75;
+      FATURAS = r[2].data || [];
+      document.getElementById("perfil-label").textContent =
+        (perfil ? perfil.nome : "—") + " · " + (PLANO.horas ? PLANO.nome : profTxt);
+    }
+
+    async function horasUsadasNoMes(mesISO) {
+      var p = mesISO.split("-"), ini = new Date(+p[0], +p[1]-1, 1), fim = new Date(+p[0], +p[1], 1);
+      var r = await DB.client.from("reservas").select("inicio,fim,status")
+        .gte("inicio", ini.toISOString()).lt("inicio", fim.toISOString())
+        .in("status", ["pendente","confirmada","concluida"]);
+      var horas = 0; (r.data || []).forEach(function (rv) { horas += (new Date(rv.fim) - new Date(rv.inicio)) / 3600000; });
+      return Math.round(horas * 10) / 10;
+    }
+
+    function renderPrevisao(horasUsadas) {
+      var hoje = new Date(), dia = hoje.getDate();
+      var diasNoMes = new Date(hoje.getFullYear(), hoje.getMonth()+1, 0).getDate();
+      var mesSel = document.getElementById("mes").value;
+      var ehMesCorrente = mesSel === mesAtualLocal();
+      var projHoras = ehMesCorrente && dia > 0 ? Math.round(horasUsadas / dia * diasNoMes) : horasUsadas;
+
+      document.getElementById("horas-usadas").textContent = horasUsadas;
+      var b = document.getElementById("prev-badge");
+      var barra = document.getElementById("prev-barra");
+
+      if (!PLANO.horas) {
+        document.getElementById("horas-plano-wrap").style.display = "none";
+        b.textContent = "avulso"; b.className = "badge badge-cinza";
+        barra.style.width = "0";
+        document.getElementById("prev-projecao").textContent = "sem plano mensal";
+        document.getElementById("prev-horas").textContent = "~" + projHoras + " h";
+        document.getElementById("prev-valor").textContent = brl(horasUsadas * VALOR_HORA);
+        document.getElementById("prev-nota").textContent = "Cobrança por hora avulsa (" + brl(VALOR_HORA) + "/h).";
+        return;
+      }
+
+      document.getElementById("horas-plano").textContent = PLANO.horas;
+      var excedente = Math.max(0, projHoras - PLANO.horas);
+      var faturaPrev = PLANO.valor + excedente * VALOR_HORA;
+      var perc = Math.min(100, Math.round(horasUsadas / PLANO.horas * 100));
+      barra.style.width = perc + "%";
+      var noPlano = projHoras <= PLANO.horas;
+      barra.classList.toggle("excede", !noPlano);
+      b.textContent = noPlano ? "dentro do plano" : "excedente previsto";
+      b.className = "badge " + (noPlano ? "badge-verde" : "badge-amarelo");
+      document.getElementById("prev-projecao").textContent = "projeção: ~" + projHoras + " h";
+      document.getElementById("prev-horas").textContent = "~" + projHoras + " h";
+      document.getElementById("prev-valor").textContent = brl(faturaPrev);
+      document.getElementById("prev-nota").textContent = noPlano
+        ? "No ritmo atual você fecha o mês dentro das " + PLANO.horas + " h do plano."
+        : "No ritmo atual deve fechar em ~" + projHoras + " h — " + excedente + " h além do plano (" + brl(VALOR_HORA) + "/h).";
+    }
+
+    function renderExtratoItens(itens) {
+      document.getElementById("extrato-comp").textContent = competencia(document.getElementById("mes").value);
+      var tb = document.querySelector("#tab-extrato tbody"), tf = document.querySelector("#tab-extrato tfoot");
+      if (!itens || !itens.length) {
+        tb.innerHTML = '<tr><td class="muted" style="text-align:center;padding:16px">Sem itens de fatura neste mês.</td></tr>';
+        tf.innerHTML = ""; return;
+      }
+      var total = 0;
+      tb.innerHTML = itens.map(function (it) {
+        var v = Number(it.valor) || 0; total += v;
+        var desc = it.desc || it.descricao || "Item", det = it.detalhe || "";
+        return '<tr><td class="desc"><strong>' + esc(desc) + "</strong>" + (det ? "<small>" + esc(det) + "</small>" : "") + "</td>" +
+               '<td class="num">' + brl(v) + "</td></tr>";
+      }).join("");
+      tf.innerHTML = '<tr><td>Total do mês</td><td class="num">' + brl(total) + "</td></tr>";
+    }
+
+    function renderFaturas() {
+      var box = document.getElementById("lista-faturas");
+      if (!FATURAS.length) { box.innerHTML = '<p class="muted">Você ainda não tem faturas.</p>'; return; }
+      box.innerHTML = FATURAS.map(function (f) {
+        var st = f.status === "aberta" ? "em aberto" : f.status;
+        var sub = f.status === "paga" ? "pago" : (f.vencimento ? "vence " + (String(f.vencimento).slice(0,10).split("-").reverse().join("/")) : "");
+        var podePagar = f.status !== "paga" && f.status !== "cancelada";
+        var btn = podePagar ? '<button class="btn btn-primario" disabled title="Disponível quando o gateway conectar">Pagar via Pix</button>' : "";
+        return '<div class="row-between"><div><strong>' + competencia(String(f.competencia).slice(0,7)) + "</strong><br>" +
+               '<small class="muted">' + brl(f.valor_total) + (sub ? " · " + sub : "") + "</small></div>" +
+               '<div class="row" style="align-items:center">' + badge(st) + btn + "</div></div>";
+      }).join("");
+    }
+
+    async function recarregarMes() {
+      var mesISO = document.getElementById("mes").value;
+      var horas = await horasUsadasNoMes(mesISO);
+      renderPrevisao(horas);
+      var fat = FATURAS.find(function (f) { return String(f.competencia).slice(0,7) === mesISO; });
+      renderExtratoItens(fat && fat.itens ? fat.itens : null);
+    }
+
+    // -------- boot --------
+    (async function () {
+      var elMes = document.getElementById("mes");
+      elMes.value = mesAtualLocal();
+      if (!(DB && DB.pronto)) {
+        elMes.addEventListener("change", function () { document.getElementById("extrato-comp").textContent = competencia(elMes.value); });
+        renderMock(); return;
+      }
+      var perfil = await DB.exigirLogin();
+      await carregar(perfil);
+      renderFaturas();
+      elMes.addEventListener("change", recarregarMes);
+      await recarregarMes();
+      app.hidden = false;
+    })();
+  })();
+  </script>
+</body>
+</html>

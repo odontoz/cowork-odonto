@@ -1,0 +1,20 @@
+{
+  "name": "Enjoy Coworking Odontológico — Águas Claras",
+  "short_name": "Enjoy",
+  "description": "Reserva de consultórios, check-in e pagamento pelo app.",
+  "start_url": "public/app/index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f6f8fb",
+  "theme_color": "#1f6feb",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "assets/img/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

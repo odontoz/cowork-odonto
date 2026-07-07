@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gestão — Agenda geral</title>
+  <meta name="theme-color" content="#1f6feb">
+  <link rel="manifest" href="../../manifest.webmanifest">
+  <link rel="stylesheet" href="../../assets/css/base.css">
+  <script src="../../assets/js/brand.js" defer></script>
+  <style>
+    .form-inline { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 12px; }
+    @media (min-width: 640px) { .form-inline { grid-template-columns: repeat(3, 1fr); } .form-inline .full { grid-column: 1 / -1; } }
+    .pend { border: 1px solid var(--linha); border-radius: var(--raio); padding: 14px; margin-bottom: 12px; }
+    .pend .docs a { display: inline-block; margin-right: 10px; font-size: .9rem; }
+    .pend .acoes { display: flex; gap: 8px; margin-top: 10px; }
+  </style>
+</head>
+<body data-no-wpp>
+  <header class="topbar">
+    <div class="container">
+      <a class="marca" href="index.html">Coworking <span>Odontológico</span> · Gestão</a>
+      <nav class="row">
+        <a class="muted" href="gestao-financeiro.html">Financeiro</a>
+        <a class="muted" href="#" id="link-sair">Sair</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container" style="padding:24px 16px" id="app" hidden>
+    <div class="row-between" style="margin-bottom:16px">
+      <h1 style="margin:0">Agenda geral</h1>
+      <div class="row">
+        <input id="data" type="date" onclick="this.showPicker?.()">
+        <button class="btn btn-neutro" id="btn-bloqueio">+ Bloqueio</button>
+        <button class="btn btn-primario" id="btn-reserva-manual">+ Reserva manual</button>
+      </div>
+    </div>
+
+    <div id="aviso-demo" class="aviso aviso-info" style="margin-bottom:16px;display:none">
+      Modo demonstração com dados de exemplo — o banco real ainda não foi conectado.
+    </div>
+
+    <!-- Form: novo bloqueio -->
+    <section class="card" id="box-bloqueio" style="display:none">
+      <h2 style="margin:0">Novo bloqueio de manutenção</h2>
+      <div id="err-bloqueio" class="aviso aviso-atencao" style="display:none;margin-top:10px"></div>
+      <div class="form-inline">
+        <div class="campo"><label>Consultório</label><select id="b-sala"></select></div>
+        <div class="campo"><label>Data</label><input id="b-data" type="date" onclick="this.showPicker?.()"></div>
+        <div class="campo"><label>Motivo</label><input id="b-motivo" type="text" placeholder="Ex.: compressor"></div>
+        <div class="campo"><label>Início</label><input id="b-ini" type="time" step="1800"></div>
+        <div class="campo"><label>Fim</label><input id="b-fim" type="time" step="1800"></div>
+        <div class="campo full row"><button class="btn btn-primario" id="b-salvar">Salvar bloqueio</button>
+          <button class="btn btn-neutro" id="b-cancelar">Cancelar</button></div>
+      </div>
+    </section>
+
+    <!-- Form: reserva manual -->
+    <section class="card" id="box-manual" style="display:none">
+      <h2 style="margin:0">Reserva manual (em nome de um cliente)</h2>
+      <div id="err-manual" class="aviso aviso-atencao" style="display:none;margin-top:10px"></div>
+      <div class="form-inline">
+        <div class="campo full"><label>Cliente</label><select id="m-cliente"></select></div>
+        <div class="campo"><label>Consultório</label><select id="m-sala"></select></div>
+        <div class="campo"><label>Data</label><input id="m-data" type="date" onclick="this.showPicker?.()"></div>
+        <div class="campo"><label>Início</label><input id="m-ini" type="time" step="1800"></div>
+        <div class="campo"><label>Fim</label><input id="m-fim" type="time" step="1800"></div>
+        <div class="campo full row"><button class="btn btn-primario" id="m-salvar">Salvar reserva</button>
+          <button class="btn btn-neutro" id="m-cancelar">Cancelar</button></div>
+      </div>
+    </section>
+
+    <div class="card">
+      <div class="scroll-x">
+        <table class="grade" id="grade">
+          <thead><tr id="cabecalho"></tr></thead>
+          <tbody id="corpo"></tbody>
+        </table>
+      </div>
+      <p class="legenda" style="margin-top:12px">
+        <span><i style="background:#eaf1fd"></i>reserva</span>
+        <span><i style="background:#fbe4e4"></i>bloqueio (manutenção)</span>
+        <span><i style="background:#fff"></i>livre</span>
+      </p>
+    </div>
+
+    <!-- Cadastros pendentes -->
+    <section class="card" id="sec-pendentes" style="margin-top:24px">
+      <div class="row-between"><h2 style="margin:0">Cadastros pendentes</h2><span class="badge badge-amarelo" id="pend-count">0</span></div>
+      <div id="lista-pendentes" style="margin-top:12px"></div>
+    </section>
+  </main>
+
+  <script src="../../config/config.js" onerror="console.warn('config.js ausente — modo demonstração')"></script>
+  <script src="../../assets/vendor/supabase.js"></script>
+  <script src="../../assets/js/db.js"></script>
+  <script>
+  (function () {
+    var DB = window.EnjoyDB;
+    var app = document.getElementById("app");
+    var PERFIL = null;
+    var SALAS = [];          // [{id,nome}]
+    var PRODUTO_HORA = { id: null, valor: 75 };
+
+    document.getElementById("link-sair").addEventListener("click", function (e) {
+      e.preventDefault(); if (DB && DB.pronto) DB.sair(); else location.href = "login.html";
+    });
+
+    // grade de horários 8h→22h de 30 em 30
+    var HORAS = [];
+    for (var h = 8; h < 22; h++) { HORAS.push(h + ":00"); HORAS.push(h + ":30"); }
+    function pad(n) { return String(n).padStart(2, "0"); }
+    function normHora(hstr) { var p = hstr.split(":"); return pad(+p[0]) + ":" + pad(+p[1]); } // "9:00"->"09:00"
+    function hojeISO() { var d = new Date(); return d.getFullYear() + "-" + pad(d.getMonth()+1) + "-" + pad(d.getDate()); }
+    function esc(s) { return String(s==null?"":s).replace(/[&<>"]/g, function (c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
+    function at(dataISO, hhmmStr) { var p = dataISO.split("-"), t = hhmmStr.split(":"); return new Date(+p[0], +p[1]-1, +p[2], +t[0], +t[1]||0, 0, 0); }
+
+    // ============ RENDER DA GRADE ============
+    // ocupa[salaId] = { "09:00": "Nome", ... }; blo[salaId] = { "08:00": "motivo" }
+    function pintarGrade(ocupa, blo) {
+      var cab = document.getElementById("cabecalho");
+      cab.innerHTML = "<th>Hora</th>" + SALAS.map(function (s) { return "<th>" + esc(s.nome) + "</th>"; }).join("");
+      var corpo = document.getElementById("corpo");
+      corpo.innerHTML = HORAS.map(function (hora) {
+        var hn = normHora(hora);
+        var cels = SALAS.map(function (s) {
+          if (blo[s.id] && blo[s.id][hn]) return '<td class="bloqueado">' + esc(blo[s.id][hn]) + "</td>";
+          if (ocupa[s.id] && ocupa[s.id][hn]) return '<td class="ocupado">' + esc(ocupa[s.id][hn]) + "</td>";
+          return "<td></td>";
+        }).join("");
+        return "<tr><th>" + hn + "</th>" + cels + "</tr>";
+      }).join("");
+    }
+
+    // preenche todas as células de 30min cobertas por [ini,fim)
+    function marcarFaixa(mapa, salaId, ini, fim, texto) {
+      mapa[salaId] = mapa[salaId] || {};
+      var t = new Date(ini);
+      while (t < fim) { mapa[salaId][pad(t.getHours()) + ":" + pad(t.getMinutes())] = texto; t = new Date(t.getTime() + 30*60000); }
+    }
+
+    async function carregarDia() {
+      var dataISO = document.getElementById("data").value || hojeISO();
+      if (!(DB && DB.pronto)) return carregarDiaMock(dataISO);
+      var ini = at(dataISO, "00:00"), fim = new Date(ini.getTime() + 86400000);
+
+      var resP = DB.client.from("reservas")
+        .select("id,inicio,fim,status,sala_id,perfis:cliente_id(nome)")
+        .gte("inicio", ini.toISOString()).lt("inicio", fim.toISOString())
+        .in("status", ["pendente","confirmada","concluida"]);
+      var bloP = DB.client.from("bloqueios").select("id,inicio,fim,motivo,sala_id")
+        .lt("inicio", fim.toISOString()).gt("fim", ini.toISOString());
+      var r = await Promise.all([resP, bloP]);
+
+      var ocupa = {}, blo = {};
+      (r[0].data || []).forEach(function (rv) {
+        var nome = rv.perfis ? rv.perfis.nome : "Reservado";
+        marcarFaixa(ocupa, rv.sala_id, new Date(rv.inicio), new Date(rv.fim), nome);
+      });
+      (r[1].data || []).forEach(function (b) {
+        marcarFaixa(blo, b.sala_id, new Date(b.inicio), new Date(b.fim), b.motivo || "Bloqueio");
+      });
+      pintarGrade(ocupa, blo);
+    }
+
+    function carregarDiaMock(dataISO) {
+      document.getElementById("aviso-demo").style.display = "block";
+      var ocupa = {}, blo = {};
+      if (SALAS[0]) { marcarFaixa(ocupa, SALAS[0].id, at(dataISO,"09:00"), at(dataISO,"11:00"), "Dra. Alyne"); }
+      if (SALAS[1]) { marcarFaixa(blo, SALAS[1].id, at(dataISO,"08:00"), at(dataISO,"10:00"), "Compressor"); }
+      pintarGrade(ocupa, blo);
+    }
+
+    // ============ CADASTROS PENDENTES ============
+    async function carregarPendentes() {
+      if (!(DB && DB.pronto)) { document.getElementById("lista-pendentes").innerHTML = '<p class="muted">Disponível com o banco conectado.</p>'; return; }
+      var r = await DB.client.from("perfis")
+        .select("id,nome,telefone,cro,profissao,docs,status,criado_em")
+        .eq("status", "em_aprovacao").order("criado_em", { ascending: true });
+      var lista = r.data || [];
+      document.getElementById("pend-count").textContent = lista.length;
+      var box = document.getElementById("lista-pendentes");
+      if (!lista.length) { box.innerHTML = '<p class="muted">Nenhum cadastro aguardando aprovação.</p>'; return; }
+
+      box.innerHTML = "";
+      for (var i = 0; i < lista.length; i++) { box.appendChild(await cardPendente(lista[i])); }
+    }
+
+    async function cardPendente(p) {
+      var div = document.createElement("div");
+      div.className = "pend";
+      var docs = p.docs || {};
+      var links = [];
+      var mapa = { rg_url: "RG", cro_url: "Carteirinha", comprovante_url: "Comprovante" };
+      for (var k in mapa) {
+        if (docs[k]) { var url = await DB.urlAssinada("documentos", docs[k], 3600);
+          if (url) links.push('<a href="' + url + '" target="_blank" rel="noopener">' + mapa[k] + " ↗</a>"); }
+      }
+      div.innerHTML =
+        '<div class="row-between"><strong>' + esc(p.nome) + '</strong><span class="muted">' + esc(p.profissao || "") + "</span></div>" +
+        '<p class="muted" style="margin:4px 0">' + esc(p.cro || "sem nº") + " · " + esc(p.telefone || "") + "</p>" +
+        '<div class="docs">' + (links.length ? links.join("") : '<span class="muted">sem documentos anexados</span>') + "</div>" +
+        '<div class="acoes"><button class="btn btn-primario btn-aprovar">Aprovar</button>' +
+        '<button class="btn btn-neutro btn-rejeitar">Rejeitar</button></div>';
+      div.querySelector(".btn-aprovar").addEventListener("click", function () { decidir(p.id, "aprovado", div); });
+      div.querySelector(".btn-rejeitar").addEventListener("click", function () {
+        if (confirm("Rejeitar o cadastro de " + p.nome + "?")) decidir(p.id, "recusado", div);
+      });
+      return div;
+    }
+
+    async function decidir(perfilId, status, div) {
+      var r = await DB.client.from("perfis").update({ status: status, atualizado_em: new Date().toISOString() }).eq("id", perfilId);
+      if (r.error) { alert("Erro: " + r.error.message); return; }
+      div.remove();
+      var c = document.getElementById("pend-count");
+      c.textContent = Math.max(0, (parseInt(c.textContent,10) || 1) - 1);
+      if (c.textContent === "0") document.getElementById("lista-pendentes").innerHTML = '<p class="muted">Nenhum cadastro aguardando aprovação.</p>';
+    }
+
+    // ============ FORM BLOQUEIO ============
+    function toggle(id, mostrar) { document.getElementById(id).style.display = mostrar ? "block" : "none"; }
+    document.getElementById("btn-bloqueio").addEventListener("click", function () {
+      document.getElementById("b-data").value = document.getElementById("data").value || hojeISO();
+      toggle("box-manual", false); toggle("box-bloqueio", true);
+    });
+    document.getElementById("b-cancelar").addEventListener("click", function () { toggle("box-bloqueio", false); });
+    document.getElementById("b-salvar").addEventListener("click", async function () {
+      var err = document.getElementById("err-bloqueio"); err.style.display = "none";
+      var sala = document.getElementById("b-sala").value, data = document.getElementById("b-data").value;
+      var ini = document.getElementById("b-ini").value, fim = document.getElementById("b-fim").value;
+      var motivo = document.getElementById("b-motivo").value.trim();
+      if (!sala || !data || !ini || !fim) { err.textContent = "Preencha sala, data e horários."; err.style.display = "block"; return; }
+      if (!(DB && DB.pronto)) { alert("Bloqueio (demonstração)."); toggle("box-bloqueio", false); return; }
+      var r = await DB.client.from("bloqueios").insert({
+        sala_id: sala, inicio: at(data, ini).toISOString(), fim: at(data, fim).toISOString(),
+        motivo: motivo || "Manutenção", criado_por: PERFIL.id
+      });
+      if (r.error) { err.textContent = r.error.message; err.style.display = "block"; return; }
+      toggle("box-bloqueio", false); await carregarDia();
+    });
+
+    // ============ FORM RESERVA MANUAL ============
+    document.getElementById("btn-reserva-manual").addEventListener("click", async function () {
+      document.getElementById("m-data").value = document.getElementById("data").value || hojeISO();
+      await preencherClientes();
+      toggle("box-bloqueio", false); toggle("box-manual", true);
+    });
+    document.getElementById("m-cancelar").addEventListener("click", function () { toggle("box-manual", false); });
+    async function preencherClientes() {
+      var sel = document.getElementById("m-cliente");
+      if (sel.dataset.pronto || !(DB && DB.pronto)) return;
+      var r = await DB.client.from("perfis").select("id,nome,status").eq("tipo","cliente").order("nome");
+      sel.innerHTML = (r.data || []).map(function (c) {
+        return '<option value="' + c.id + '">' + esc(c.nome) + (c.status !== "aprovado" ? " (" + c.status + ")" : "") + "</option>";
+      }).join("");
+      sel.dataset.pronto = "1";
+    }
+    document.getElementById("m-salvar").addEventListener("click", async function () {
+      var err = document.getElementById("err-manual"); err.style.display = "none";
+      var cliente = document.getElementById("m-cliente").value, sala = document.getElementById("m-sala").value;
+      var data = document.getElementById("m-data").value;
+      var ini = document.getElementById("m-ini").value, fim = document.getElementById("m-fim").value;
+      if (!cliente || !sala || !data || !ini || !fim) { err.textContent = "Preencha todos os campos."; err.style.display = "block"; return; }
+      if (!(DB && DB.pronto)) { alert("Reserva manual (demonstração)."); toggle("box-manual", false); return; }
+      var dIni = at(data, ini), dFim = at(data, fim);
+      var horas = (dFim - dIni) / 3600000;
+      if (!(horas > 0)) { err.textContent = "Horário final deve ser maior que o inicial."; err.style.display = "block"; return; }
+      var valor = Math.round(PRODUTO_HORA.valor * horas * 100) / 100;
+      var r = await DB.client.from("reservas").insert({
+        cliente_id: cliente, sala_id: sala, inicio: dIni.toISOString(), fim: dFim.toISOString(),
+        status: "confirmada", origem: "manual", valor: valor, produto_id: PRODUTO_HORA.id, criado_por: PERFIL.id
+      });
+      if (r.error) { err.textContent = "Não foi possível salvar (conflito de horário?): " + r.error.message; err.style.display = "block"; return; }
+      toggle("box-manual", false); await carregarDia();
+    });
+
+    // ============ BOOT ============
+    (async function () {
+      if (DB && DB.pronto) {
+        PERFIL = await DB.exigirLogin({ exigirGestao: true }); // só gestão/recepção
+        var sr = await DB.client.from("salas").select("id,nome,comodidades").eq("ativa", true).order("ordem");
+        SALAS = (sr.data || []).map(function (s) {
+          var rx = (s.comodidades || []).indexOf("rx") !== -1;
+          return { id: s.id, nome: s.nome + (rx ? " (RX)" : "") };
+        });
+        var pr = await DB.client.from("produtos_preco").select("id,valor").eq("tipo","hora").eq("ativo",true).limit(1);
+        if (pr.data && pr.data[0]) PRODUTO_HORA = { id: pr.data[0].id, valor: Number(pr.data[0].valor) };
+      } else {
+        SALAS = [{ id: "s1", nome: "Consultório 1 (RX)" }, { id: "s2", nome: "Consultório 2" }];
+      }
+
+      // popular selects de sala dos formulários
+      var opts = SALAS.map(function (s) { return '<option value="' + s.id + '">' + esc(s.nome) + "</option>"; }).join("");
+      document.getElementById("b-sala").innerHTML = opts;
+      document.getElementById("m-sala").innerHTML = opts;
+
+      document.getElementById("data").value = hojeISO();
+      document.getElementById("data").addEventListener("change", carregarDia);
+      app.hidden = false;
+
+      await carregarDia();
+      await carregarPendentes();
+    })();
+  })();
+  </script>
+</body>
+</html>

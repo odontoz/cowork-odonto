@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reservar — Coworking Odontológico</title>
+  <meta name="theme-color" content="#1f6feb">
+  <link rel="manifest" href="../../manifest.webmanifest">
+  <link rel="stylesheet" href="../../assets/css/base.css">
+  <script src="../../assets/js/brand.js" defer></script>
+</head>
+<body data-no-wpp>
+  <header class="topbar">
+    <div class="container">
+      <a class="marca" href="index.html">Coworking <span>Odontológico</span></a>
+      <a class="muted" href="index.html">← Início</a>
+    </div>
+  </header>
+
+  <main class="container" style="padding:24px 16px" id="app" hidden>
+    <h1>Reservar consultório</h1>
+
+    <div id="aviso-status" class="aviso aviso-atencao" style="display:none;margin-bottom:16px"></div>
+    <div id="aviso-demo" class="aviso aviso-info" style="display:none;margin-bottom:16px">
+      Modo demonstração com dados de exemplo — o banco real ainda não foi conectado.
+    </div>
+
+    <div class="card stack">
+      <div class="row">
+        <div class="grow campo">
+          <label for="sala">Consultório</label>
+          <select id="sala"></select>
+        </div>
+        <div class="grow campo">
+          <label for="data">Data</label>
+          <input id="data" type="date" onclick="this.showPicker?.()">
+        </div>
+      </div>
+
+      <div>
+        <div class="row-between" style="margin-bottom:8px">
+          <h2 style="margin:0">Horários</h2>
+          <div class="legenda">
+            <span><i style="background:#fff"></i>livre</span>
+            <span><i style="background:#f0f2f5"></i>ocupado</span>
+            <span><i style="background:#eef2f6"></i>higienização</span>
+            <span><i style="background:#fbe4e4"></i>bloqueado</span>
+          </div>
+        </div>
+        <div id="timeline" class="timeline"></div>
+        <p id="vazio" class="muted" style="display:none">Fechado nesse dia. Escolha outra data.</p>
+      </div>
+    </div>
+
+    <!-- Resumo/confirmação -->
+    <div class="card stack" id="resumo" style="display:none">
+      <h2>Resumo</h2>
+      <div class="row-between">
+        <div>
+          <strong id="r-sala"></strong><br>
+          <span class="muted" id="r-horario"></span>
+        </div>
+        <div style="text-align:right">
+          <div class="muted" style="font-size:.8rem">valor estimado</div>
+          <strong id="r-preco" style="font-size:1.3rem"></strong>
+        </div>
+      </div>
+      <div id="r-erro" class="aviso aviso-atencao" style="display:none"></div>
+      <div id="r-ok" class="aviso aviso-info" style="display:none"></div>
+      <button id="btn-confirmar" class="btn btn-primario btn-bloco">Confirmar reserva</button>
+      <p class="muted" style="font-size:.82rem;margin:0">
+        Duração mínima 1h · higienização de 30 min entre profissionais diferentes ·
+        cancelamento com 24h de antecedência.
+      </p>
+    </div>
+  </main>
+
+  <script src="../../config/config.js" onerror="console.warn('config.js ausente — modo demonstração')"></script>
+  <script src="../../assets/vendor/supabase.js"></script>
+  <script src="../../assets/js/db.js"></script>
+  <script src="../../assets/js/motor-reservas.js"></script>
+  <script>
+  (function () {
+    var M = window.MotorReservas;
+    var DB = window.EnjoyDB;
+    var app = document.getElementById("app");
+
+    // estado da tela
+    var MEU_ID = "prof-eu";
+    var APROVADO = true;
+    var SALAS = [];
+    var PRODUTOS = [{ tipo: "hora", valor: 75 }];
+    var PRODUTO_HORA_ID = null;
+    var HORARIO = {
+      "0": { abre: "08:00", fecha: "18:00" }, "1": { abre: "08:00", fecha: "22:00" },
+      "2": { abre: "08:00", fecha: "22:00" }, "3": { abre: "08:00", fecha: "22:00" },
+      "4": { abre: "08:00", fecha: "22:00" }, "5": { abre: "08:00", fecha: "22:00" },
+      "6": { abre: "08:00", fecha: "18:00" }
+    };
+    var CFG = { duracaoMinimaMin: 60, bufferMin: 30, passoSlotMin: 30 };
+
+    var elSala = document.getElementById("sala");
+    var elData = document.getElementById("data");
+    var sel = { inicio: null, fim: null };
+
+    // -------- helpers de data (local, sem toISOString p/ o dia) --------
+    function hojeISO() { var d = new Date(); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); }
+    function at(dataISO, hhmmStr) { var p = dataISO.split("-"), h = hhmmStr.split(":"); return new Date(+p[0], +p[1]-1, +p[2], +h[0], +h[1], 0, 0); }
+    function hhmm(d) { return String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0"); }
+    function nomeSala() { return elSala.options[elSala.selectedIndex].textContent; }
+
+    // ============ CARGA DE DADOS ============
+    async function carregarReais(perfil) {
+      MEU_ID = perfil ? perfil.id : "prof-eu";
+      APROVADO = !!perfil && perfil.status === "aprovado";
+      if (!APROVADO) {
+        var a = document.getElementById("aviso-status");
+        a.textContent = perfil && perfil.status === "em_aprovacao"
+          ? "Seu cadastro está em análise — você poderá reservar assim que a gestão aprovar."
+          : "Seu acesso não permite reservar no momento. Fale com a gestão.";
+        a.style.display = "block";
+      }
+
+      var salasP = DB.client.from("salas").select("id,nome,comodidades,ativa").eq("ativa", true).order("ordem");
+      var cfgP = DB.client.from("config").select("chave,valor");
+      var prodP = DB.client.from("produtos_preco").select("id,tipo,valor").eq("tipo","hora").eq("ativo", true).limit(1);
+      var r = await Promise.all([salasP, cfgP, prodP]);
+
+      SALAS = (r[0].data || []).map(function (s) {
+        var temRx = (s.comodidades || []).indexOf("rx") !== -1;
+        return { id: s.id, nome: s.nome + (temRx ? " (RX)" : "") };
+      });
+      (r[1].data || []).forEach(function (c) {
+        if (c.chave === "horario_funcionamento") HORARIO = c.valor;
+        if (c.chave === "buffer_min") CFG.bufferMin = Number(c.valor) || 30;
+        if (c.chave === "duracao_minima_min") CFG.duracaoMinimaMin = Number(c.valor) || 60;
+      });
+      if (r[2].data && r[2].data[0]) {
+        PRODUTO_HORA_ID = r[2].data[0].id;
+        PRODUTOS = [{ tipo: "hora", valor: Number(r[2].data[0].valor) }];
+      }
+    }
+
+    function carregarMock(perfil) {
+      document.getElementById("aviso-demo").style.display = "block";
+      SALAS = [{ id: "s1", nome: "Consultório 1 (RX)" }, { id: "s2", nome: "Consultório 2" }];
+      PRODUTOS = [{ tipo: "hora", valor: 75 }];
+      MEU_ID = "prof-eu";
+    }
+
+    // Ocupação do dia: real via RPC slots_ocupados (+ bloqueios); mock local.
+    async function ocupacaoDoDia(salaId, dataISO) {
+      if (DB && DB.pronto) {
+        var ini = at(dataISO, "00:00"), fim = new Date(ini.getTime() + 86400000);
+        var rpcP = DB.client.rpc("slots_ocupados", { p_sala: salaId, p_data: dataISO });
+        var blqP = DB.client.from("bloqueios").select("inicio,fim").eq("sala_id", salaId)
+          .lt("inicio", fim.toISOString()).gt("fim", ini.toISOString());
+        var r = await Promise.all([rpcP, blqP]);
+        if (r[0].error) console.warn("slots_ocupados:", r[0].error.message);
+        var reservas = (r[0].data || []).map(function (row, i) {
+          return { inicio: new Date(row.inicio), fim: new Date(row.fim),
+                   profissionalId: row.mesmo_profissional ? MEU_ID : ("outro-" + i) };
+        });
+        var bloqueios = (r[1].data || []).map(function (b) { return { inicio: new Date(b.inicio), fim: new Date(b.fim) }; });
+        return { reservas: reservas, bloqueios: bloqueios };
+      }
+      // ---- mock ----
+      var reservas = [], bloqueios = [];
+      if (salaId === "s1") reservas = [
+        { inicio: at(dataISO,"09:00"), fim: at(dataISO,"11:00"), profissionalId: "outra-dentista" },
+        { inicio: at(dataISO,"15:00"), fim: at(dataISO,"17:00"), profissionalId: MEU_ID }
+      ];
+      if (salaId === "s2") { reservas = [{ inicio: at(dataISO,"13:00"), fim: at(dataISO,"14:30"), profissionalId: "outra-dentista" }];
+        bloqueios = [{ inicio: at(dataISO,"08:00"), fim: at(dataISO,"10:00") }]; }
+      return { reservas: reservas, bloqueios: bloqueios };
+    }
+
+    // ============ RENDER ============
+    async function renderTimeline() {
+      sel = { inicio: null, fim: null };
+      document.getElementById("resumo").style.display = "none";
+      document.getElementById("r-ok").style.display = "none";
+
+      var dataISO = elData.value || hojeISO();
+      var oc = await ocupacaoDoDia(elSala.value, dataISO);
+      var slots = M.slotsDisponiveis(oc.reservas, oc.bloqueios, HORARIO, at(dataISO,"12:00"), MEU_ID, CFG);
+      window.__oc = oc; // cache p/ validação no confirmar
+
+      var tl = document.getElementById("timeline");
+      var vazio = document.getElementById("vazio");
+      tl.innerHTML = "";
+      if (!slots.length) { vazio.style.display = "block"; return; }
+      vazio.style.display = "none";
+
+      var agora = new Date();
+      slots.forEach(function (s) {
+        var div = document.createElement("div");
+        var passado = s.inicio < agora;
+        div.className = "slot " + s.status + (passado ? " ocupado" : "");
+        div.dataset.ini = s.inicio.toISOString();
+        div.dataset.fim = s.fim.toISOString();
+        div.innerHTML = hhmm(s.inicio) + "<small>" + (passado ? "passou" : s.status) + "</small>";
+        if (s.status === "livre" && !passado && APROVADO) div.addEventListener("click", function () { escolher(s); });
+        tl.appendChild(div);
+      });
+    }
+
+    function escolher(s) {
+      if (!sel.inicio || (sel.inicio && sel.fim) || s.inicio < sel.inicio) sel = { inicio: s.inicio, fim: s.fim };
+      else sel.fim = s.fim;
+      marcarSelecionados();
+      atualizarResumo();
+    }
+    function marcarSelecionados() {
+      document.querySelectorAll("#timeline .slot").forEach(function (d) {
+        d.classList.remove("sel");
+        if (!sel.inicio) return;
+        var ini = new Date(d.dataset.ini);
+        if (ini >= sel.inicio && ini < sel.fim) d.classList.add("sel");
+      });
+    }
+
+    function atualizarResumo() {
+      if (!sel.inicio || !sel.fim) return;
+      var resumo = document.getElementById("resumo");
+      var erroBox = document.getElementById("r-erro");
+      resumo.style.display = "block";
+      document.getElementById("r-ok").style.display = "none";
+
+      document.getElementById("r-sala").textContent = nomeSala();
+      document.getElementById("r-horario").textContent =
+        new Date(sel.inicio).toLocaleDateString("pt-BR") + " · " + hhmm(sel.inicio) + " – " + hhmm(sel.fim);
+      var preco = M.calcularPreco(PRODUTOS, sel.inicio, sel.fim);
+      document.getElementById("r-preco").textContent = "R$ " + preco.toFixed(2).replace(".", ",");
+
+      var oc = window.__oc || { reservas: [], bloqueios: [] };
+      var v = M.podeReservar(oc.reservas, oc.bloqueios, HORARIO,
+        { inicio: sel.inicio, fim: sel.fim, profissionalId: MEU_ID }, CFG);
+      var btn = document.getElementById("btn-confirmar");
+      if (!v.ok) { erroBox.textContent = v.motivo; erroBox.style.display = "block"; btn.disabled = true; }
+      else { erroBox.style.display = "none"; btn.disabled = false; }
+    }
+
+    document.getElementById("btn-confirmar").addEventListener("click", async function () {
+      if (!sel.inicio || !sel.fim) return;
+      var btn = this;
+      var preco = M.calcularPreco(PRODUTOS, sel.inicio, sel.fim);
+
+      if (!(DB && DB.pronto)) {
+        alert("Reserva confirmada (demonstração): " + nomeSala() + " · " + hhmm(sel.inicio) + "–" + hhmm(sel.fim));
+        return;
+      }
+      btn.disabled = true; btn.textContent = "Confirmando…";
+      var r = await DB.client.rpc("criar_reserva", {
+        p_sala_id: elSala.value,
+        p_inicio: sel.inicio.toISOString(),
+        p_fim: sel.fim.toISOString(),
+        p_produto_id: PRODUTO_HORA_ID,
+        p_valor: preco
+      });
+      btn.textContent = "Confirmar reserva";
+      if (r.error) {
+        var eb = document.getElementById("r-erro");
+        eb.textContent = "Não foi possível reservar: " + r.error.message;
+        eb.style.display = "block"; btn.disabled = false;
+        return;
+      }
+      var ok = document.getElementById("r-ok");
+      ok.textContent = "Reserva confirmada: " + nomeSala() + " · " +
+        new Date(sel.inicio).toLocaleDateString("pt-BR") + " " + hhmm(sel.inicio) + "–" + hhmm(sel.fim) +
+        " (R$ " + preco.toFixed(2).replace(".", ",") + "). Veja em Minhas reservas.";
+      ok.style.display = "block";
+      document.getElementById("r-erro").style.display = "none";
+      await renderTimeline(); // atualiza a grade (o slot vira ocupado)
+    });
+
+    elSala.addEventListener("change", renderTimeline);
+    elData.addEventListener("change", renderTimeline);
+
+    // -------- boot (auth ANTES de renderizar) --------
+    (async function () {
+      var perfil = null;
+      if (DB && DB.pronto) { perfil = await DB.exigirLogin(); await carregarReais(perfil); }
+      else carregarMock(perfil);
+
+      SALAS.forEach(function (s) { var o = document.createElement("option"); o.value = s.id; o.textContent = s.nome; elSala.appendChild(o); });
+      elData.value = hojeISO(); elData.min = hojeISO();
+      app.hidden = false;
+      await renderTimeline();
+    })();
+  })();
+  </script>
+</body>
+</html>

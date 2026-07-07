@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Início — Coworking Odontológico</title>
+  <meta name="theme-color" content="#1f6feb">
+  <link rel="manifest" href="../../manifest.webmanifest">
+  <link rel="stylesheet" href="../../assets/css/base.css">
+  <script src="../../assets/js/brand.js" defer></script>
+</head>
+<body data-no-wpp>
+  <header class="topbar">
+    <div class="container">
+      <a class="marca" href="index.html">Coworking <span>Odontológico</span></a>
+      <a class="muted" href="#" id="link-sair">Sair</a>
+    </div>
+  </header>
+
+  <main class="container" style="padding:24px 16px" id="app" hidden>
+    <div class="row-between" style="margin-bottom:16px">
+      <div>
+        <h1 style="margin-bottom:2px" id="saudacao">Olá</h1>
+        <p class="muted" style="margin:0" id="sub-perfil">—</p>
+      </div>
+      <a class="btn btn-primario" href="reservar.html" id="btn-reservar-topo">+ Reservar</a>
+    </div>
+
+    <div id="aviso-demo" class="aviso aviso-info" style="margin-bottom:16px;display:none">
+      Modo demonstração com dados de exemplo — o banco real da Enjoy ainda não foi conectado.
+    </div>
+    <div id="aviso-status" class="aviso aviso-atencao" style="margin-bottom:16px;display:none"></div>
+
+    <!-- Atalhos -->
+    <div class="row" style="margin-bottom:8px">
+      <a class="btn btn-neutro grow" href="reservar.html" id="atalho-reservar">Reservar sala</a>
+      <a class="btn btn-neutro grow" href="#reservas">Minhas reservas</a>
+      <a class="btn btn-neutro grow" href="faturas.html">Consumo</a>
+      <a class="btn btn-neutro grow" href="faturas.html">Faturas</a>
+    </div>
+
+    <!-- Próximas reservas -->
+    <section id="reservas" class="card">
+      <h2>Próximas reservas</h2>
+      <div id="lista-reservas" class="stack"></div>
+    </section>
+
+    <!-- Consumo -->
+    <section id="consumo" class="card">
+      <h2>Consumo do mês</h2>
+      <div class="row-between">
+        <div><strong id="horas-usadas">–</strong> <span class="muted">h usadas<span id="horas-plano-wrap"> de <span id="horas-plano">–</span> h do plano</span></span></div>
+        <span class="badge badge-verde" id="badge-consumo">—</span>
+      </div>
+    </section>
+
+    <!-- Faturas -->
+    <section id="faturas" class="card">
+      <div class="row-between"><h2 style="margin:0">Faturas</h2><a class="muted" href="faturas.html">Ver extrato →</a></div>
+      <div id="lista-faturas" class="stack" style="margin-top:16px"></div>
+    </section>
+
+    <!-- Avisos/recados -->
+    <section class="card">
+      <h2>Avisos</h2>
+      <div id="lista-recados" class="stack"></div>
+    </section>
+  </main>
+
+  <script src="../../config/config.js" onerror="console.warn('config.js ausente — modo demonstração')"></script>
+  <script src="../../assets/vendor/supabase.js"></script>
+  <script src="../../assets/js/db.js"></script>
+  <script>
+  (function () {
+    var DB = window.EnjoyDB;
+    var app = document.getElementById("app");
+
+    document.getElementById("link-sair").addEventListener("click", function (e) {
+      e.preventDefault();
+      if (DB && DB.pronto) DB.sair(); else location.href = "login.html";
+    });
+
+    // -------- helpers --------
+    var fBRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+    function brl(n) { return fBRL.format(n || 0); }
+    var DIAS = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
+    function hhmm(d) { return String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0"); }
+    function ddmm(d) { return String(d.getDate()).padStart(2,"0") + "/" + String(d.getMonth()+1).padStart(2,"0"); }
+    function labelInicio(d) { return DIAS[d.getDay()] + ", " + ddmm(d) + " · " + hhmm(d); }
+    function esc(s) { return String(s==null?"":s).replace(/[&<>"]/g, function (c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
+    function badgeStatus(s) {
+      var map = { confirmada:"badge-verde", pendente:"badge-amarelo", concluida:"badge-cinza",
+                  paga:"badge-verde", aberta:"badge-amarelo", vencida:"badge-vermelho", cancelada:"badge-cinza" };
+      return '<span class="badge ' + (map[s] || "badge-cinza") + '">' + s + "</span>";
+    }
+    function mesAtualLocal() { var d = new Date(); return { ini: new Date(d.getFullYear(), d.getMonth(), 1), fim: new Date(d.getFullYear(), d.getMonth()+1, 1) }; }
+
+    // ============ MODO DEMONSTRAÇÃO (sem banco) ============
+    function renderMock() {
+      document.getElementById("aviso-demo").style.display = "block";
+      document.getElementById("saudacao").textContent = "Olá, Dra. Alyne";
+      document.getElementById("sub-perfil").textContent = "Plano Fundadora · Águas Claras";
+      document.getElementById("lista-reservas").innerHTML =
+        '<div class="row-between"><div><strong>Consultório 1</strong><br><small class="muted">Ter, 08/07 · 09:00 – 11:00</small></div>' + badgeStatus("confirmada") + "</div>" +
+        '<div class="row-between"><div><strong>Consultório 2</strong><br><small class="muted">Qui, 10/07 · 14:00 – 18:30</small></div>' + badgeStatus("pendente") + "</div>";
+      document.getElementById("horas-usadas").textContent = "6";
+      document.getElementById("horas-plano").textContent = "20";
+      document.getElementById("lista-faturas").innerHTML =
+        '<div class="row-between"><div><strong>Julho/2026</strong><br><small class="muted">' + brl(990) + '</small></div>' + badgeStatus("aberta") + "</div>";
+      document.getElementById("lista-recados").innerHTML =
+        '<div class="row-between"><span>Chegou uma encomenda para você no lounge.</span><span class="badge badge-amarelo">novo</span></div>';
+      app.hidden = false;
+    }
+
+    // ============ MODO REAL (banco) ============
+    async function renderReal(perfil) {
+      if (!perfil) { // logado mas sem perfil (ex.: confirmou e-mail, não completou cadastro)
+        document.getElementById("saudacao").textContent = "Olá";
+        document.getElementById("sub-perfil").textContent = "Complete seu cadastro para começar.";
+        bloquearReserva("Seu perfil ainda não foi criado. Refaça o cadastro para enviar seus dados e documentos.");
+        app.hidden = false;
+        return;
+      }
+
+      document.getElementById("saudacao").textContent = "Olá, " + esc(perfil.nome);
+      var profTxt = { odonto:"Odontologia", hof:"HOF", estetica:"Estética" }[perfil.profissao] || (perfil.profissao || "Profissional");
+      document.getElementById("sub-perfil").textContent = profTxt + " · Águas Claras";
+
+      if (perfil.status !== "aprovado") {
+        var msg = perfil.status === "em_aprovacao"
+          ? "Seu cadastro está em análise. Assim que a gestão aprovar, você poderá reservar consultórios."
+          : ("Seu acesso está " + perfil.status + ". Fale com a gestão.");
+        bloquearReserva(msg);
+      }
+
+      var agoraISO = new Date().toISOString();
+      var mes = mesAtualLocal();
+
+      // consultas em paralelo (RLS já filtra pelo próprio cliente)
+      var proxP = DB.client.from("reservas")
+        .select("id,inicio,fim,status,valor,salas(nome)")
+        .gte("inicio", agoraISO).in("status", ["pendente","confirmada"])
+        .order("inicio", { ascending: true }).limit(6);
+      var mesP = DB.client.from("reservas")
+        .select("inicio,fim,status")
+        .gte("inicio", mes.ini.toISOString()).lt("inicio", mes.fim.toISOString())
+        .in("status", ["pendente","confirmada","concluida"]);
+      var fatP = DB.client.from("faturas")
+        .select("competencia,valor_total,status").order("competencia", { ascending: false }).limit(3);
+      var recP = DB.client.from("recados")
+        .select("id,texto,lido,criado_em").order("criado_em", { ascending: false }).limit(5);
+      var assP = DB.client.from("assinaturas")
+        .select("status,produto_id,produtos_preco(nome,regras)").eq("status","ativa").limit(1);
+
+      var res = await Promise.all([proxP, mesP, fatP, recP, assP]);
+      renderReservas(res[0].data || []);
+      renderConsumo(res[1].data || [], res[4].data && res[4].data[0]);
+      renderFaturas(res[2].data || []);
+      renderRecados(res[3].data || []);
+      app.hidden = false;
+    }
+
+    function bloquearReserva(msg) {
+      var a = document.getElementById("aviso-status");
+      a.textContent = msg; a.style.display = "block";
+      ["btn-reservar-topo","atalho-reservar"].forEach(function (id) {
+        var el = document.getElementById(id);
+        el.classList.add("btn-neutro"); el.setAttribute("aria-disabled","true");
+        el.style.opacity = ".5"; el.style.pointerEvents = "none"; el.removeAttribute("href");
+      });
+    }
+
+    function renderReservas(lista) {
+      var box = document.getElementById("lista-reservas");
+      if (!lista.length) { box.innerHTML = '<p class="muted">Nenhuma reserva futura. <a href="reservar.html">Reserve agora</a>.</p>'; return; }
+      box.innerHTML = lista.map(function (r) {
+        var ini = new Date(r.inicio), fim = new Date(r.fim);
+        var sala = r.salas ? r.salas.nome : "Consultório";
+        return '<div class="row-between"><div><strong>' + esc(sala) + "</strong><br><small class=\"muted\">" +
+               labelInicio(ini) + " – " + hhmm(fim) + "</small></div>" + badgeStatus(r.status) + "</div>";
+      }).join("");
+    }
+
+    function renderConsumo(doMes, assinatura) {
+      var horas = 0;
+      doMes.forEach(function (r) { horas += (new Date(r.fim) - new Date(r.inicio)) / 3600000; });
+      horas = Math.round(horas * 10) / 10;
+      document.getElementById("horas-usadas").textContent = horas;
+      var b = document.getElementById("badge-consumo");
+      var regras = assinatura && assinatura.produtos_preco && assinatura.produtos_preco.regras;
+      var horasPlano = regras && regras.horas_mes;
+      if (horasPlano) {
+        document.getElementById("horas-plano").textContent = horasPlano;
+        var noPlano = horas <= horasPlano;
+        b.textContent = noPlano ? "no plano" : "com excedente";
+        b.className = "badge " + (noPlano ? "badge-verde" : "badge-amarelo");
+      } else {
+        document.getElementById("horas-plano-wrap").style.display = "none";
+        b.textContent = "avulso"; b.className = "badge badge-cinza";
+      }
+    }
+
+    function renderFaturas(lista) {
+      var box = document.getElementById("lista-faturas");
+      if (!lista.length) { box.innerHTML = '<p class="muted">Nenhuma fatura ainda.</p>'; return; }
+      var meses = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+      box.innerHTML = lista.map(function (f) {
+        var p = String(f.competencia).split("-");
+        var comp = (p.length >= 2) ? (meses[(+p[1])-1] + "/" + p[0]) : f.competencia;
+        return '<div class="row-between"><div><strong>' + comp + "</strong><br><small class=\"muted\">" +
+               brl(f.valor_total) + "</small></div>" + badgeStatus(f.status) + "</div>";
+      }).join("");
+    }
+
+    function renderRecados(lista) {
+      var box = document.getElementById("lista-recados");
+      if (!lista.length) { box.innerHTML = '<p class="muted">Nenhum aviso no momento.</p>'; return; }
+      box.innerHTML = lista.map(function (r) {
+        return '<div class="row-between"><span>' + esc(r.texto) + "</span>" +
+               (r.lido ? "" : '<span class="badge badge-amarelo">novo</span>') + "</div>";
+      }).join("");
+    }
+
+    // -------- boot (auth ANTES de renderizar) --------
+    (async function () {
+      if (!DB || !DB.pronto) { renderMock(); return; }
+      var perfil = await DB.exigirLogin();   // redireciona pro login se sem sessão
+      try { await renderReal(perfil); }
+      catch (e) { console.error(e); app.hidden = false; }
+    })();
+  })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Enjoy — Coworking Odontológico em Águas Claras, Brasília | Consultório por hora</title>
+  <meta name="description" content="Seu consultório odontológico pronto em Águas Claras — pague só pelo uso. Consultórios equipados por hora, período ou plano mensal, com biossegurança e reserva pelo app. Em frente ao metrô.">
+  <meta name="theme-color" content="#1f6feb">
+  <link rel="canonical" href="https://enjoy.com.br/">
+
+  <!-- Open Graph / redes sociais -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Enjoy Coworking Odontológico">
+  <meta property="og:title" content="Seu consultório odontológico pronto em Águas Claras — pague só pelo uso">
+  <meta property="og:description" content="Consultórios equipados por hora, período ou plano mensal. Biossegurança de clínica e reserva pelo app. Em frente à estação Águas Claras do metrô.">
+  <meta property="og:locale" content="pt_BR">
+  <meta property="og:url" content="https://enjoy.com.br/">
+  <!-- OG:IMAGE — trocar pela foto/arte real quando existir -->
+  <meta property="og:image" content="https://enjoy.com.br/assets/img/og.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <link rel="manifest" href="../manifest.webmanifest">
+  <link rel="stylesheet" href="../assets/css/base.css">
+  <link rel="stylesheet" href="../assets/css/site.css">
+  <script src="../assets/js/brand.js" defer></script>
+
+  <!--
+    TRACKING (placeholders) — IDs virão do Vinicius. No go-live, colar e ativar:
+      • Google Tag Manager: script gtm.js com GTM-XXXXXXX no head + noscript no body.
+      • Meta Pixel: fbq('init','PIXEL_ID'); fbq('track','PageView');
+      • Google Ads (gtag): gtag/js?id=AW-XXXXXXX + gtag('config','AW-XXXXXXX').
+    Na /visita, disparar a conversão de Lead no envio do formulário.
+  -->
+
+  <!-- JSON-LD: LocalBusiness (Dentist). Campos preenchidos a partir do brand.js;
+       ATENÇÃO: telefone/CNPJ/geo são placeholders até os dados reais. -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": ["LocalBusiness", "Dentist"],
+    "name": "Enjoy Coworking Odontológico",
+    "description": "Coworking odontológico em Águas Claras, Brasília. Consultórios equipados para alugar por hora, período ou plano mensal, com biossegurança e reserva pelo app.",
+    "url": "https://enjoy.com.br/",
+    "telephone": "+5561900000000",
+    "priceRange": "R$$",
+    "image": "https://enjoy.com.br/assets/img/og.jpg",
+    "address": {
+      "@type": "PostalAddress",
+      "streetAddress": "Ed. E-Business — Av. Pau Brasil, Lote 06",
+      "addressLocality": "Águas Claras",
+      "addressRegion": "DF",
+      "postalCode": "71900-000",
+      "addressCountry": "BR"
+    },
+    "geo": { "@type": "GeoCoordinates", "latitude": -15.8340, "longitude": -48.0270 },
+    "areaServed": "Brasília, DF",
+    "publicAccess": true,
+    "openingHoursSpecification": [
+      { "@type": "OpeningHoursSpecification", "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday"], "opens": "08:00", "closes": "22:00" },
+      { "@type": "OpeningHoursSpecification", "dayOfWeek": ["Saturday","Sunday"], "opens": "08:00", "closes": "18:00" }
+    ]
+  }
+  </script>
+</head>
+<body>
+  <!-- ===== TOPO ===== -->
+  <header class="topbar">
+    <div class="container">
+      <a class="marca" href="index.html"><span data-brand="nomeCurto">Enjoy</span> <span data-brand="tagline">Coworking</span></a>
+      <nav class="nav-site">
+        <a class="link nav-oculto-mobile" href="#estrutura">Estrutura</a>
+        <a class="link nav-oculto-mobile" href="precos.html">Preços</a>
+        <a class="link nav-oculto-mobile" href="#faq">Dúvidas</a>
+        <a class="link" href="app/login.html">Entrar</a>
+        <a class="btn btn-primario" href="visita.html">Agendar visita</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ===== 1. HERO ===== -->
+  <section class="hero-site">
+    <div class="container">
+      <div class="hero-grid">
+        <div class="stack">
+          <span class="selo-metro">📍 Em frente à estação Águas Claras do metrô</span>
+          <h1>Seu consultório odontológico pronto em Águas Claras — pague só pelo uso</h1>
+          <p class="promessa">
+            Comece a atender esta semana, sem CAPEX de R$65 mil a R$200 mil. Consultórios
+            equipados, biossegurança de clínica de verdade e reserva pelo app em 1 minuto.
+          </p>
+          <div class="row hero-ctas">
+            <a class="btn btn-primario" href="visita.html">Agendar visita</a>
+            <a class="btn btn-neutro" data-brand-href="whatsapp">Falar no WhatsApp</a>
+          </div>
+          <div class="mini-provas">
+            <span><b>R$ 75</b>/hora avulsa</span>
+            <span><b>R$ 0</b> de contrato</span>
+            <span><b>Seg a Dom</b> · até 22h</span>
+          </div>
+        </div>
+        <!-- FOTO REAL: fachada / recepção / consultório principal (horizontal) -->
+        <div class="foto-ph" style="min-height:300px">
+          <span>Foto da estrutura — recepção &amp; consultórios equipados</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 2. COMO FUNCIONA ===== -->
+  <section class="secao secao-alt" id="como-funciona">
+    <div class="container">
+      <div class="centro" style="margin-bottom:32px">
+        <p class="eyebrow">Sem burocracia</p>
+        <h2>Como funciona</h2>
+        <p class="intro">Autosserviço de ponta a ponta. Você cuida do paciente; a estrutura e o sistema cuidam do resto.</p>
+      </div>
+      <div class="grid grid-3">
+        <div class="card passo">
+          <div class="num">1</div>
+          <h3>Cadastre-se grátis</h3>
+          <p>Crie sua conta e envie seu registro profissional. Sem taxa de contrato, sem fidelidade.</p>
+        </div>
+        <div class="card passo">
+          <div class="num">2</div>
+          <h3>Reserve pelo app</h3>
+          <p>Escolha consultório, dia e horário. O preço aparece na hora e você confirma em 1 minuto.</p>
+        </div>
+        <div class="card passo">
+          <div class="num">3</div>
+          <h3>Atenda</h3>
+          <p>Seu paciente faz o check-in digital ao chegar e você é avisado na hora. É só atender.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 3. COMPARATIVO ===== -->
+  <section class="secao" id="comparativo">
+    <div class="container">
+      <div class="centro" style="margin-bottom:32px">
+        <p class="eyebrow">Consultório próprio × Enjoy</p>
+        <h2>Monte carteira, não um consultório</h2>
+        <p class="intro">Abrir um consultório do zero em Brasília custa caro e demora meses. Na Enjoy você começa nesta semana.</p>
+      </div>
+      <div class="compara">
+        <div class="card caro">
+          <h3>😓 Consultório próprio</h3>
+          <div class="valorao">R$ 65 mil – R$ 200 mil</div>
+          <p class="muted" style="margin:0">de investimento inicial (CAPEX)</p>
+          <ul>
+            <li>Obra, cadeira, equipo, autoclave e RX por sua conta</li>
+            <li>Aluguel, condomínio e contas fixas todo mês</li>
+            <li>Recepcionista e limpeza na folha de pagamento</li>
+            <li>Vigilância sanitária e PGRSS pra você resolver</li>
+            <li>Meses até a primeira consulta</li>
+          </ul>
+        </div>
+        <div class="card bom">
+          <h3>😀 Enjoy Coworking</h3>
+          <div class="valorao">a partir de R$ 75</div>
+          <p class="muted" style="margin:0">por hora — paga só quando usa</p>
+          <ul>
+            <li>Consultórios equipados, prontos pra atender</li>
+            <li>Zero custo fixo se você não atender</li>
+            <li>Biossegurança e regularização já resolvidas</li>
+            <li>Reserva, check-in e pagamento pelo app</li>
+            <li>Comece a atender esta semana</li>
+          </ul>
+        </div>
+      </div>
+      <p class="centro" style="margin-top:24px">
+        <a class="btn btn-primario" href="precos.html">Ver planos e preços</a>
+      </p>
+    </div>
+  </section>
+
+  <!-- ===== 4. ESTRUTURA ===== -->
+  <section class="secao secao-alt" id="estrutura">
+    <div class="container">
+      <div class="centro" style="margin-bottom:32px">
+        <p class="eyebrow">Estrutura</p>
+        <h2>Tudo pronto pra você atender</h2>
+        <p class="intro">Dois consultórios completos e áreas comuns pensadas pra experiência do seu paciente.</p>
+      </div>
+      <div class="grid grid-2">
+        <!-- FOTO REAL: Consultório 1 (com aparelho de raio-X) -->
+        <div class="card" style="padding:0;overflow:hidden">
+          <div class="foto-ph alt"><span>Consultório 1 — com raio-X</span></div>
+          <div style="padding:18px">
+            <h3>Consultório 1 · com raio-X</h3>
+            <p class="muted" style="margin:0">Cadeira e equipo completos e aparelho de raio-X na própria sala.</p>
+            <div class="chip-list">
+              <span class="chip">Raio-X</span><span class="chip">Cadeira + equipo</span>
+              <span class="chip">Ar-condicionado</span><span class="chip">Wi-Fi</span>
+            </div>
+          </div>
+        </div>
+        <!-- FOTO REAL: Consultório 2 -->
+        <div class="card" style="padding:0;overflow:hidden">
+          <div class="foto-ph"><span>Consultório 2 — completo</span></div>
+          <div style="padding:18px">
+            <h3>Consultório 2 · completo</h3>
+            <p class="muted" style="margin:0">Cadeira e equipo completos para clínica geral, especialidades, HOF e estética.</p>
+            <div class="chip-list">
+              <span class="chip">Cadeira + equipo</span><span class="chip">Ar-condicionado</span>
+              <span class="chip">Wi-Fi</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="grid grid-3" style="margin-top:20px">
+        <!-- FOTO REAL: CME / autoclave -->
+        <div class="card" style="padding:0;overflow:hidden">
+          <div class="foto-ph verde pequena"><span>Autoclave &amp; esterilização</span></div>
+          <div style="padding:16px"><h3>Autoclave &amp; CME</h3><p class="muted" style="margin:0">Central de esterilização no local.</p></div>
+        </div>
+        <!-- FOTO REAL: sala de espera com sofás -->
+        <div class="card" style="padding:0;overflow:hidden">
+          <div class="foto-ph pequena"><span>Sala de espera com sofás</span></div>
+          <div style="padding:16px"><h3>Sala de espera</h3><p class="muted" style="margin:0">Recepção confortável para o seu paciente.</p></div>
+        </div>
+        <!-- FOTO REAL: copa / lounge do profissional -->
+        <div class="card" style="padding:0;overflow:hidden">
+          <div class="foto-ph alt pequena"><span>Copa completa &amp; lounge</span></div>
+          <div style="padding:16px"><h3>Copa &amp; lounge</h3><p class="muted" style="margin:0">Copa completa e espaço do profissional.</p></div>
+        </div>
+      </div>
+      <!-- NOTA: lista final de equipamentos por sala será confirmada pelo Vinicius. -->
+    </div>
+  </section>
+
+  <!-- ===== 5. O APP ===== -->
+  <section class="secao" id="app">
+    <div class="container">
+      <div class="app-showcase">
+        <div>
+          <p class="eyebrow">Diferencial</p>
+          <h2>Tudo pelo app</h2>
+          <p class="intro">Reserva em 1 minuto, preço na hora e extrato do mês. O sistema é nosso — não é planilha nem telefone.</p>
+          <ul class="app-feats">
+            <li>Veja horários livres e reserve na hora, com preço calculado automaticamente</li>
+            <li>Higienização de 30 min garantida entre profissionais diferentes</li>
+            <li>Check-in digital do paciente: você é avisado quando ele chega</li>
+            <li>Extrato do mês, faturas e recados num só lugar</li>
+          </ul>
+          <p style="margin-top:18px"><a class="btn btn-primario" href="app/login.html">Ver a área do profissional</a></p>
+        </div>
+        <!-- Mock/print estilizado da timeline de reserva (ilustração em CSS, não é foto) -->
+        <div class="fone" aria-hidden="true">
+          <div class="fone-tela">
+            <div class="topo"><b>Reservar</b><span class="dia">Consultório 1 · Ter, 08/07</span></div>
+            <div class="fone-tl">
+              <div class="h">08:00</div><div class="b livre">Livre</div>
+              <div class="h">09:00</div><div class="b ocup">Ocupado</div>
+              <div class="h">10:00</div><div class="b buf">Higienização · 30 min</div>
+              <div class="h">14:00</div><div class="b sel">Selecionado</div>
+              <div class="h">15:00</div><div class="b sel">Selecionado</div>
+              <div class="h">16:00</div><div class="b livre">Livre</div>
+            </div>
+            <div class="fone-resumo">
+              <div class="row-between"><span class="muted">14:00 – 16:00 · 2h</span><span class="preco">R$ 150</span></div>
+              <div class="cta">Confirmar reserva</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 6. BIOSSEGURANÇA & REGULARIZAÇÃO ===== -->
+  <section class="secao secao-alt" id="biosseguranca">
+    <div class="container">
+      <div class="centro" style="margin-bottom:32px">
+        <p class="eyebrow">Biossegurança &amp; regularização</p>
+        <h2>Estrutura em conformidade — sem dor de cabeça pra você</h2>
+        <p class="intro">A parte chata da regularização já está montada. Você chega e atende com segurança.</p>
+      </div>
+      <div class="grid grid-3">
+        <div class="card">
+          <h3>🧪 Esterilização (CME)</h3>
+          <p class="muted" style="margin:0">Autoclave e central de esterilização no local, com fluxo de material controlado.</p>
+        </div>
+        <div class="card">
+          <h3>♻️ Descarte (PGRSS)</h3>
+          <p class="muted" style="margin:0">Gestão de resíduos de serviço de saúde conforme as normas vigentes.</p>
+        </div>
+        <div class="card">
+          <h3>🏥 Vigilância sanitária</h3>
+          <p class="muted" style="margin:0">Espaço estruturado para operar em conformidade com a vigilância sanitária.</p>
+        </div>
+      </div>
+      <p class="muted centro" style="margin-top:20px;font-size:.9rem">
+        Detalhes de licenças e certificações são apresentados na visita. Falamos com transparência: a estrutura é feita para conformidade.
+      </p>
+    </div>
+  </section>
+
+  <!-- ===== 7. PLANOS E PREÇOS ===== -->
+  <section class="secao" id="precos">
+    <div class="container">
+      <div class="centro" style="margin-bottom:32px">
+        <p class="eyebrow">Planos e preços</p>
+        <h2>Preço publicado, sem surpresa</h2>
+        <p class="intro">Comece no avulso e migre para um plano quando repetir. Cadastro e contrato: <b>R$ 0</b>.</p>
+      </div>
+
+      <h3 style="margin-bottom:12px">Avulso</h3>
+      <div class="preco-grid cols-3">
+        <div class="card preco-card"><div class="nome">Hora avulsa</div><div class="valor">R$ 75<small>/h</small></div><div class="nota">Mínimo de 1 hora</div></div>
+        <div class="card preco-card"><div class="nome">Período (manhã ou tarde)</div><div class="valor">R$ 250</div><div class="nota">≈ 4h30 de atendimento</div></div>
+        <div class="card preco-card"><div class="nome">Período noturno</div><div class="valor">R$ 350</div><div class="nota">18h às 22h</div></div>
+        <div class="card preco-card"><div class="nome">Diária</div><div class="valor">R$ 400</div><div class="nota">Manhã + tarde</div></div>
+        <div class="card preco-card"><div class="nome">Período sábado/domingo</div><div class="valor">R$ 300</div><div class="nota">Fim de semana</div></div>
+        <div class="card preco-card"><div class="nome">Cadastro / contrato</div><div class="valor">R$ 0</div><div class="nota">Sem taxa, sem fidelidade</div></div>
+      </div>
+
+      <h3 style="margin:32px 0 12px">Planos de lançamento</h3>
+      <div class="preco-grid cols-3">
+        <div class="card preco-card">
+          <span class="tag-lancamento">Lançamento</span>
+          <div class="nome">Plano 10h/mês</div><div class="valor">R$ 590<small>/mês</small></div>
+          <div class="nota">R$ 59/h · 10 horas no mês (não acumula)</div>
+        </div>
+        <div class="card preco-card destaque">
+          <span class="tag-lancamento">Lançamento · mais escolhido</span>
+          <div class="nome">Plano 20h/mês</div><div class="valor">R$ 990<small>/mês</small></div>
+          <div class="nota">R$ 49,50/h · pra quem atende toda semana</div>
+        </div>
+        <div class="card preco-card">
+          <span class="tag-lancamento">Lançamento</span>
+          <div class="nome">Turno fixo</div><div class="valor">R$ 690<small>/mês</small></div>
+          <div class="nota">Mesmo período toda semana, horário garantido</div>
+        </div>
+      </div>
+      <p class="centro" style="margin-top:24px">
+        <a class="btn btn-primario" href="visita.html">Agendar visita</a>
+        <a class="btn btn-neutro" href="precos.html">Detalhes dos planos</a>
+      </p>
+    </div>
+  </section>
+
+  <!-- ===== 8. PROVA SOCIAL ===== -->
+  <section class="secao secao-alt" id="depoimentos">
+    <div class="container">
+      <div class="centro" style="margin-bottom:32px">
+        <p class="eyebrow">Quem já atende aqui</p>
+        <h2>Profissionais na Enjoy</h2>
+      </div>
+      <div class="grid grid-2">
+        <!-- DEPOIMENTO 1 — preencher com nome + CRO quando aprovado (ex.: Alyne)
+        <div class="card depo">
+          <div class="aspas">"</div>
+          <p>DEPOIMENTO AQUI.</p>
+          <div class="autor">Dra. NOME <small>CRO-DF 00000 · Especialidade</small></div>
+        </div>
+        -->
+        <!-- DEPOIMENTO 2 — preencher com nome + CRO quando aprovado (ex.: Mariane)
+        <div class="card depo">
+          <div class="aspas">"</div>
+          <p>DEPOIMENTO AQUI.</p>
+          <div class="autor">Dra. NOME <small>CRO-DF 00000 · Especialidade</small></div>
+        </div>
+        -->
+        <div class="card depo depo-vazio">Espaço reservado para depoimento de profissional.</div>
+        <div class="card depo depo-vazio">Espaço reservado para depoimento de profissional.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 9. FAQ ===== -->
+  <section class="secao" id="faq">
+    <div class="container container-sm" style="max-width:760px">
+      <div class="centro" style="margin-bottom:32px">
+        <p class="eyebrow">Dúvidas</p>
+        <h2>Perguntas frequentes</h2>
+      </div>
+      <div class="faq">
+        <details open>
+          <summary>Tem taxa de contrato ou fidelidade?</summary>
+          <div class="resp"><p>Não. Cadastro e contrato custam <b>R$ 0</b> e não há fidelidade. Você paga só pelo que usar.</p></div>
+        </details>
+        <details>
+          <summary>Como funciona o cancelamento?</summary>
+          <div class="resp"><p>Cancelamentos com <b>24 horas de antecedência</b> não têm custo. É só cancelar pelo app.</p></div>
+        </details>
+        <details>
+          <summary>O que está incluso no valor?</summary>
+          <div class="resp"><p>Consultório equipado (cadeira e equipo), esterilização (autoclave/CME), sala de espera, copa, Wi-Fi, ar-condicionado e limpeza diária. Os <b>insumos e materiais são à parte</b>.</p></div>
+        </details>
+        <details>
+          <summary>E os insumos e materiais?</summary>
+          <div class="resp"><p>Você usa os seus. Para conveniência, temos um <b>mercadinho no espaço</b> com itens básicos (descartáveis, EPI, anestésico e afins) para comprar na hora.</p></div>
+        </details>
+        <details>
+          <summary>Os dois consultórios têm raio-X?</summary>
+          <div class="resp"><p>O <b>aparelho de raio-X fica no Consultório 1</b>. Se você precisa de RX, reserve essa sala.</p></div>
+        </details>
+        <details>
+          <summary>Quem pode atender no espaço?</summary>
+          <div class="resp"><p>Dentistas de todas as especialidades, além de <b>HOF, médicos e profissionais de estética não invasiva</b>. Todos passam por aprovação de cadastro (registro profissional).</p></div>
+        </details>
+        <details>
+          <summary>Tem estacionamento?</summary>
+          <div class="resp"><p>Sim, o <b>prédio (Ed. E-Business) tem estacionamento</b>. E estamos em frente à estação Águas Claras do metrô.</p></div>
+        </details>
+        <details>
+          <summary>Quais os horários de funcionamento?</summary>
+          <div class="resp"><p><b>Seg a sex, 8h às 22h</b> · <b>sábado e domingo, 8h às 18h</b>. Abrir aos fins de semana é um diferencial nosso.</p></div>
+        </details>
+        <details>
+          <summary>Preciso ter paciente para começar?</summary>
+          <div class="resp"><p>Sim — o espaço é para você atender a sua própria carteira. A Enjoy oferece a estrutura, a biossegurança e o sistema; você traz o paciente e o atendimento.</p></div>
+        </details>
+        <details>
+          <summary>Como faço para conhecer?</summary>
+          <div class="resp"><p><a href="visita.html">Agende uma visita</a> pelo site ou fale com a gente no <a data-brand-href="whatsapp">WhatsApp</a>. Mostramos tudo pessoalmente.</p></div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== FAIXA CTA ===== -->
+  <section class="secao" style="padding-top:0">
+    <div class="container">
+      <div class="faixa-cta">
+        <h2>Venha conhecer a Enjoy</h2>
+        <p>Agende uma visita e ganhe a <b>1ª hora grátis</b> para experimentar o espaço. Sem compromisso.</p>
+        <div class="row" style="justify-content:center">
+          <a class="btn btn-primario" href="visita.html">Agendar visita</a>
+          <a class="btn btn-neutro" style="background:transparent;color:#fff;border-color:rgba(255,255,255,.5)" data-brand-href="whatsapp">WhatsApp</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 10. LOCALIZAÇÃO ===== -->
+  <section class="secao secao-alt" id="localizacao">
+    <div class="container">
+      <div class="centro" style="margin-bottom:32px">
+        <p class="eyebrow">Localização</p>
+        <h2>Em Águas Claras, em frente ao metrô</h2>
+      </div>
+      <div class="grid grid-2" style="align-items:center">
+        <!-- MAPA REAL: embutir mapa/iframe do Google quando o endereço estiver confirmado -->
+        <a class="mapa-ph" data-brand-href="maps">🗺️ Abrir no Google Maps<br><span data-brand="enderecoCurto"></span></a>
+        <div class="stack">
+          <div class="card">
+            <h3>Endereço</h3>
+            <p style="margin:0"><span data-brand="endereco.logradouro"></span><br>
+            <span data-brand="endereco.bairro"></span> — <span data-brand="endereco.cidade"></span>/<span data-brand="endereco.uf"></span></p>
+            <p class="muted" style="margin:8px 0 0"><span data-brand="endereco.complemento"></span></p>
+          </div>
+          <div class="card">
+            <h3>Horários</h3>
+            <p style="margin:0"><span data-brand="horarios.semana"></span><br>
+            <span data-brand="horarios.sabado"></span><br>
+            <span data-brand="horarios.domingo"></span></p>
+          </div>
+          <div class="card">
+            <h3>Estacionamento</h3>
+            <p class="muted" style="margin:0">Estacionamento no prédio (Ed. E-Business) e estação de metrô em frente.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 11. RODAPÉ ===== -->
+  <footer class="rodape-rico">
+    <div class="container">
+      <div class="cols">
+        <div>
+          <div class="marca"><span data-brand="nome">Enjoy</span></div>
+          <p style="margin:10px 0 0;max-width:320px;color:#aebccc">Coworking odontológico em Águas Claras, Brasília. Consultórios equipados por hora, período ou plano mensal.</p>
+          <p style="margin:12px 0 0"><a data-brand-href="instagram">Instagram @<span data-brand="instagram"></span></a></p>
+        </div>
+        <div>
+          <h4>Navegar</h4>
+          <ul>
+            <li><a href="#como-funciona">Como funciona</a></li>
+            <li><a href="precos.html">Preços</a></li>
+            <li><a href="#estrutura">Estrutura</a></li>
+            <li><a href="#faq">Dúvidas</a></li>
+            <li><a href="visita.html">Agendar visita</a></li>
+            <li><a href="app/login.html">Área do profissional</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Contato</h4>
+          <ul>
+            <li><a data-brand-href="whatsapp">WhatsApp</a></li>
+            <li><a data-brand-href="tel"><span data-brand="telefoneFmt"></span></a></li>
+            <li><a data-brand-href="email"><span data-brand="email"></span></a></li>
+            <li><span data-brand="enderecoCurto"></span></li>
+          </ul>
+        </div>
+      </div>
+      <div class="base">
+        <span>© <span data-brand="nome">Enjoy</span> · CNPJ <span data-brand="cnpj"></span></span>
+        <span><a href="privacidade.html">Privacidade</a> · <a href="termos.html">Termos de uso</a></span>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // Service worker (PWA) — mesmo do restante do site.
+    if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+      window.addEventListener("load", function () {
+        navigator.serviceWorker.register("../sw.js").catch(function (e) { console.warn("SW não registrado:", e); });
+      });
+    }
+  </script>
+</body>
+</html>
