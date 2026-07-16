@@ -29,8 +29,10 @@
     nomeCurto: "ClinicShare",
     tagline:   "Coworking Odontológico",
 
-    // Logo APROVADA 16/07 (selo CS + wordmark + slogan, versão A) — fonte: materiais/Identidade/logo-clinicshare-final.html
-    logo:      "img/logo-clinicshare.svg",
+    // Logo APROVADA 16/07 (selo CS + wordmark, versão A) — fonte: materiais/Identidade/logo-clinicshare-final.html
+    // Header usa a versão SEM slogan (MANUAL.md: alturas <60px o slogan fica ilegível).
+    // A versão COM slogan (img/logo-clinicshare.svg) segue disponível p/ hero e materiais.
+    logo:      "img/logo-clinicshare-header.svg",
     logoAlt:   "ClinicShare — seu consultório por hora",
 
     // Cores — paleta aprovada estilo "Michelob Ultra": navy + branco + vermelho (amarelo p/ conversão)
@@ -179,7 +181,7 @@
       var img = document.createElement("img");
       img.src = url;
       img.alt = BRAND.logoAlt || BRAND.nome;
-      img.style.height = "48px"; // 40px deixava o slogan do lockup ilegível (validação 16/07)
+      img.style.height = "44px"; // lockup sem slogan: 44px assenta melhor no header (16/07)
       img.style.width = "auto";
       img.style.display = "block";
       el.textContent = "";
