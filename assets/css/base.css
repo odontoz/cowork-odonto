@@ -83,6 +83,9 @@ small, .muted { color: var(--cinza); }
 .btn:hover { text-decoration: none; }
 .btn-primario { background: var(--azul); color: #fff; }
 .btn-primario:hover { background: var(--azul-escuro); color: #fff; }
+/* CTA de conversão (amarelo aprovado 16/07) — só nos CTAs principais (Agendar visita) */
+.btn-cta { background: #FFC72C; color: #0E2A47; }
+.btn-cta:hover { background: #E6B31F; color: #0E2A47; }
 .btn-neutro { background: transparent; color: var(--tinta); border-color: var(--linha); }
 .btn-neutro:hover { background: var(--fundo); }
 .btn-perigo { background: var(--vermelho); color: #fff; }

@@ -1,20 +1,26 @@
 {
-  "name": "Enjoy Coworking Odontológico — Águas Claras",
-  "short_name": "Enjoy",
+  "name": "ClinicShare Coworking Odontológico — Águas Claras",
+  "short_name": "ClinicShare",
   "description": "Reserva de consultórios, check-in e pagamento pelo app.",
   "start_url": "public/app/index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#f6f8fb",
-  "theme_color": "#1f6feb",
+  "background_color": "#0E2A47",
+  "theme_color": "#0E2A47",
   "lang": "pt-BR",
   "icons": [
     {
-      "src": "assets/img/icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "assets/img/favicon-clinicshare.png",
+      "sizes": "64x64",
+      "type": "image/png",
       "purpose": "any maskable"
+    },
+    {
+      "src": "assets/img/favicon-32.png",
+      "sizes": "32x32",
+      "type": "image/png",
+      "purpose": "any"
     }
   ]
 }

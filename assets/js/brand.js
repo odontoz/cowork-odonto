@@ -25,28 +25,27 @@
   // >>> EDITE AQUI PARA TROCAR A MARCA <<<
   // -------------------------------------------------------------------------
   var BRAND = {
-    nome:      "Enjoy Coworking Odontológico", // nome oficial (decidido 06/07)
-    nomeCurto: "Enjoy",
+    nome:      "ClinicShare Coworking Odontológico", // nome DEFINIDO pelo Vinicius 16/07 (INPI-first)
+    nomeCurto: "ClinicShare",
     tagline:   "Coworking Odontológico",
 
-    // Logo oficial (rose gold, "O" de dente) — materiais/Identidade/LOGO-ENJOY.pdf
-    // Caminho resolvido em tempo de execução relativo ao próprio brand.js.
-    logo:      "img/logo-enjoy.png",
-    logoAlt:   "Enjoy — Odontologia Especializada",
+    // Logo APROVADA 16/07 (selo CS + wordmark + slogan, versão A) — fonte: materiais/Identidade/logo-clinicshare-final.html
+    logo:      "img/logo-clinicshare.svg",
+    logoAlt:   "ClinicShare — seu consultório por hora",
 
-    // Cores — extraídas do logo oficial (rose gold/cobre + grafite da tagline)
+    // Cores — paleta aprovada estilo "Michelob Ultra": navy + branco + vermelho (amarelo p/ conversão)
     cores: {
-      primaria:       "#b5765c",  // rose gold do wordmark
-      primariaEscura: "#96543f",  // cobre escuro (hover/CTA)
-      tinta:          "#2a2220",  // grafite quente (texto)
-      destaque:       "#1f9d55"   // verde p/ badges "grátis/lançamento"
+      primaria:       "#0E2A47",  // azul-marinho (wordmark/CTAs)
+      primariaEscura: "#081C31",  // navy escuro (hover)
+      tinta:          "#1A2430",  // texto
+      destaque:       "#1f9d55"   // verde p/ badges "grátis/lançamento" (manter)
     },
 
-    // Contato — telefone oficial da Enjoy (06/07); e-mail/instagram a confirmar
+    // Contato — telefone oficial (06/07); e-mail/instagram a criar no domínio novo
     telefone:  "556135462675",    // (61) 3546-2675
     whatsapp:  "556135462675",    // confirmar se o fixo tem WhatsApp Business
-    email:     "contato@enjoy.com.br",          // placeholder
-    instagram: "enjoy.coworking",               // placeholder (handle)
+    email:     "contato@clinicshare.net",       // placeholder até criar a caixa (domínio .net decidido 16/07)
+    instagram: "clinicshare",                   // placeholder (conferir disponibilidade do handle)
 
     // Registro — placeholder até abrir/definir o CNPJ da Enjoy
     cnpj: "00.000.000/0001-00",
@@ -64,12 +63,12 @@
 
     horarios: {
       semana:  "Seg a Sex · 8h às 22h",
-      sabado:  "Sábado · 8h às 18h",
+      sabado:  "Sábado · 8h às 22h",
       domingo: "Domingo · 8h às 18h"
     },
 
     // Mensagem padrão do WhatsApp (CTA principal)
-    msgWhatsapp: "Olá! Vim pelo site da Enjoy e gostaria de conhecer o coworking odontológico e agendar uma visita."
+    msgWhatsapp: "Olá! Vim pelo site da ClinicShare e gostaria de conhecer o coworking odontológico e agendar uma visita."
   };
 
   // -------------------------------------------------------------------------
@@ -180,7 +179,7 @@
       var img = document.createElement("img");
       img.src = url;
       img.alt = BRAND.logoAlt || BRAND.nome;
-      img.style.height = "40px";
+      img.style.height = "48px"; // 40px deixava o slogan do lockup ilegível (validação 16/07)
       img.style.width = "auto";
       img.style.display = "block";
       el.textContent = "";
