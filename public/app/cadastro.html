@@ -79,6 +79,11 @@
           <label for="doc-comprovante">Comprovante de residência *</label>
           <input id="doc-comprovante" type="file" accept="image/*,application/pdf" required>
         </div>
+        <div class="campo">
+          <label for="doc-selfie">Selfie (foto sua, de frente) *</label>
+          <input id="doc-selfie" type="file" accept="image/*" capture="user" required>
+          <small class="muted">Usada na conferência dos documentos e no seu cadastro de acesso ao espaço.</small>
+        </div>
 
         <button class="btn btn-primario btn-bloco" type="submit" id="btn-enviar">Enviar cadastro</button>
         <p class="muted" style="font-size:.8rem;margin:0;text-align:center">
@@ -88,15 +93,15 @@
       </form>
     </div>
 
-    <!-- Tela de sucesso: cadastro em análise -->
+    <!-- Tela de sucesso: documentos enviados → pagamento da taxa -->
     <div class="card stack" id="box-ok" style="display:none;text-align:center">
-      <div style="font-size:2.4rem">🕵️</div>
-      <h1 style="margin:0">Cadastro em análise</h1>
+      <div style="font-size:2.4rem">📄</div>
+      <h1 style="margin:0">Documentos enviados!</h1>
       <p class="muted" id="ok-msg">
-        Recebemos seus dados e documentos. A gestão vai revisar e liberar seu acesso —
-        você poderá reservar consultórios assim que for aprovado.
+        Agora falta o pagamento da taxa única de cadastro — depois dele a verificação
+        dos seus dados roda automaticamente e você já assina o contrato digital.
       </p>
-      <a class="btn btn-neutro btn-bloco" href="login.html">Ir para o login</a>
+      <a class="btn btn-primario btn-bloco" href="pagamento-cadastro.html" id="ok-btn">Ir para o pagamento</a>
     </div>
   </main>
 
@@ -141,9 +146,10 @@
       var fRg = document.getElementById("doc-rg").files[0];
       var fCart = document.getElementById("doc-carteirinha").files[0];
       var fComp = document.getElementById("doc-comprovante").files[0];
+      var fSelfie = document.getElementById("doc-selfie").files[0];
 
       if (!nome || !telefone || !profissao || !cro || !email || !senha) { mostrar("Preencha todos os campos obrigatórios."); return; }
-      if (!fRg || !fCart || !fComp) { mostrar("Envie os três documentos."); return; }
+      if (!fRg || !fCart || !fComp || !fSelfie) { mostrar("Envie os três documentos e a selfie."); return; }
 
       if (!DB || !DB.pronto) { mostrar("Sem banco conectado — cadastro indisponível no modo demonstração."); return; }
 
@@ -175,23 +181,29 @@
           document.getElementById("box-form").style.display = "none";
           document.getElementById("ok-msg").textContent =
             "Enviamos um e-mail de confirmação para " + email + ". Confirme o e-mail e depois faça login para enviar seus documentos e concluir o cadastro.";
+          document.getElementById("ok-btn").style.display = "none";
           document.getElementById("box-ok").style.display = "block";
           return;
         }
 
-        // 3) sobe os 3 documentos na pasta do usuário
+        // 3) sobe os documentos + selfie na pasta do usuário
         var rgUrl = await subirDoc(user.id, "rg", fRg);
         var croUrl = await subirDoc(user.id, "carteirinha", fCart);
         var compUrl = await subirDoc(user.id, "comprovante", fComp);
+        var selfieUrl = await subirDoc(user.id, "selfie", fSelfie);
 
-        // 4) cria/atualiza o perfil (status default = em_aprovacao)
+        // 4) cria/atualiza o perfil — docs_enviados = início do onboarding
+        //    automático (pagamento → verificação → contrato). O trigger
+        //    perfis_guard garante que cliente só entra como 'cliente'.
         var up = await DB.client.from("perfis").upsert({
           user_id: user.id,
           nome: nome,
           telefone: telefone,
           tipo: "cliente",
+          status: "docs_enviados",
           cro: cro,
           profissao: profissao,
+          selfie_url: selfieUrl,
           docs: { rg_url: rgUrl, cro_url: croUrl, comprovante_url: compUrl }
         }, { onConflict: "user_id" });
         if (up.error) throw up.error;

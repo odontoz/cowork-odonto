@@ -15,7 +15,11 @@
     @media (min-width: 640px) { .form-inline { grid-template-columns: repeat(3, 1fr); } .form-inline .full { grid-column: 1 / -1; } }
     .pend { border: 1px solid var(--linha); border-radius: var(--raio); padding: 14px; margin-bottom: 12px; }
     .pend .docs a { display: inline-block; margin-right: 10px; font-size: .9rem; }
-    .pend .acoes { display: flex; gap: 8px; margin-top: 10px; }
+    .pend .acoes { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+    .comp { width: 100%; border-collapse: collapse; font-size: .85rem; margin-top: 10px; }
+    .comp th, .comp td { border: 1px solid var(--linha); padding: 6px 8px; text-align: left; }
+    .comp th { background: var(--fundo); font-weight: 700; }
+    .comp td.diverge { background: #fbe4e4; font-weight: 700; }
   </style>
 </head>
 <body data-no-wpp>
@@ -91,6 +95,20 @@
     <section class="card" id="sec-pendentes" style="margin-top:24px">
       <div class="row-between"><h2 style="margin:0">Cadastros pendentes</h2><span class="badge badge-amarelo" id="pend-count">0</span></div>
       <div id="lista-pendentes" style="margin-top:12px"></div>
+    </section>
+
+    <!-- Fila de exceção da verificação automática (brief-04) -->
+    <section class="card" id="sec-fila" style="margin-top:24px">
+      <div class="row-between">
+        <h2 style="margin:0">Verificação de cadastros — fila de exceção</h2>
+        <span class="badge badge-amarelo" id="fila-count">0</span>
+      </div>
+      <p class="muted" style="font-size:.85rem;margin:6px 0 0">
+        Cadastros com a taxa PAGA cuja verificação automática não aprovou sozinha
+        (divergência ou APIs pendentes). Compare documento × conselho × formulário
+        e decida — aprovar gera o contrato digital na hora.
+      </p>
+      <div id="lista-fila" style="margin-top:12px"></div>
     </section>
   </main>
 
@@ -221,6 +239,131 @@
       if (c.textContent === "0") document.getElementById("lista-pendentes").innerHTML = '<p class="muted">Nenhum cadastro aguardando aprovação.</p>';
     }
 
+    // ============ FILA DE EXCEÇÃO DA VERIFICAÇÃO (brief-04) ============
+    async function edge(fn, corpo) {
+      var s = await DB.sessao();
+      var r = await fetch(DB.config.SUPABASE_URL + "/functions/v1/" + fn, {
+        method: "POST",
+        headers: { "Content-Type": "application/json",
+          "Authorization": "Bearer " + (s ? s.access_token : ""),
+          "apikey": DB.config.SUPABASE_ANON_KEY },
+        body: JSON.stringify(corpo || {})
+      });
+      var j = {}; try { j = await r.json(); } catch (e) {}
+      return { status: r.status, body: j };
+    }
+
+    async function carregarFila() {
+      var box = document.getElementById("lista-fila");
+      if (!(DB && DB.pronto)) { box.innerHTML = '<p class="muted">Disponível com o banco conectado.</p>'; return; }
+      var r = await DB.client.from("perfis")
+        .select("id,nome,telefone,cro,profissao,docs,selfie_url,status,criado_em")
+        .in("status", ["fila_revisao_humana","pago_em_verificacao"])
+        .order("criado_em", { ascending: true });
+      var lista = r.data || [];
+      document.getElementById("fila-count").textContent = lista.length;
+      if (!lista.length) { box.innerHTML = '<p class="muted">Ninguém aguardando revisão. 🎉</p>'; return; }
+      box.innerHTML = "";
+      for (var i = 0; i < lista.length; i++) box.appendChild(await cardFila(lista[i]));
+    }
+
+    function normNome(s) {
+      return String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "")
+        .toLowerCase().replace(/[^a-z\s]/g, " ").replace(/\s+/g, " ").trim();
+    }
+
+    async function cardFila(p) {
+      var div = document.createElement("div");
+      div.className = "pend";
+
+      // última verificação consolidada (fonte 'sistema') = comparação 3 fontes
+      var vr = await DB.client.from("verificacoes")
+        .select("fonte,resultado,payload,score,criado_em")
+        .eq("cliente_id", p.id).order("criado_em", { ascending: false }).limit(10);
+      var verifs = vr.data || [];
+      var sis = verifs.find(function (v) { return v.fonte === "sistema" && v.payload && v.payload.nome_form; });
+      var pendCfg = verifs.some(function (v) { return v.resultado === "pendente_config"; });
+      var pay = (sis && sis.payload) || {};
+
+      // links de documentos + selfie
+      var links = [];
+      var mapa = { rg_url: "RG", cro_url: "Carteirinha", comprovante_url: "Comprovante" };
+      var docs = p.docs || {};
+      for (var k in mapa) {
+        if (docs[k]) { var u = await DB.urlAssinada("documentos", docs[k], 3600);
+          if (u) links.push('<a href="' + u + '" target="_blank" rel="noopener">' + mapa[k] + " ↗</a>"); }
+      }
+      if (p.selfie_url) { var us = await DB.urlAssinada("documentos", p.selfie_url, 3600);
+        if (us) links.push('<a href="' + us + '" target="_blank" rel="noopener">Selfie ↗</a>'); }
+
+      // tabela lado a lado: formulário × conselho (API) × documento (IA)
+      function linha(rotulo, form, api, doc) {
+        var base = normNome(form);
+        function cel(v) {
+          if (v === null || v === undefined || v === "") return "<td class='muted'>—</td>";
+          var d = base && normNome(v) && normNome(v) !== base;
+          return "<td class='" + (d ? "diverge" : "") + "'>" + esc(v) + "</td>";
+        }
+        return "<tr><th>" + rotulo + "</th><td>" + esc(form || "—") + "</td>" + cel(api) + cel(doc) + "</tr>";
+      }
+      var tabela = "";
+      if (sis) {
+        tabela = '<table class="comp"><tr><th></th><th>Formulário</th><th>Conselho (API)</th><th>Documento (IA)</th></tr>' +
+          linha("Nome", pay.nome_form, pay.nome_oficial, pay.nome_doc) +
+          linha("Inscrição", pay.inscricao_form, null, pay.inscricao_doc) +
+          "<tr><th>CPF (doc)</th><td class='muted'>—</td><td class='muted'>—</td><td>" + esc(pay.cpf_doc || "—") + "</td></tr>" +
+          "<tr><th>Situação no conselho</th><td class='muted'>—</td><td>" + esc(pay.situacao || "—") + "</td><td class='muted'>—</td></tr>" +
+          "<tr><th>Score</th><td colspan='3'>" + (sis.score != null ? Number(sis.score).toFixed(2) + " (mínimo 0,85)" : "—") + "</td></tr></table>";
+      } else if (pendCfg) {
+        tabela = '<p class="aviso aviso-info" style="margin:10px 0 0">Verificação automática ainda sem APIs configuradas — revisar manualmente pelos documentos.</p>';
+      }
+
+      div.innerHTML =
+        '<div class="row-between"><strong>' + esc(p.nome) + '</strong><span class="badge ' +
+          (p.status === "pago_em_verificacao" ? "badge-cinza" : "badge-amarelo") + '">' +
+          (p.status === "pago_em_verificacao" ? "verificando" : "revisão humana") + "</span></div>" +
+        '<p class="muted" style="margin:4px 0">' + esc(p.cro || "sem nº") + " · " + esc(p.profissao || "") + " · " + esc(p.telefone || "") + " · <strong>taxa PAGA</strong></p>" +
+        '<div class="docs">' + (links.length ? links.join("") : '<span class="muted">sem documentos</span>') + "</div>" +
+        tabela +
+        '<div class="acoes">' +
+          '<button class="btn btn-primario btn-aprovar">Aprovar + gerar contrato</button>' +
+          '<button class="btn btn-neutro btn-reverificar">Re-verificar</button>' +
+          '<button class="btn btn-neutro btn-rejeitar">Rejeitar</button>' +
+        "</div>";
+
+      div.querySelector(".btn-aprovar").addEventListener("click", async function () {
+        var b = this; b.disabled = true; b.textContent = "Aprovando…";
+        var up = await DB.client.from("perfis").update({ status: "aprovado", atualizado_em: new Date().toISOString() }).eq("id", p.id);
+        if (up.error) { alert("Erro: " + up.error.message); b.disabled = false; b.textContent = "Aprovar + gerar contrato"; return; }
+        var g = await edge("gerar-contrato", { acao: "gerar", perfil_id: p.id });
+        if (g.status !== 200) alert("Perfil aprovado, mas o contrato falhou: " + (g.body.erro || g.status));
+        div.remove(); ajustarContador();
+      });
+      div.querySelector(".btn-reverificar").addEventListener("click", async function () {
+        var b = this; b.disabled = true; b.textContent = "Verificando…";
+        var v = await edge("verificar-cadastro", { perfil_id: p.id });
+        alert(v.status === 200 ? ("Resultado: " + (v.body.resultado || "ok")) : ("Erro: " + (v.body.erro || v.status)));
+        await carregarFila();
+      });
+      div.querySelector(".btn-rejeitar").addEventListener("click", async function () {
+        var motivo = prompt("Motivo da rejeição (o profissional vê essa mensagem):");
+        if (motivo === null) return;
+        var up = await DB.client.from("perfis").update({
+          status: "recusado", motivo_rejeicao: motivo || "Cadastro não aprovado na revisão.",
+          atualizado_em: new Date().toISOString()
+        }).eq("id", p.id);
+        if (up.error) { alert("Erro: " + up.error.message); return; }
+        div.remove(); ajustarContador();
+      });
+
+      function ajustarContador() {
+        var c = document.getElementById("fila-count");
+        c.textContent = Math.max(0, (parseInt(c.textContent, 10) || 1) - 1);
+        if (c.textContent === "0") document.getElementById("lista-fila").innerHTML = '<p class="muted">Ninguém aguardando revisão. 🎉</p>';
+      }
+      return div;
+    }
+
     // ============ FORM BLOQUEIO ============
     function toggle(id, mostrar) { document.getElementById(id).style.display = mostrar ? "block" : "none"; }
     document.getElementById("btn-bloqueio").addEventListener("click", function () {
@@ -304,6 +447,7 @@
 
       await carregarDia();
       await carregarPendentes();
+      await carregarFila();
     })();
   })();
   </script>

@@ -75,9 +75,29 @@
     <section class="card">
       <h2>Minhas faturas</h2>
       <div id="lista-faturas" class="stack"></div>
-      <p class="muted" style="font-size:.8rem;margin:16px 0 0">
-        Pagamento via Pix fica disponível quando o gateway estiver conectado.
+      <div id="aviso-pagto" class="aviso aviso-info" style="display:none;margin-top:12px"></div>
+      <!-- QR Pix da fatura selecionada -->
+      <div id="box-qr-fatura" style="display:none;margin-top:16px;text-align:center">
+        <hr style="border:none;border-top:1px solid var(--linha);margin-bottom:16px">
+        <p style="margin:0 0 8px;font-weight:800">Pagar <span id="qr-fatura-ref">—</span> via Pix</p>
+        <img id="qr-fatura-img" alt="QR Code Pix" style="width:220px;max-width:100%;border:1px solid var(--linha);border-radius:8px;padding:8px;background:#fff">
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <input id="qr-fatura-payload" type="text" readonly onclick="this.select()" style="flex:1;font-size:.8rem;color:var(--cinza)">
+          <button class="btn btn-neutro" id="btn-copiar-fatura">Copiar</button>
+        </div>
+        <p class="muted" style="font-size:.85rem;margin-top:12px">Aguardando o pagamento… a fatura baixa sozinha.</p>
+      </div>
+    </section>
+
+    <!-- Assinatura de plano (checkout do gateway — cartão nunca passa por aqui) -->
+    <section class="card" id="sec-planos" style="display:none">
+      <h2>Assinar um plano mensal</h2>
+      <p class="muted" style="font-size:.9rem;margin-top:0">
+        A assinatura é cobrada todo mês no cartão, em ambiente seguro do gateway de
+        pagamentos — seus dados de cartão nunca passam pelo nosso sistema.
       </p>
+      <div id="lista-planos" class="stack"></div>
+      <div id="aviso-planos" class="aviso aviso-info" style="display:none;margin-top:12px"></div>
     </section>
   </main>
 
@@ -124,9 +144,9 @@
     async function carregar(perfil) {
       PERFIL = perfil;
       var profTxt = { odonto:"Odontologia", hof:"HOF", estetica:"Estética" }[perfil && perfil.profissao] || "Profissional";
-      var assP = DB.client.from("assinaturas").select("produto_id,produtos_preco(nome,valor,regras)").eq("status","ativa").limit(1);
+      var assP = DB.client.from("assinaturas").select("produto_id,status,produtos_preco(nome,valor,regras)").in("status",["ativa","inadimplente"]).limit(1);
       var horaP = DB.client.from("produtos_preco").select("valor").eq("tipo","hora").eq("ativo",true).limit(1);
-      var fatP = DB.client.from("faturas").select("competencia,valor_total,status,vencimento,itens").order("competencia", { ascending: false });
+      var fatP = DB.client.from("faturas").select("id,competencia,valor_total,status,vencimento,itens").order("competencia", { ascending: false });
       var r = await Promise.all([assP, horaP, fatP]);
       var ass = r[0].data && r[0].data[0];
       if (ass && ass.produtos_preco) {
@@ -207,15 +227,111 @@
     function renderFaturas() {
       var box = document.getElementById("lista-faturas");
       if (!FATURAS.length) { box.innerHTML = '<p class="muted">Você ainda não tem faturas.</p>'; return; }
-      box.innerHTML = FATURAS.map(function (f) {
+      box.innerHTML = FATURAS.map(function (f, i) {
         var st = f.status === "aberta" ? "em aberto" : f.status;
         var sub = f.status === "paga" ? "pago" : (f.vencimento ? "vence " + (String(f.vencimento).slice(0,10).split("-").reverse().join("/")) : "");
-        var podePagar = f.status !== "paga" && f.status !== "cancelada";
-        var btn = podePagar ? '<button class="btn btn-primario" disabled title="Disponível quando o gateway conectar">Pagar via Pix</button>' : "";
+        var podePagar = f.id && f.status !== "paga" && f.status !== "cancelada";
+        var btn = podePagar ? '<button class="btn btn-primario btn-pagar" data-i="' + i + '">Pagar via Pix</button>' : "";
         return '<div class="row-between"><div><strong>' + competencia(String(f.competencia).slice(0,7)) + "</strong><br>" +
                '<small class="muted">' + brl(f.valor_total) + (sub ? " · " + sub : "") + "</small></div>" +
                '<div class="row" style="align-items:center">' + badge(st) + btn + "</div></div>";
       }).join("");
+      Array.prototype.forEach.call(box.querySelectorAll(".btn-pagar"), function (b) {
+        b.addEventListener("click", function () { pagarFatura(FATURAS[+b.dataset.i], b); });
+      });
+    }
+
+    // ============ PAGAMENTO REAL (Edge Function cobranca) ============
+    async function edge(fn, corpo) {
+      var s = await DB.sessao();
+      var r = await fetch(DB.config.SUPABASE_URL + "/functions/v1/" + fn, {
+        method: "POST",
+        headers: { "Content-Type": "application/json",
+          "Authorization": "Bearer " + (s ? s.access_token : ""),
+          "apikey": DB.config.SUPABASE_ANON_KEY },
+        body: JSON.stringify(corpo || {})
+      });
+      var j = {}; try { j = await r.json(); } catch (e) {}
+      return { status: r.status, body: j };
+    }
+    function avisoPagto(msg) {
+      var el = document.getElementById("aviso-pagto");
+      el.textContent = msg; el.style.display = "block";
+    }
+    var pollFatura = null;
+    async function pagarFatura(f, btn) {
+      if (!(DB && DB.pronto)) { avisoPagto("Disponível com o banco conectado."); return; }
+      btn.disabled = true; btn.textContent = "Gerando…";
+      var r = await edge("cobranca", { acao: "fatura", fatura_id: f.id });
+      if (r.status === 503) {
+        avisoPagto("Pagamento online ainda não disponível — combine o Pix com a equipe pelo WhatsApp.");
+        btn.textContent = "Pagar via Pix"; btn.disabled = false; return;
+      }
+      if (r.status !== 200 || !r.body.qr) {
+        avisoPagto("Não foi possível gerar a cobrança: " + (r.body.erro || r.status));
+        btn.textContent = "Pagar via Pix"; btn.disabled = false; return;
+      }
+      document.getElementById("qr-fatura-ref").textContent = competencia(String(f.competencia).slice(0,7)) + " (" + brl(f.valor_total) + ")";
+      document.getElementById("qr-fatura-img").src = "data:image/png;base64," + r.body.qr.encodedImage;
+      document.getElementById("qr-fatura-payload").value = r.body.qr.payload;
+      document.getElementById("box-qr-fatura").style.display = "block";
+      btn.textContent = "Pagar via Pix"; btn.disabled = false;
+      // polling padrão do projeto: fatura baixa sozinha quando o webhook chegar
+      if (pollFatura) clearInterval(pollFatura);
+      pollFatura = setInterval(async function () {
+        var q = await DB.client.from("faturas").select("status").eq("id", f.id).maybeSingle();
+        if (q.data && q.data.status === "paga") {
+          clearInterval(pollFatura); pollFatura = null;
+          document.getElementById("box-qr-fatura").style.display = "none";
+          var idx = FATURAS.findIndex(function (x) { return x.id === f.id; });
+          if (idx >= 0) FATURAS[idx].status = "paga";
+          renderFaturas();
+        }
+      }, 4000);
+    }
+    document.getElementById("btn-copiar-fatura").addEventListener("click", function () {
+      var inp = document.getElementById("qr-fatura-payload");
+      inp.select();
+      try { navigator.clipboard.writeText(inp.value); } catch (e) { document.execCommand("copy"); }
+      var b = this; b.textContent = "Copiado!"; setTimeout(function () { b.textContent = "Copiar"; }, 2000);
+    });
+
+    // ============ ASSINATURA DE PLANO (checkout do gateway) ============
+    async function renderPlanos() {
+      if (!(DB && DB.pronto)) return;
+      if (PLANO.horas) return; // já tem plano ativo → não oferece
+      var r = await DB.client.from("produtos_preco")
+        .select("id,nome,valor,regras").eq("tipo", "plano_mensal").eq("ativo", true).order("valor");
+      var planos = r.data || [];
+      if (!planos.length) return;
+      var sec = document.getElementById("sec-planos");
+      var box = document.getElementById("lista-planos");
+      box.innerHTML = planos.map(function (p, i) {
+        var horas = p.regras && p.regras.horas_mes ? p.regras.horas_mes + " h/mês" : "";
+        return '<div class="row-between"><div><strong>' + esc(p.nome) + "</strong><br>" +
+          '<small class="muted">' + brl(p.valor) + "/mês" + (horas ? " · " + horas : "") + "</small></div>" +
+          '<button class="btn btn-primario btn-assinar" data-i="' + i + '">Assinar no cartão</button></div>';
+      }).join("");
+      Array.prototype.forEach.call(box.querySelectorAll(".btn-assinar"), function (b) {
+        b.addEventListener("click", async function () {
+          b.disabled = true; b.textContent = "Abrindo…";
+          var resp = await edge("cobranca", { acao: "assinatura", produto_id: planos[+b.dataset.i].id });
+          var av = document.getElementById("aviso-planos");
+          if (resp.status === 503) {
+            av.textContent = "Assinatura online ainda não disponível — fale com a equipe para ativar seu plano.";
+            av.style.display = "block";
+          } else if (resp.status === 200 && resp.body.url) {
+            window.open(resp.body.url, "_blank", "noopener");
+            av.textContent = "Checkout aberto em nova aba. Assim que o primeiro pagamento for aprovado, seu plano ativa sozinho.";
+            av.style.display = "block";
+          } else {
+            av.textContent = "Não foi possível abrir o checkout: " + (resp.body.erro || resp.status);
+            av.style.display = "block";
+          }
+          b.disabled = false; b.textContent = "Assinar no cartão";
+        });
+      });
+      sec.style.display = "block";
     }
 
     async function recarregarMes() {
@@ -237,6 +353,7 @@
       var perfil = await DB.exigirLogin();
       await carregar(perfil);
       renderFaturas();
+      await renderPlanos();
       elMes.addEventListener("change", recarregarMes);
       await recarregarMes();
       app.hidden = false;

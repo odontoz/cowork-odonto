@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Contrato digital — ClinicShare</title>
+  <meta name="theme-color" content="#0E2A47">
+  <link rel="icon" type="image/png" sizes="32x32" href="../../assets/img/favicon-32.png">
+  <link rel="apple-touch-icon" href="../../assets/img/favicon-clinicshare.png">
+  <link rel="manifest" href="../../manifest.webmanifest">
+  <link rel="stylesheet" href="../../assets/css/base.css">
+  <script src="../../assets/js/brand.js" defer></script>
+  <style>
+    .doc { border: 1px solid var(--linha); border-radius: var(--raio); width: 100%; height: 60vh; background: #fff; }
+    .hash { font-family: monospace; font-size: .7rem; color: var(--cinza); word-break: break-all; }
+    .check { display: flex; gap: 10px; align-items: flex-start; font-size: .95rem; }
+    .check input { margin-top: 4px; }
+  </style>
+</head>
+<body data-no-wpp>
+  <header class="topbar">
+    <div class="container">
+      <a class="marca" href="index.html">Coworking <span>Odontológico</span></a>
+      <a class="muted" href="index.html">← Início</a>
+    </div>
+  </header>
+
+  <main class="container container-sm" style="padding:24px 16px" id="app" hidden>
+    <section class="card stack">
+      <div class="row-between">
+        <h1 style="margin:0">Contrato digital</h1>
+        <span class="badge" id="badge-status">—</span>
+      </div>
+      <div id="aviso" class="aviso aviso-atencao" style="display:none"></div>
+
+      <iframe class="doc" id="doc" sandbox="" title="Contrato de uso de consultório"></iframe>
+      <p class="hash">Integridade (SHA-256): <span id="hash">—</span></p>
+
+      <div id="box-aceite" style="display:none" class="stack">
+        <label class="check">
+          <input type="checkbox" id="chk-li">
+          <span>Li o contrato acima e <strong>aceito</strong> seus termos. Entendo que
+          este aceite eletrônico, com registro de data, IP e dispositivo, vale como
+          minha assinatura.</span>
+        </label>
+        <button class="btn btn-primario btn-bloco" id="btn-aceitar" disabled>Assinar contrato</button>
+      </div>
+
+      <div id="box-assinado" class="stack" style="display:none;text-align:center">
+        <div class="aviso aviso-info">
+          Contrato assinado em <strong id="assinado-em">—</strong> · válido até
+          <strong id="valido-ate">—</strong>. A renovação é sempre avisada com 30 dias
+          de antecedência.
+        </div>
+        <a class="btn btn-primario btn-bloco" href="reservar.html">Ir para as reservas</a>
+      </div>
+    </section>
+  </main>
+
+  <script src="../../config/config.js" onerror="console.warn('config.js ausente — modo demonstração')"></script>
+  <script src="../../assets/vendor/supabase.js"></script>
+  <script src="../../assets/js/db.js"></script>
+  <script>
+  (function () {
+    var DB = window.EnjoyDB;
+    var app = document.getElementById("app");
+    var CONTRATO = null;
+
+    function aviso(m, tipo) {
+      var el = document.getElementById("aviso");
+      el.textContent = m; el.className = "aviso " + (tipo || "aviso-atencao"); el.style.display = "block";
+    }
+    function dataBR(iso) {
+      if (!iso) return "—";
+      var p = String(iso).slice(0, 10).split("-");
+      return p[2] + "/" + p[1] + "/" + p[0];
+    }
+
+    async function edge(fn, corpo) {
+      var s = await DB.sessao();
+      var r = await fetch(DB.config.SUPABASE_URL + "/functions/v1/" + fn, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + (s ? s.access_token : ""),
+          "apikey": DB.config.SUPABASE_ANON_KEY
+        },
+        body: JSON.stringify(corpo || {})
+      });
+      var j = {};
+      try { j = await r.json(); } catch (e) {}
+      return { status: r.status, body: j };
+    }
+
+    async function carregarContrato(perfil) {
+      var r = await DB.client.from("contratos")
+        .select("id,status,html,html_hash,aceite_em,valido_ate")
+        .eq("cliente_id", perfil.id)
+        .order("criado_em", { ascending: false }).limit(1);
+      var c = r.data && r.data[0];
+
+      if (!c && perfil.status === "aprovado") {
+        // aprovado sem contrato ainda → pede a geração (o dono pode)
+        var g = await edge("gerar-contrato", { acao: "gerar", perfil_id: perfil.id });
+        if (g.status === 200) {
+          return carregarContrato(perfil);
+        }
+        aviso("Não foi possível gerar o contrato: " + (g.body.erro || g.status));
+        return null;
+      }
+      return c || null;
+    }
+
+    function render(c) {
+      CONTRATO = c;
+      var badge = document.getElementById("badge-status");
+      document.getElementById("doc").srcdoc = c.html;
+      document.getElementById("hash").textContent = c.html_hash;
+      if (c.status === "aceito") {
+        badge.textContent = "assinado"; badge.className = "badge badge-verde";
+        document.getElementById("assinado-em").textContent = dataBR(c.aceite_em);
+        document.getElementById("valido-ate").textContent = dataBR(c.valido_ate);
+        document.getElementById("box-aceite").style.display = "none";
+        document.getElementById("box-assinado").style.display = "block";
+      } else {
+        badge.textContent = "aguardando assinatura"; badge.className = "badge badge-amarelo";
+        document.getElementById("box-aceite").style.display = "block";
+      }
+    }
+
+    document.getElementById("chk-li").addEventListener("change", function () {
+      document.getElementById("btn-aceitar").disabled = !this.checked;
+    });
+
+    document.getElementById("btn-aceitar").addEventListener("click", async function () {
+      var btn = this;
+      btn.disabled = true; btn.textContent = "Assinando…";
+      var r = await edge("gerar-contrato", { acao: "aceitar", contrato_id: CONTRATO.id });
+      if (r.status !== 200) {
+        aviso("Não foi possível assinar: " + (r.body.erro || r.status));
+        btn.disabled = false; btn.textContent = "Assinar contrato";
+        return;
+      }
+      DB.limparCachePerfil();
+      CONTRATO.status = "aceito";
+      CONTRATO.aceite_em = new Date().toISOString();
+      CONTRATO.valido_ate = r.body.valido_ate;
+      render(CONTRATO);
+    });
+
+    // ---- boot --------------------------------------------------------------
+    (async function () {
+      if (!(DB && DB.pronto)) {
+        aviso("Modo demonstração — o banco real não está conectado.", "aviso-info");
+        app.hidden = false; return;
+      }
+      var perfil = await DB.exigirLogin();
+      if (!perfil) { location.replace("index.html"); return; }
+      var c = await carregarContrato(perfil);
+      if (!c) {
+        aviso(perfil.status === "ativo"
+          ? "Nenhum contrato encontrado — fale com a equipe."
+          : "Seu contrato fica disponível assim que o cadastro for aprovado.", "aviso-info");
+        app.hidden = false; return;
+      }
+      render(c);
+      app.hidden = false;
+    })();
+  })();
+  </script>
+</body>
+</html>

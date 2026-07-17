@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pagamento do cadastro — ClinicShare</title>
+  <meta name="theme-color" content="#0E2A47">
+  <link rel="icon" type="image/png" sizes="32x32" href="../../assets/img/favicon-32.png">
+  <link rel="apple-touch-icon" href="../../assets/img/favicon-clinicshare.png">
+  <link rel="manifest" href="../../manifest.webmanifest">
+  <link rel="stylesheet" href="../../assets/css/base.css">
+  <script src="../../assets/js/brand.js" defer></script>
+  <style>
+    .qr-box { text-align: center; }
+    .qr-box img { width: 240px; height: 240px; max-width: 100%; border: 1px solid var(--linha); border-radius: var(--raio); padding: 8px; background: #fff; }
+    .copia { display: flex; gap: 8px; margin-top: 12px; }
+    .copia input { flex: 1; font-size: .8rem; color: var(--cinza); }
+    .passos { list-style: none; padding: 0; margin: 12px 0 0; }
+    .passos li { padding: 6px 0 6px 28px; position: relative; }
+    .passos li::before { content: "✓"; position: absolute; left: 4px; color: var(--verde); font-weight: 800; }
+    .pulso { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--azul); margin-right: 8px; animation: pulso 1.2s infinite; vertical-align: middle; }
+    @keyframes pulso { 0%,100% { opacity: .25 } 50% { opacity: 1 } }
+    .centro { text-align: center; }
+    .emoji-g { font-size: 2.4rem; }
+  </style>
+</head>
+<body data-no-wpp>
+  <header class="topbar">
+    <div class="container">
+      <a class="marca" href="index.html">Coworking <span>Odontológico</span></a>
+      <a class="muted" href="index.html">← Início</a>
+    </div>
+  </header>
+
+  <main class="container container-sm" style="padding:32px 16px" id="app" hidden>
+
+    <!-- ETAPA 1: pagar a taxa -->
+    <section class="card stack" id="view-pagar" style="display:none">
+      <div>
+        <h1 style="margin:0">Pagamento do cadastro</h1>
+        <p class="muted">Última etapa antes de liberar suas reservas.</p>
+      </div>
+      <div class="row-between">
+        <div>
+          <p class="muted" style="margin:0;font-size:.85rem">Taxa única de cadastro</p>
+          <p style="margin:0;font-size:1.6rem;font-weight:800" id="valor-taxa">—</p>
+        </div>
+        <span class="badge badge-verde">Pix</span>
+      </div>
+      <ul class="passos">
+        <li>Análise dos seus documentos e verificação automática no conselho</li>
+        <li>Contrato digital e liberação do app de reservas</li>
+        <li>Cadastro de acesso ao espaço</li>
+      </ul>
+      <div id="aviso-pagar" class="aviso aviso-atencao" style="display:none"></div>
+      <button class="btn btn-primario btn-bloco" id="btn-gerar">Gerar QR Code Pix</button>
+
+      <div id="box-qr" style="display:none">
+        <hr style="border:none;border-top:1px solid var(--linha)">
+        <div class="qr-box">
+          <img id="qr-img" alt="QR Code Pix">
+          <p class="muted" style="font-size:.85rem">Escaneie com o app do seu banco<br>ou use o copia-e-cola:</p>
+        </div>
+        <div class="copia">
+          <input id="qr-payload" type="text" readonly onclick="this.select()">
+          <button class="btn btn-neutro" id="btn-copiar">Copiar</button>
+        </div>
+        <p class="centro muted" style="margin-top:16px;font-size:.9rem">
+          <span class="pulso"></span>Aguardando o pagamento… a página avança sozinha.
+        </p>
+      </div>
+    </section>
+
+    <!-- ETAPA 2: pago, verificação automática rodando -->
+    <section class="card stack centro" id="view-verificando" style="display:none">
+      <div class="emoji-g">🔎</div>
+      <h1 style="margin:0">Pagamento confirmado!</h1>
+      <p class="muted">Estamos verificando seu registro profissional e seus documentos
+        automaticamente. Isso costuma levar menos de um minuto.</p>
+      <p class="centro muted" style="font-size:.9rem"><span class="pulso"></span>Verificando…</p>
+    </section>
+
+    <!-- Exceção: revisão humana -->
+    <section class="card stack centro" id="view-fila" style="display:none">
+      <div class="emoji-g">🕵️</div>
+      <h1 style="margin:0">Cadastro em análise</h1>
+      <p class="muted">Seu pagamento foi confirmado e seus dados estão com a nossa equipe
+        para uma checagem rápida. Você recebe o retorno em breve — pode fechar esta página.</p>
+      <a class="btn btn-neutro btn-bloco" href="index.html">Voltar ao início</a>
+    </section>
+
+    <!-- Aprovado: contrato -->
+    <section class="card stack centro" id="view-aprovado" style="display:none">
+      <div class="emoji-g">🎉</div>
+      <h1 style="margin:0">Cadastro aprovado!</h1>
+      <p class="muted">Falta só assinar o contrato digital para liberar suas reservas.</p>
+      <a class="btn btn-primario btn-bloco" href="contrato.html">Ler e assinar o contrato</a>
+    </section>
+
+    <!-- Ativo -->
+    <section class="card stack centro" id="view-ativo" style="display:none">
+      <div class="emoji-g">🦷</div>
+      <h1 style="margin:0">Tudo pronto!</h1>
+      <p class="muted">Seu cadastro está ativo. Bem-vindo(a) à ClinicShare.</p>
+      <a class="btn btn-primario btn-bloco" href="reservar.html">Fazer minha primeira reserva</a>
+    </section>
+
+    <!-- Recusado -->
+    <section class="card stack centro" id="view-recusado" style="display:none">
+      <div class="emoji-g">😕</div>
+      <h1 style="margin:0">Não foi possível aprovar</h1>
+      <p class="muted" id="motivo-recusa">Entre em contato com a equipe para entender o motivo.</p>
+      <a class="btn btn-neutro btn-bloco" data-brand-href="whatsapp:Olá! Meu cadastro na ClinicShare não foi aprovado e gostaria de entender o motivo.">Falar com a equipe</a>
+    </section>
+  </main>
+
+  <script src="../../config/config.js" onerror="console.warn('config.js ausente — modo demonstração')"></script>
+  <script src="../../assets/vendor/supabase.js"></script>
+  <script src="../../assets/js/db.js"></script>
+  <script>
+  (function () {
+    var DB = window.EnjoyDB;
+    var app = document.getElementById("app");
+    var PERFIL = null;
+    var POLL_MS = 4000; // padrão do projeto: polling incremental (sem realtime+RLS)
+    var pollTimer = null;
+
+    function ver(id) {
+      ["view-pagar","view-verificando","view-fila","view-aprovado","view-ativo","view-recusado"]
+        .forEach(function (v) { document.getElementById(v).style.display = v === id ? "block" : "none"; });
+    }
+    function brl(n) { return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n || 0); }
+    function avisoPagar(msg, tipo) {
+      var el = document.getElementById("aviso-pagar");
+      el.textContent = msg; el.className = "aviso " + (tipo || "aviso-atencao"); el.style.display = "block";
+    }
+
+    async function edge(fn, corpo) {
+      var s = await DB.sessao();
+      var r = await fetch(DB.config.SUPABASE_URL + "/functions/v1/" + fn, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + (s ? s.access_token : ""),
+          "apikey": DB.config.SUPABASE_ANON_KEY
+        },
+        body: JSON.stringify(corpo || {})
+      });
+      var j = {};
+      try { j = await r.json(); } catch (e) {}
+      return { status: r.status, body: j };
+    }
+
+    // Roteia a view pelo status do perfil (máquina de estados do onboarding)
+    function rotear(status) {
+      if (status === "ativo") { ver("view-ativo"); pararPoll(); return; }
+      if (status === "aprovado" || status === "contrato_assinado") { ver("view-aprovado"); pararPoll(); return; }
+      if (status === "recusado") {
+        var p = document.getElementById("motivo-recusa");
+        if (PERFIL && PERFIL.motivo_rejeicao) p.textContent = PERFIL.motivo_rejeicao;
+        ver("view-recusado"); pararPoll(); return;
+      }
+      if (status === "fila_revisao_humana") { ver("view-fila"); iniciarPoll(); return; }
+      if (status === "pago_em_verificacao") { ver("view-verificando"); iniciarPoll(); return; }
+      // rascunho / docs_enviados / em_aprovacao / aguardando_pagamento → pagar
+      ver("view-pagar");
+    }
+
+    async function atualizarPerfil() {
+      var r = await DB.client.from("perfis")
+        .select("id,status,motivo_rejeicao").eq("user_id", (await DB.usuario()).id).maybeSingle();
+      if (r.data) {
+        var mudou = !PERFIL || PERFIL.status !== r.data.status;
+        PERFIL = Object.assign(PERFIL || {}, r.data);
+        if (mudou) rotear(r.data.status);
+      }
+    }
+
+    function iniciarPoll() {
+      if (pollTimer) return;
+      pollTimer = setInterval(atualizarPerfil, POLL_MS);
+    }
+    function pararPoll() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
+
+    // ---- gerar QR ----------------------------------------------------------
+    document.getElementById("btn-gerar").addEventListener("click", async function () {
+      var btn = this;
+      btn.disabled = true; btn.textContent = "Gerando…";
+      var r = await edge("cobranca", { acao: "taxa_cadastro" });
+      if (r.status === 503) {
+        avisoPagar("O pagamento online ainda não está disponível — a equipe vai te chamar no WhatsApp para concluir o cadastro. Seus dados já estão salvos.", "aviso-info");
+        btn.textContent = "Pagamento online indisponível";
+        return;
+      }
+      if (r.status !== 200 || !r.body.qr) {
+        avisoPagar("Não foi possível gerar a cobrança: " + (r.body.erro || ("erro " + r.status)));
+        btn.disabled = false; btn.textContent = "Gerar QR Code Pix";
+        return;
+      }
+      document.getElementById("qr-img").src = "data:image/png;base64," + r.body.qr.encodedImage;
+      document.getElementById("qr-payload").value = r.body.qr.payload;
+      document.getElementById("box-qr").style.display = "block";
+      btn.style.display = "none";
+      iniciarPoll();
+    });
+
+    document.getElementById("btn-copiar").addEventListener("click", function () {
+      var inp = document.getElementById("qr-payload");
+      inp.select();
+      try { navigator.clipboard.writeText(inp.value); } catch (e) { document.execCommand("copy"); }
+      this.textContent = "Copiado!";
+      var b = this; setTimeout(function () { b.textContent = "Copiar"; }, 2000);
+    });
+
+    // ---- boot --------------------------------------------------------------
+    (async function () {
+      if (!(DB && DB.pronto)) {
+        app.hidden = false; ver("view-pagar");
+        document.getElementById("valor-taxa").textContent = brl(149);
+        avisoPagar("Modo demonstração — o banco real não está conectado.", "aviso-info");
+        return;
+      }
+      var perfil = await DB.exigirLogin();
+      PERFIL = perfil;
+      // valor da taxa vem da CONFIG (nunca hardcode)
+      var cfg = await DB.client.from("config").select("valor").eq("chave", "taxa_cadastro_valor").maybeSingle();
+      document.getElementById("valor-taxa").textContent = brl(Number(cfg.data && cfg.data.valor) || 149);
+      rotear(perfil ? perfil.status : "docs_enviados");
+      app.hidden = false;
+    })();
+  })();
+  </script>
+</body>
+</html>
