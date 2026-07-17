@@ -33,6 +33,7 @@
     // Header usa a versão SEM slogan (MANUAL.md: alturas <60px o slogan fica ilegível).
     // A versão COM slogan (img/logo-clinicshare.svg) segue disponível p/ hero e materiais.
     logo:      "img/logo-clinicshare-header.svg",
+    logoDark:  "img/logo-clinicshare-header-navy.svg", // versão branca p/ fundos escuros (rodapé)
     logoAlt:   "ClinicShare — seu consultório por hora",
 
     // Cores — paleta aprovada estilo "Michelob Ultra": navy + branco + vermelho (amarelo p/ conversão)
@@ -176,10 +177,13 @@
     var sc = document.querySelector('script[src*="brand.js"]');
     var base = sc ? sc.src.replace(/js\/brand\.js.*$/, "") : "/assets/";
     var url = base + BRAND.logo;
+    var urlDark = BRAND.logoDark ? base + BRAND.logoDark : url;
     document.querySelectorAll("a.marca, .marca").forEach(function (el) {
       if (el.querySelector("img")) return;
+      // rodapé (fundo escuro) usa a versão branca da logo
+      var escuro = el.closest("footer, .rodape, .rodape-rico");
       var img = document.createElement("img");
-      img.src = url;
+      img.src = escuro ? urlDark : url;
       img.alt = BRAND.logoAlt || BRAND.nome;
       img.style.height = "44px"; // lockup sem slogan: 44px assenta melhor no header (16/07)
       img.style.width = "auto";
