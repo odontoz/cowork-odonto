@@ -29,10 +29,26 @@
     .abas a { display: inline-block; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--linha);
               background: var(--branco); color: var(--tinta); font-weight: 600; font-size: .9rem; text-decoration: none; }
     .abas a:hover { background: var(--fundo); }
-    .form-caixa { display: grid; grid-template-columns: 1fr; gap: 12px; }
+    /* painel que envolve o formulário de lançamento */
+    .caixa-form-wrap { background: var(--fundo); border: 1px solid var(--linha); border-radius: var(--raio); padding: 16px; margin-top: 14px; }
+    .caixa-form-wrap .form-titulo { font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--cinza); margin: 0 0 14px; }
+    .form-caixa { display: grid; grid-template-columns: 1fr; gap: 14px 16px; align-items: start; }
     .form-caixa .full { grid-column: 1 / -1; }
+    .form-caixa .campo { min-width: 0; }                       /* impede estouro do grid */
+    .form-caixa .campo + .campo { margin-top: 0; }             /* anula empurrão do base.css dentro do grid */
+    .form-caixa label { margin-bottom: 6px; }
+    .form-caixa input, .form-caixa select { width: 100%; }
+    .form-caixa input[type=file] { padding: 8px 12px; background: var(--branco); font-size: .9rem; }
     @media (min-width: 560px) { .form-caixa { grid-template-columns: 1fr 1fr; } }
     @media (min-width: 900px) { .form-caixa { grid-template-columns: repeat(4, 1fr); } }
+    /* input de valor com prefixo R$ */
+    .input-prefixo { position: relative; }
+    .input-prefixo .prefixo { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--cinza); font-weight: 600; pointer-events: none; font-size: .95rem; }
+    .input-prefixo input { padding-left: 32px; text-align: right; font-variant-numeric: tabular-nums; }
+    /* barra de ações do formulário */
+    .form-acoes { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 2px; }
+    .form-acoes .autosave { font-size: .8rem; color: var(--cinza); margin-left: auto; }
+    @media (max-width: 559px) { .form-acoes .btn { flex: 1 1 auto; } .form-acoes .autosave { margin-left: 0; width: 100%; } }
     .caixa-tot { display: grid; grid-template-columns: 1fr; gap: 12px; margin: 16px 0; }
     @media (min-width: 720px) { .caixa-tot { grid-template-columns: repeat(3, 1fr); } }
     .caixa-tot .box { background: var(--branco); border: 1px solid var(--linha); border-radius: var(--raio); padding: 16px; box-shadow: var(--sombra); }
@@ -44,9 +60,12 @@
     .caixa-tot .valor.entrada, .caixa-tot .valor.pos { color: var(--verde); }
     .caixa-tot .valor.saida, .caixa-tot .valor.neg { color: var(--vermelho); }
     .fin-tab td .lixo { background: none; border: none; color: var(--vermelho); cursor: pointer; font-size: 1rem; padding: 2px 6px; }
-    .filtros-caixa { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 4px; }
-    .filtros-caixa .campo { flex: 1 1 130px; min-width: 120px; }
-    .filtros-caixa label { margin-bottom: 4px; }
+    .filtros-caixa { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 4px; }
+    .filtros-caixa .campo { flex: 1 1 140px; min-width: 120px; }
+    .filtros-caixa .campo + .campo { margin-top: 0; }          /* anula empurrão do base.css na linha de filtros */
+    .filtros-caixa label { margin-bottom: 6px; }
+    /* rótulo de seção acima de blocos */
+    .sec-rotulo { font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--cinza); margin: 20px 0 8px; }
   </style>
 </head>
 <body data-no-wpp>
@@ -78,8 +97,8 @@
       <a href="#livro-caixa">Livro Caixa</a>
     </nav>
 
-    <div class="aviso aviso-info" style="margin-bottom:16px;display:none" id="aviso-demo">
-      Modo demonstração com dados de exemplo — o banco real ainda não foi conectado.
+    <div class="aviso aviso-atencao" style="margin-bottom:16px;display:none" id="aviso-demo">
+      ⚠️ <strong>Dados de exemplo</strong> — banco não conectado. Os números abaixo são fictícios (não são o faturamento real). Entre como gestão para ver os dados reais.
     </div>
     <span id="resumo"></span>
 
@@ -135,52 +154,60 @@
         <button class="btn btn-neutro" id="btn-csv-caixa">Exportar CSV</button>
       </div>
 
-      <div class="aviso aviso-info" style="margin:12px 0;display:none" id="caixa-aviso-mock">
-        Modo demonstração — os lançamentos ficam salvos <strong>neste navegador</strong> (localStorage) até o banco conectar.
+      <div class="aviso aviso-atencao" style="margin:12px 0;display:none" id="caixa-aviso-mock">
+        ⚠️ <strong>Dados de exemplo</strong> — banco não conectado. Os lançamentos abaixo são fictícios e ficam salvos só <strong>neste navegador</strong> (localStorage). Entre como gestão para ver o Livro Caixa real.
       </div>
 
-      <form class="form-caixa" id="form-caixa" autocomplete="off">
-        <div class="campo">
-          <label for="f-tipo">Tipo</label>
-          <select id="f-tipo"><option value="entrada">Entrada (+)</option><option value="saida">Saída (−)</option></select>
-        </div>
-        <div class="campo">
-          <label for="f-valor">Valor (R$)</label>
-          <input id="f-valor" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00">
-        </div>
-        <div class="campo">
-          <label for="f-data">Data</label>
-          <input id="f-data" type="date" onclick="this.showPicker?.()">
-        </div>
-        <div class="campo">
-          <label for="f-categoria">Categoria</label>
-          <select id="f-categoria">
-            <option value="aluguel_sala">Aluguel de sala</option>
-            <option value="mensalidade">Mensalidade</option>
-            <option value="insumo">Insumo</option>
-            <option value="manutencao">Manutenção</option>
-            <option value="condominio">Condomínio</option>
-            <option value="energia">Energia</option>
-            <option value="repasse_socio">Repasse de sócio</option>
-            <option value="outro">Outro</option>
-          </select>
-        </div>
-        <div class="campo full">
-          <label for="f-descricao">Descrição</label>
-          <input id="f-descricao" type="text" maxlength="200" placeholder="Ex.: Aluguel sala C1 — Dra. Alyne">
-        </div>
-        <div class="campo full">
-          <label for="f-comprovante">Comprovante</label>
-          <input id="f-comprovante" type="file" accept="image/*,application/pdf">
-          <p class="muted" style="font-size:.8rem;margin:6px 0 0" id="f-comprovante-nota"></p>
-        </div>
-        <div class="campo full">
-          <button class="btn btn-primario" type="submit" id="btn-add-caixa">Adicionar lançamento</button>
-          <span class="muted" id="autosave-caixa" style="font-size:.8rem;margin-left:10px"></span>
-        </div>
-      </form>
+      <div class="caixa-form-wrap">
+        <p class="form-titulo">Novo lançamento</p>
+        <form class="form-caixa" id="form-caixa" autocomplete="off">
+          <div class="campo">
+            <label for="f-tipo">Tipo</label>
+            <select id="f-tipo"><option value="entrada">Entrada (+)</option><option value="saida">Saída (−)</option></select>
+          </div>
+          <div class="campo">
+            <label for="f-valor">Valor</label>
+            <div class="input-prefixo">
+              <span class="prefixo">R$</span>
+              <input id="f-valor" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00">
+            </div>
+          </div>
+          <div class="campo">
+            <label for="f-data">Data</label>
+            <input id="f-data" type="date" onclick="this.showPicker?.()">
+          </div>
+          <div class="campo">
+            <label for="f-categoria">Categoria</label>
+            <select id="f-categoria">
+              <option value="aluguel_sala">Aluguel de sala</option>
+              <option value="mensalidade">Mensalidade</option>
+              <option value="insumo">Insumo</option>
+              <option value="manutencao">Manutenção</option>
+              <option value="condominio">Condomínio</option>
+              <option value="energia">Energia</option>
+              <option value="repasse_socio">Repasse de sócio</option>
+              <option value="outro">Outro</option>
+            </select>
+          </div>
+          <div class="campo full">
+            <label for="f-descricao">Descrição</label>
+            <input id="f-descricao" type="text" maxlength="200" placeholder="Ex.: Aluguel sala C1 — Dra. Alyne">
+          </div>
+          <div class="campo full">
+            <label for="f-comprovante">Comprovante <span class="muted" style="font-weight:400">(opcional)</span></label>
+            <input id="f-comprovante" type="file" accept="image/*,application/pdf">
+            <p class="muted" style="font-size:.8rem;margin:6px 0 0" id="f-comprovante-nota"></p>
+          </div>
+          <div class="form-acoes">
+            <button class="btn btn-primario" type="submit" id="btn-add-caixa">Adicionar lançamento</button>
+            <button class="btn btn-neutro" type="button" id="btn-limpar-caixa">Limpar</button>
+            <span class="autosave" id="autosave-caixa"></span>
+          </div>
+        </form>
+      </div>
 
-      <div class="filtros-caixa" style="margin-top:20px">
+      <p class="sec-rotulo">Filtrar período</p>
+      <div class="filtros-caixa">
         <div class="campo"><label for="cx-de">De</label><input id="cx-de" type="date" onclick="this.showPicker?.()"></div>
         <div class="campo"><label for="cx-ate">Até</label><input id="cx-ate" type="date" onclick="this.showPicker?.()"></div>
         <div class="campo"><label for="cx-tipo">Tipo</label>
@@ -194,6 +221,7 @@
         <div class="box resultado" id="cx-box-res"><p class="rotulo">Resultado</p><p class="valor" id="cx-tot-res">—</p></div>
       </div>
 
+      <p class="sec-rotulo">Lançamentos do período</p>
       <div class="scroll-x">
         <table class="fin-tab" id="tab-caixa">
           <thead>
@@ -277,9 +305,9 @@
       document.getElementById("aviso-demo").style.display = "block";
       DADOS = {
         clientes: [
-          { nome: "Dra. Alyne", faturado: 6000, recebido: 6000, status: "paga", reservas: 8 },
-          { nome: "Dra. Mariane", faturado: 4000, recebido: 4000, status: "paga", reservas: 4 },
-          { nome: "Dr. Paulo", faturado: 1239, recebido: 0, status: "em aberto", reservas: 6 }
+          { nome: "Dra. Alyne (exemplo)", faturado: 6000, recebido: 6000, status: "paga", reservas: 8 },
+          { nome: "Dra. Mariane (exemplo)", faturado: 4000, recebido: 4000, status: "paga", reservas: 4 },
+          { nome: "Dr. Paulo (exemplo)", faturado: 1239, recebido: 0, status: "em aberto", reservas: 6 }
         ],
         produtos: [{ rotulo: "Hora avulsa", valor: 750 }, { rotulo: "Planos", valor: 10000 }, { rotulo: "Taxa de cadastro", valor: 149 }, { rotulo: "Mercadinho", valor: 90 }],
         salas: [{ rotulo: "Consultório 1 (RX)", valor: 6899 }, { rotulo: "Consultório 2", valor: 4340 }],
@@ -355,10 +383,10 @@
     // ---- store: DB real ou localStorage ----
     function seed() {
       return [
-        { id: uid(), tipo:"entrada", valor:6000, descricao:"Aluguel sala C1 — Dra. Alyne", categoria:"aluguel_sala", data_lancamento:"2026-04-05", cliente:"Dra. Alyne", comprovante_url:null },
-        { id: uid(), tipo:"saida",   valor:1200, descricao:"Condomínio — abril", categoria:"condominio", data_lancamento:"2026-04-10", cliente:"", comprovante_url:null },
-        { id: uid(), tipo:"entrada", valor:4000, descricao:"Aluguel sala C2 — Dra. Mariane", categoria:"aluguel_sala", data_lancamento:"2026-05-05", cliente:"Dra. Mariane", comprovante_url:null },
-        { id: uid(), tipo:"saida",   valor: 950, descricao:"Manutenção do compressor", categoria:"manutencao", data_lancamento:"2026-05-18", cliente:"", comprovante_url:null }
+        { id: uid(), tipo:"entrada", valor:6000, descricao:"(exemplo) Aluguel sala C1 — Dra. Alyne", categoria:"aluguel_sala", data_lancamento:"2026-04-05", cliente:"Dra. Alyne", comprovante_url:null },
+        { id: uid(), tipo:"saida",   valor:1200, descricao:"(exemplo) Condomínio — abril", categoria:"condominio", data_lancamento:"2026-04-10", cliente:"", comprovante_url:null },
+        { id: uid(), tipo:"entrada", valor:4000, descricao:"(exemplo) Aluguel sala C2 — Dra. Mariane", categoria:"aluguel_sala", data_lancamento:"2026-05-05", cliente:"Dra. Mariane", comprovante_url:null },
+        { id: uid(), tipo:"saida",   valor: 950, descricao:"(exemplo) Manutenção do compressor", categoria:"manutencao", data_lancamento:"2026-05-18", cliente:"", comprovante_url:null }
       ];
     }
     function lsCarregar() { try { var r = localStorage.getItem(LS_DADOS); if (r) return JSON.parse(r); } catch (e) {} var s = seed(); lsSalvar(s); return s; }
@@ -498,6 +526,13 @@
           await render(); fValor.focus();
         } catch (err) { alert("Não foi possível salvar: " + err.message); }
         btn.disabled = false; btn.textContent = "Adicionar lançamento";
+      });
+
+      document.getElementById("btn-limpar-caixa").addEventListener("click", function () {
+        fTipo.value = "entrada"; fValor.value = ""; fData.value = getHoje(); fCat.value = "aluguel_sala";
+        fDesc.value = ""; fComp.value = "";
+        try { localStorage.removeItem(LS_RASCUNHO); } catch (e) {}
+        elAutosave.textContent = ""; fValor.focus();
       });
 
       document.getElementById("btn-csv-caixa").addEventListener("click", function () {
