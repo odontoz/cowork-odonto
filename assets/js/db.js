@@ -119,6 +119,38 @@
     } catch (e) { console.warn("[Enjoy/db] signedUrl:", e.message); return null; }
   }
 
+  // ---- auditoria (só gestão enxerga; RPCs SECURITY DEFINER) -----------------
+  // "editado por X em Y": última entrada do registro. Retorna null se não houver.
+  async function ultimaEdicao(tabela, registroId) {
+    if (!db || !tabela || registroId == null) return null;
+    try {
+      var r = await db.rpc("ultima_edicao", { p_tabela: tabela, p_registro_id: String(registroId) });
+      if (r.error) { console.warn("[Enjoy/db] ultima_edicao:", r.error.message); return null; }
+      return (r.data && r.data[0]) || null;
+    } catch (e) { console.warn("[Enjoy/db] ultima_edicao:", e.message); return null; }
+  }
+
+  // histórico completo de um registro (mais recente primeiro).
+  async function auditoriaDe(tabela, registroId, limite) {
+    if (!db || !tabela || registroId == null) return [];
+    try {
+      var r = await db.rpc("auditoria_de", { p_tabela: tabela, p_registro_id: String(registroId), p_limite: limite || 50 });
+      if (r.error) { console.warn("[Enjoy/db] auditoria_de:", r.error.message); return []; }
+      return r.data || [];
+    } catch (e) { console.warn("[Enjoy/db] auditoria_de:", e.message); return []; }
+  }
+
+  // texto pronto "editado por Fulano · 18/07 14:30" a partir do objeto de ultimaEdicao.
+  function fmtEdicao(ed) {
+    if (!ed) return "";
+    var verbo = ed.acao === "INSERT" ? "criado" : (ed.acao === "DELETE" ? "excluído" : "editado");
+    var quem = ed.ator_nome || "sistema";
+    var d = ed.quando ? new Date(ed.quando) : null;
+    var qd = d ? d.toLocaleDateString("pt-BR") + " " +
+      String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0") : "";
+    return verbo + " por " + quem + (qd ? " · " + qd : "");
+  }
+
   raiz.EnjoyDB = {
     client: db,
     pronto: !!db,
@@ -131,7 +163,10 @@
     ehGestao: ehGestao,
     exigirLogin: exigirLogin,
     sair: sair,
-    urlAssinada: urlAssinada
+    urlAssinada: urlAssinada,
+    ultimaEdicao: ultimaEdicao,
+    auditoriaDe: auditoriaDe,
+    fmtEdicao: fmtEdicao
   };
 
   // ---- PWA: registra o service worker com CAMINHO RELATIVO -----------------

@@ -110,6 +110,43 @@
       </p>
       <div id="lista-fila" style="margin-top:12px"></div>
     </section>
+
+    <!-- Log de auditoria — "tudo assinado" (quem/ação/entidade/quando/antes-depois) -->
+    <section class="card" id="sec-auditoria" style="margin-top:24px">
+      <div class="row-between">
+        <h2 style="margin:0">Auditoria — tudo assinado</h2>
+        <div class="row">
+          <select id="a-tabela" style="min-width:150px">
+            <option value="">Todas as tabelas</option>
+            <option value="perfis">Perfis (acesso)</option>
+            <option value="reservas">Reservas</option>
+            <option value="pagamentos">Pagamentos</option>
+            <option value="faturas">Faturas</option>
+            <option value="assinaturas">Assinaturas</option>
+            <option value="produtos_preco">Preços</option>
+            <option value="creditos_hora">Créditos de hora</option>
+            <option value="lancamentos_caixa">Livro caixa</option>
+            <option value="contratos">Contratos</option>
+            <option value="verificacoes">Verificações</option>
+            <option value="config">Configurações</option>
+            <option value="bloqueios">Bloqueios</option>
+            <option value="salas">Salas</option>
+          </select>
+          <button class="btn btn-neutro" id="a-recarregar">Atualizar</button>
+        </div>
+      </div>
+      <p class="muted" style="font-size:.85rem;margin:6px 0 0">
+        Registro imutável de toda escrita sensível: quem fez, o que mudou e quando.
+        Clique em uma linha para ver o antes × depois.
+      </p>
+      <div class="scroll-x" style="margin-top:12px">
+        <table class="comp" id="tab-auditoria" style="margin-top:0">
+          <thead><tr><th>Quando</th><th>Quem</th><th>Ação</th><th>Entidade</th><th>Mudou</th></tr></thead>
+          <tbody id="corpo-auditoria"></tbody>
+        </table>
+      </div>
+      <p id="a-vazio" class="muted" style="margin-top:10px;display:none">Nenhum registro de auditoria ainda.</p>
+    </section>
   </main>
 
   <script src="../../config/config.js" onerror="console.warn('config.js ausente — modo demonstração')"></script>
@@ -364,6 +401,58 @@
       return div;
     }
 
+    // ============ AUDITORIA (log "tudo assinado") ============
+    function fmtQuando(iso) {
+      var d = new Date(iso);
+      return pad(d.getDate()) + "/" + pad(d.getMonth()+1) + " " + pad(d.getHours()) + ":" + pad(d.getMinutes());
+    }
+    var ROTULO_TABELA = {
+      perfis: "Perfil", reservas: "Reserva", pagamentos: "Pagamento", faturas: "Fatura",
+      assinaturas: "Assinatura", produtos_preco: "Preço", creditos_hora: "Crédito",
+      lancamentos_caixa: "Livro caixa", contratos: "Contrato", verificacoes: "Verificação",
+      config: "Config", bloqueios: "Bloqueio", salas: "Sala"
+    };
+    function badgeAcao(acao) {
+      var cls = acao === "INSERT" ? "badge-verde" : (acao === "DELETE" ? "badge-vermelho" : "badge-cinza");
+      var txt = acao === "INSERT" ? "criou" : (acao === "DELETE" ? "excluiu" : "editou");
+      return '<span class="badge ' + cls + '">' + txt + "</span>";
+    }
+    async function carregarAuditoria() {
+      var corpo = document.getElementById("corpo-auditoria");
+      var vazio = document.getElementById("a-vazio");
+      if (!(DB && DB.pronto)) { corpo.innerHTML = ""; vazio.textContent = "Disponível com o banco conectado."; vazio.style.display = "block"; return; }
+      var tabela = document.getElementById("a-tabela").value;
+      var q = DB.client.from("auditoria").select("*").order("criado_em", { ascending: false }).limit(100);
+      if (tabela) q = q.eq("tabela", tabela);
+      var r = await q;
+      if (r.error) { corpo.innerHTML = ""; vazio.textContent = "Erro ao carregar auditoria: " + r.error.message; vazio.style.display = "block"; return; }
+      var lista = r.data || [];
+      if (!lista.length) { corpo.innerHTML = ""; vazio.textContent = "Nenhum registro de auditoria ainda."; vazio.style.display = "block"; return; }
+      vazio.style.display = "none";
+      corpo.innerHTML = lista.map(function (a, i) {
+        var quem = esc(a.ator_nome || "sistema") + (a.ator_tipo && a.ator_tipo !== "sistema" ? ' <span class="muted">(' + esc(a.ator_tipo) + ")</span>" : "");
+        var ent = esc(ROTULO_TABELA[a.tabela] || a.tabela) + (a.registro_id ? ' <span class="muted">#' + esc(String(a.registro_id).slice(0, 8)) + "</span>" : "");
+        var mudou = a.acao === "UPDATE" ? esc((a.mudancas || []).join(", ")) : (a.acao === "INSERT" ? "—" : "—");
+        var detalhe = JSON.stringify({ antes: a.antes, depois: a.depois }, null, 2);
+        return '<tr class="aud-linha" data-i="' + i + '" style="cursor:pointer">' +
+                 "<td>" + fmtQuando(a.criado_em) + "</td>" +
+                 "<td>" + quem + "</td>" +
+                 "<td>" + badgeAcao(a.acao) + "</td>" +
+                 "<td>" + ent + "</td>" +
+                 "<td>" + mudou + "</td></tr>" +
+               '<tr class="aud-det" data-det="' + i + '" style="display:none"><td colspan="5">' +
+                 '<pre style="margin:0;white-space:pre-wrap;font-size:.78rem;max-height:280px;overflow:auto">' + esc(detalhe) + "</pre></td></tr>";
+      }).join("");
+      corpo.querySelectorAll(".aud-linha").forEach(function (tr) {
+        tr.addEventListener("click", function () {
+          var det = corpo.querySelector('.aud-det[data-det="' + tr.dataset.i + '"]');
+          if (det) det.style.display = det.style.display === "none" ? "table-row" : "none";
+        });
+      });
+    }
+    document.getElementById("a-recarregar").addEventListener("click", carregarAuditoria);
+    document.getElementById("a-tabela").addEventListener("change", carregarAuditoria);
+
     // ============ FORM BLOQUEIO ============
     function toggle(id, mostrar) { document.getElementById(id).style.display = mostrar ? "block" : "none"; }
     document.getElementById("btn-bloqueio").addEventListener("click", function () {
@@ -448,6 +537,7 @@
       await carregarDia();
       await carregarPendentes();
       await carregarFila();
+      await carregarAuditoria();
     })();
   })();
   </script>
