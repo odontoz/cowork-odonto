@@ -63,7 +63,7 @@
         <p id="vazio" class="muted" style="display:none">Fechado nesse dia. Escolha outra data.</p>
         <p id="aviso-slot" class="aviso aviso-atencao" style="display:none;margin-top:10px"></p>
         <p class="muted" style="margin:10px 0 0;font-size:.85rem">
-          Toque em um horário para reservar <b>1 hora</b>. Para ficar mais tempo, toque nos horários seguintes.
+          Cada bloco é <b>1 hora</b> (R$ 75). Toque para reservar; para ficar mais tempo, toque nas horas seguintes.
         </p>
       </div>
     </div>
@@ -132,7 +132,10 @@
       "4": { abre: "08:00", fecha: "22:00" }, "5": { abre: "08:00", fecha: "22:00" },
       "6": { abre: "08:00", fecha: "18:00" }
     };
-    var CFG = { duracaoMinimaMin: 60, bufferMin: 30, passoSlotMin: 30 };
+    // passoSlotMin = 60: a grade mostra BLOCOS DE 1 HORA (13:00–14:00, 14:00–15:00…),
+    // alinhado à cobrança por hora e à duração mínima de 1h. Clicar seleciona a hora
+    // inteira; clicar na hora seguinte estende +1h. Evita a confusão dos meios-blocos.
+    var CFG = { duracaoMinimaMin: 60, bufferMin: 30, passoSlotMin: 60 };
 
     var elSala = document.getElementById("sala");
     var elData = document.getElementById("data");
@@ -262,7 +265,8 @@
         div.className = "slot " + s.status + (passado ? " ocupado" : "");
         div.dataset.ini = s.inicio.toISOString();
         div.dataset.fim = s.fim.toISOString();
-        div.innerHTML = hhmm(s.inicio) + "<small>" + (passado ? "passou" : s.status) + "</small>";
+        // rótulo mostra o intervalo da hora (13:00–14:00) pra não parecer meia-hora
+        div.innerHTML = hhmm(s.inicio) + "–" + hhmm(s.fim) + "<small>" + (passado ? "passou" : s.status) + "</small>";
         if (s.status === "livre" && !passado && APROVADO) div.addEventListener("click", function () { escolher(s); });
         tl.appendChild(div);
       });

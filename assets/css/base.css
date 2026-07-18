@@ -116,7 +116,7 @@ input:focus, select:focus, textarea:focus {
 .badge-vermelho{ background: #fbe4e4; color: var(--vermelho); }
 
 /* ---- timeline de slots (reservar) ---- */
-.timeline { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; }
+.timeline { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
 .slot {
   border: 1px solid var(--linha); border-radius: 8px; padding: 10px 6px;
   text-align: center; font-size: .85rem; font-weight: 600; cursor: pointer;
