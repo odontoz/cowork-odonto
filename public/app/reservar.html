@@ -10,6 +10,16 @@
   <link rel="manifest" href="../../manifest.webmanifest">
   <link rel="stylesheet" href="../../assets/css/base.css">
   <script src="../../assets/js/brand.js" defer></script>
+  <style>
+    /* topo do formulário: campos de largura igual, sem estourar por texto longo do select */
+    #form-reserva .row { align-items: flex-end; }
+    #form-reserva .row > .campo { flex: 1 1 0; min-width: 0; }
+    /* indicador "aguardando pagamento" (mesmo padrão da tela de cadastro) */
+    .pulso { display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+             background: var(--azul); margin-right: 8px; vertical-align: middle;
+             animation: pulso 1.2s infinite; }
+    @keyframes pulso { 0%,100% { opacity: .25 } 50% { opacity: 1 } }
+  </style>
 </head>
 <body data-no-wpp>
   <header class="topbar">
@@ -27,13 +37,13 @@
       Modo demonstração com dados de exemplo — o banco real ainda não foi conectado.
     </div>
 
-    <div class="card stack">
+    <div class="card stack" id="form-reserva">
       <div class="row">
-        <div class="grow campo">
+        <div class="campo">
           <label for="sala">Consultório</label>
           <select id="sala"></select>
         </div>
-        <div class="grow campo">
+        <div class="campo">
           <label for="data">Data</label>
           <input id="data" type="date" onclick="this.showPicker?.()">
         </div>
@@ -51,6 +61,10 @@
         </div>
         <div id="timeline" class="timeline"></div>
         <p id="vazio" class="muted" style="display:none">Fechado nesse dia. Escolha outra data.</p>
+        <p id="aviso-slot" class="aviso aviso-atencao" style="display:none;margin-top:10px"></p>
+        <p class="muted" style="margin:10px 0 0;font-size:.85rem">
+          Toque em um horário para reservar <b>1 hora</b>. Para ficar mais tempo, toque nos horários seguintes.
+        </p>
       </div>
     </div>
 
@@ -70,9 +84,28 @@
       <div id="r-erro" class="aviso aviso-atencao" style="display:none"></div>
       <div id="r-ok" class="aviso aviso-info" style="display:none"></div>
       <button id="btn-confirmar" class="btn btn-primario btn-bloco">Confirmar reserva</button>
+
+      <!-- Pagamento Pix (paga-e-usa): a reserva confirma só após o pagamento -->
+      <div id="box-qr" style="display:none">
+        <hr style="border:none;border-top:1px solid var(--linha)">
+        <p style="margin:0 0 8px;font-weight:800;text-align:center">Pague via Pix para confirmar</p>
+        <div style="text-align:center">
+          <img id="qr-img" alt="QR Code Pix" style="width:220px;max-width:100%;border:1px solid var(--linha);border-radius:8px;padding:8px;background:#fff">
+          <p class="muted" style="font-size:.85rem">Escaneie com o app do seu banco ou use o copia-e-cola.<br>
+            O horário fica reservado por <span id="qr-timeout">15</span> min.</p>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <input id="qr-payload" type="text" readonly onclick="this.select()" style="flex:1;font-size:.8rem;color:var(--cinza)">
+          <button type="button" class="btn btn-neutro" id="btn-copiar">Copiar</button>
+        </div>
+        <p class="muted" style="text-align:center;margin:12px 0 0;font-size:.9rem">
+          <span class="pulso"></span>Aguardando o pagamento… a reserva confirma sozinha.
+        </p>
+      </div>
+
       <p class="muted" style="font-size:.82rem;margin:0">
-        Duração mínima 1h · higienização de 30 min entre profissionais diferentes ·
-        cancelamento com 24h de antecedência.
+        Você paga primeiro (Pix) e o horário é confirmado na hora · duração mínima 1h ·
+        higienização de 30 min entre profissionais diferentes · cancelamento com 24h de antecedência.
       </p>
     </div>
   </main>
@@ -104,6 +137,26 @@
     var elSala = document.getElementById("sala");
     var elData = document.getElementById("data");
     var sel = { inicio: null, fim: null };
+    var LIVRES = [];          // slots livres e futuros do dia (p/ montar o bloco de 1h)
+    var AGORA = null;         // "agora" da última renderização
+    var pollReserva = null;   // polling que aguarda o webhook confirmar o pagamento
+    var RESERVA_ATUAL = null; // reserva criada como pendente, aguardando pagamento
+
+    // chamada às Edge Functions (mesmo padrão de faturas.html / pagamento-cadastro.html)
+    async function edge(fn, corpo) {
+      var s = await DB.sessao();
+      var r = await fetch(DB.config.SUPABASE_URL + "/functions/v1/" + fn, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + (s ? s.access_token : ""),
+          "apikey": DB.config.SUPABASE_ANON_KEY
+        },
+        body: JSON.stringify(corpo || {})
+      });
+      var j = {}; try { j = await r.json(); } catch (e) {}
+      return { status: r.status, body: j };
+    }
 
     // -------- helpers de data (local, sem toISOString p/ o dia) --------
     function hojeISO() { var d = new Date(); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); }
@@ -180,8 +233,12 @@
     // ============ RENDER ============
     async function renderTimeline() {
       sel = { inicio: null, fim: null };
+      pararPollReserva();
+      RESERVA_ATUAL = null;
+      resetarPagamento();
       document.getElementById("resumo").style.display = "none";
       document.getElementById("r-ok").style.display = "none";
+      document.getElementById("aviso-slot").style.display = "none";
 
       var dataISO = elData.value || hojeISO();
       var oc = await ocupacaoDoDia(elSala.value, dataISO);
@@ -191,10 +248,14 @@
       var tl = document.getElementById("timeline");
       var vazio = document.getElementById("vazio");
       tl.innerHTML = "";
+      LIVRES = [];
       if (!slots.length) { vazio.style.display = "block"; return; }
       vazio.style.display = "none";
 
       var agora = new Date();
+      AGORA = agora;
+      // slots livres e ainda no futuro — base para montar o bloco de 1h
+      LIVRES = slots.filter(function (s) { return s.status === "livre" && s.inicio >= agora; });
       slots.forEach(function (s) {
         var div = document.createElement("div");
         var passado = s.inicio < agora;
@@ -207,9 +268,43 @@
       });
     }
 
+    // quantos slots formam a duração mínima (ex.: 60min / 30min = 2 slots = 1h)
+    function slotsMinimos() { return Math.max(1, Math.ceil(CFG.duracaoMinimaMin / CFG.passoSlotMin)); }
+    function ehLivre(s) { return LIVRES.some(function (x) { return x.inicio.getTime() === s.inicio.getTime(); }); }
+    function avisoSlot(msg) {
+      var a = document.getElementById("aviso-slot");
+      if (!msg) { a.style.display = "none"; return; }
+      a.textContent = msg; a.style.display = "block";
+    }
+    // monta um bloco contíguo de `n` slots livres começando em `startSlot`; null se não couber
+    function blocoContiguo(startSlot, n) {
+      var idx = LIVRES.findIndex(function (s) { return s.inicio.getTime() === startSlot.inicio.getTime(); });
+      if (idx < 0) return null;
+      for (var k = 1; k < n; k++) {
+        var ant = LIVRES[idx + k - 1], cur = LIVRES[idx + k];
+        if (!cur || cur.inicio.getTime() !== ant.fim.getTime()) return null; // furou a sequência
+      }
+      return { inicio: LIVRES[idx].inicio, fim: LIVRES[idx + n - 1].fim };
+    }
+
     function escolher(s) {
-      if (!sel.inicio || (sel.inicio && sel.fim) || s.inicio < sel.inicio) sel = { inicio: s.inicio, fim: s.fim };
-      else sel.fim = s.fim;
+      avisoSlot(null);
+      resetarPagamento();
+      // ESTENDER: clicou no slot logo após a seleção atual e ele está livre → +1 slot
+      if (sel.inicio && sel.fim && s.inicio.getTime() === sel.fim.getTime() && ehLivre(s)) {
+        sel.fim = s.fim;
+        marcarSelecionados(); atualizarResumo(); return;
+      }
+      // NOVA SELEÇÃO: sempre começa com o bloco da duração mínima (1h por padrão)
+      var bloco = blocoContiguo(s, slotsMinimos());
+      if (!bloco) {
+        sel = { inicio: null, fim: null };
+        marcarSelecionados();
+        document.getElementById("resumo").style.display = "none";
+        avisoSlot("Não há 1 hora livre a partir desse horário. Escolha um horário mais cedo ou outra data.");
+        return;
+      }
+      sel = { inicio: bloco.inicio, fim: bloco.fim };
       marcarSelecionados();
       atualizarResumo();
     }
@@ -243,37 +338,107 @@
       else { erroBox.style.display = "none"; btn.disabled = false; }
     }
 
+    // -------- pagamento (paga-e-usa): 1º paga, depois usa --------
+    function resetarPagamento() {
+      pararPollReserva();
+      document.getElementById("box-qr").style.display = "none";
+      var btn = document.getElementById("btn-confirmar");
+      btn.style.display = ""; btn.disabled = false; btn.textContent = "Confirmar reserva";
+      var eb = document.getElementById("r-erro");
+      eb.className = "aviso aviso-atencao"; eb.style.display = "none";
+    }
+    function pararPollReserva() { if (pollReserva) { clearInterval(pollReserva); pollReserva = null; } }
+    function iniciarPollReserva(id) {
+      pararPollReserva();
+      pollReserva = setInterval(async function () {
+        var q = await DB.client.from("reservas").select("status").eq("id", id).maybeSingle();
+        if (!q.data) return;
+        if (q.data.status === "confirmada") {
+          pararPollReserva();
+          document.getElementById("box-qr").style.display = "none";
+          var ok = document.getElementById("r-ok");
+          ok.textContent = "Pagamento confirmado! Reserva garantida: " + nomeSala() + " · " +
+            new Date(sel.inicio).toLocaleDateString("pt-BR") + " " + hhmm(sel.inicio) + "–" + hhmm(sel.fim) +
+            ". Veja em Minhas reservas.";
+          ok.style.display = "block";
+          document.getElementById("btn-confirmar").style.display = "none";
+        } else if (["expirada", "cancelada"].indexOf(q.data.status) !== -1) {
+          pararPollReserva();
+          document.getElementById("box-qr").style.display = "none";
+          var eb = document.getElementById("r-erro");
+          eb.className = "aviso aviso-atencao";
+          eb.textContent = "O tempo para pagar expirou e o horário foi liberado. Selecione um horário novamente.";
+          eb.style.display = "block";
+          var btn = document.getElementById("btn-confirmar");
+          btn.style.display = ""; btn.disabled = false; btn.textContent = "Confirmar reserva";
+        }
+      }, 4000);
+    }
+
+    document.getElementById("btn-copiar").addEventListener("click", function () {
+      var inp = document.getElementById("qr-payload");
+      inp.select();
+      try { navigator.clipboard.writeText(inp.value); } catch (e) { document.execCommand("copy"); }
+      var b = this; b.textContent = "Copiado!"; setTimeout(function () { b.textContent = "Copiar"; }, 2000);
+    });
+
     document.getElementById("btn-confirmar").addEventListener("click", async function () {
       if (!sel.inicio || !sel.fim) return;
       var btn = this;
       var preco = M.calcularPreco(PRODUTOS, sel.inicio, sel.fim);
+      var eb = document.getElementById("r-erro");
+      eb.className = "aviso aviso-atencao"; eb.style.display = "none";
 
+      // Demonstração (sem banco/gateway): explica o fluxo, não finge confirmar.
       if (!(DB && DB.pronto)) {
-        alert("Reserva confirmada (demonstração): " + nomeSala() + " · " + hhmm(sel.inicio) + "–" + hhmm(sel.fim));
+        var ok = document.getElementById("r-ok");
+        ok.textContent = "Modo demonstração: aqui abriria o pagamento via Pix de R$ " +
+          preco.toFixed(2).replace(".", ",") + " para confirmar " + nomeSala() + " · " +
+          hhmm(sel.inicio) + "–" + hhmm(sel.fim) + ". A reserva só é confirmada após o pagamento.";
+        ok.style.display = "block";
         return;
       }
-      btn.disabled = true; btn.textContent = "Confirmando…";
-      var r = await DB.client.rpc("criar_reserva", {
+
+      // 1) cria a reserva como pendente (as RPCs seguram o slot)
+      btn.disabled = true; btn.textContent = "Criando reserva…";
+      var rc = await DB.client.rpc("criar_reserva", {
         p_sala_id: elSala.value,
         p_inicio: sel.inicio.toISOString(),
         p_fim: sel.fim.toISOString(),
         p_produto_id: PRODUTO_HORA_ID,
         p_valor: preco
       });
-      btn.textContent = "Confirmar reserva";
-      if (r.error) {
-        var eb = document.getElementById("r-erro");
-        eb.textContent = "Não foi possível reservar: " + r.error.message;
-        eb.style.display = "block"; btn.disabled = false;
+      if (rc.error) {
+        eb.textContent = "Não foi possível reservar: " + rc.error.message;
+        eb.style.display = "block";
+        btn.disabled = false; btn.textContent = "Confirmar reserva";
         return;
       }
-      var ok = document.getElementById("r-ok");
-      ok.textContent = "Reserva confirmada: " + nomeSala() + " · " +
-        new Date(sel.inicio).toLocaleDateString("pt-BR") + " " + hhmm(sel.inicio) + "–" + hhmm(sel.fim) +
-        " (R$ " + preco.toFixed(2).replace(".", ",") + "). Veja em Minhas reservas.";
-      ok.style.display = "block";
-      document.getElementById("r-erro").style.display = "none";
-      await renderTimeline(); // atualiza a grade (o slot vira ocupado)
+      RESERVA_ATUAL = rc.data;
+
+      // 2) inicia o pagamento: cobranca 'reserva' → pendente_pagamento (segura 15min) + QR Pix
+      btn.textContent = "Gerando pagamento…";
+      var pg = await edge("cobranca", { acao: "reserva", reserva_id: RESERVA_ATUAL.id });
+      if (pg.status === 503) {
+        eb.className = "aviso aviso-info";
+        eb.textContent = "Pagamento indisponível no momento. Seu horário ficou pré-reservado — a equipe vai te chamar no WhatsApp para concluir.";
+        eb.style.display = "block";
+        btn.style.display = "none";
+        return;
+      }
+      if (pg.status !== 200 || !pg.body.qr) {
+        eb.textContent = "Não foi possível iniciar o pagamento: " + (pg.body.erro || ("erro " + pg.status));
+        eb.style.display = "block";
+        btn.disabled = false; btn.textContent = "Confirmar reserva";
+        return;
+      }
+      // 3) mostra o QR e aguarda o webhook confirmar (polling)
+      document.getElementById("qr-img").src = "data:image/png;base64," + pg.body.qr.encodedImage;
+      document.getElementById("qr-payload").value = pg.body.qr.payload;
+      if (pg.body.expira_em_min) document.getElementById("qr-timeout").textContent = pg.body.expira_em_min;
+      document.getElementById("box-qr").style.display = "block";
+      btn.style.display = "none";
+      iniciarPollReserva(RESERVA_ATUAL.id);
     });
 
     elSala.addEventListener("change", renderTimeline);
