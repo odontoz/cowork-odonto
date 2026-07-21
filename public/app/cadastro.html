@@ -72,17 +72,28 @@
           <input id="doc-rg" type="file" accept="image/*,application/pdf" required>
         </div>
         <div class="campo">
-          <label for="doc-carteirinha">Carteirinha do conselho (CRO etc.) *</label>
-          <input id="doc-carteirinha" type="file" accept="image/*,application/pdf" required>
-        </div>
-        <div class="campo">
           <label for="doc-comprovante">Comprovante de residência *</label>
           <input id="doc-comprovante" type="file" accept="image/*,application/pdf" required>
         </div>
         <div class="campo">
           <label for="doc-selfie">Selfie (foto sua, de frente) *</label>
           <input id="doc-selfie" type="file" accept="image/*" capture="user" required>
-          <small class="muted">Usada na conferência dos documentos e no seu cadastro de acesso ao espaço.</small>
+          <small class="muted">Usada na prova de vida (confere com seu documento) e no acesso ao espaço.</small>
+        </div>
+        <div class="campo">
+          <label for="doc-carteirinha">Carteirinha do conselho <span class="muted">(opcional)</span></label>
+          <input id="doc-carteirinha" type="file" accept="image/*,application/pdf">
+          <small class="muted">Não é obrigatória: confirmamos seu registro pelo número, direto na base do conselho. Envie só se quiser agilizar.</small>
+        </div>
+
+        <hr style="border:none;border-top:1px solid var(--linha);margin:4px 0">
+        <div class="campo">
+          <label for="cupom">Cupom de desconto <span class="muted">(opcional)</span></label>
+          <div class="row">
+            <input id="cupom" class="grow" type="text" placeholder="Digite o código" style="text-transform:uppercase">
+            <button type="button" class="btn btn-neutro" id="btn-cupom">Aplicar</button>
+          </div>
+          <small id="cupom-msg" class="muted" style="display:none"></small>
         </div>
 
         <button class="btn btn-primario btn-bloco" type="submit" id="btn-enviar">Enviar cadastro</button>
@@ -119,6 +130,29 @@
       mostrar("Modo demonstração: o cadastro real será liberado quando o banco estiver conectado.");
     }
 
+    // ---- cupom de desconto (valida pela RPC validar_cupom) ----
+    var CUPOM_OK = null; // guarda o código aplicado
+    document.getElementById("btn-cupom").addEventListener("click", async function () {
+      var msg = document.getElementById("cupom-msg");
+      var cod = document.getElementById("cupom").value.trim();
+      msg.style.display = "block";
+      if (!cod) { msg.className = "muted"; msg.textContent = "Digite um código."; CUPOM_OK = null; return; }
+      if (!DB || !DB.pronto) { msg.className = "muted"; msg.textContent = "Cupom será validado com o banco conectado."; return; }
+      this.disabled = true;
+      var r = await DB.client.rpc("validar_cupom", { p_codigo: cod, p_valor_base: 0, p_produto_id: null });
+      this.disabled = false;
+      var row = r.data && r.data[0];
+      if (r.error || !row || !row.valido) {
+        CUPOM_OK = null;
+        msg.className = "aviso aviso-atencao"; msg.style.display = "block";
+        msg.textContent = (row && row.motivo) || "Cupom inválido.";
+        return;
+      }
+      CUPOM_OK = cod.toUpperCase();
+      msg.className = "aviso aviso-info"; msg.style.display = "block";
+      msg.textContent = "Cupom aplicado: " + (row.descricao || CUPOM_OK) + ". O desconto entra na sua reserva.";
+    });
+
     function extensao(file) {
       var m = /\.([a-z0-9]+)$/i.exec(file.name || "");
       return m ? m[1].toLowerCase() : (file.type === "application/pdf" ? "pdf" : "jpg");
@@ -149,7 +183,7 @@
       var fSelfie = document.getElementById("doc-selfie").files[0];
 
       if (!nome || !telefone || !profissao || !cro || !email || !senha) { mostrar("Preencha todos os campos obrigatórios."); return; }
-      if (!fRg || !fCart || !fComp || !fSelfie) { mostrar("Envie os três documentos e a selfie."); return; }
+      if (!fRg || !fComp || !fSelfie) { mostrar("Envie o documento oficial (RG/CNH), o comprovante de residência e a selfie."); return; }
 
       if (!DB || !DB.pronto) { mostrar("Sem banco conectado — cadastro indisponível no modo demonstração."); return; }
 
@@ -186,9 +220,9 @@
           return;
         }
 
-        // 3) sobe os documentos + selfie na pasta do usuário
+        // 3) sobe os documentos + selfie na pasta do usuário (carteirinha é opcional)
         var rgUrl = await subirDoc(user.id, "rg", fRg);
-        var croUrl = await subirDoc(user.id, "carteirinha", fCart);
+        var croUrl = fCart ? await subirDoc(user.id, "carteirinha", fCart) : null;
         var compUrl = await subirDoc(user.id, "comprovante", fComp);
         var selfieUrl = await subirDoc(user.id, "selfie", fSelfie);
 
@@ -204,6 +238,7 @@
           cro: cro,
           profissao: profissao,
           selfie_url: selfieUrl,
+          cupom: CUPOM_OK,
           docs: { rg_url: rgUrl, cro_url: croUrl, comprovante_url: compUrl }
         }, { onConflict: "user_id" });
         if (up.error) throw up.error;
