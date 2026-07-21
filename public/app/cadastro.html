@@ -88,7 +88,7 @@
 
         <hr style="border:none;border-top:1px solid var(--linha);margin:4px 0">
         <div class="campo">
-          <label for="cupom">Cupom de desconto <span class="muted">(opcional)</span></label>
+          <label for="cupom">Cupom de cadastro <span class="muted">(opcional)</span></label>
           <div class="row">
             <input id="cupom" class="grow" type="text" placeholder="Digite o código" style="text-transform:uppercase">
             <button type="button" class="btn btn-neutro" id="btn-cupom">Aplicar</button>
@@ -139,7 +139,7 @@
       if (!cod) { msg.className = "muted"; msg.textContent = "Digite um código."; CUPOM_OK = null; return; }
       if (!DB || !DB.pronto) { msg.className = "muted"; msg.textContent = "Cupom será validado com o banco conectado."; return; }
       this.disabled = true;
-      var r = await DB.client.rpc("validar_cupom", { p_codigo: cod, p_valor_base: 0, p_produto_id: null });
+      var r = await DB.client.rpc("validar_cupom", { p_codigo: cod, p_valor_base: 149, p_produto_id: null, p_escopo: "cadastro" });
       this.disabled = false;
       var row = r.data && r.data[0];
       if (r.error || !row || !row.valido) {
@@ -149,8 +149,11 @@
         return;
       }
       CUPOM_OK = cod.toUpperCase();
+      var vf = Number(row.valor_final);
       msg.className = "aviso aviso-info"; msg.style.display = "block";
-      msg.textContent = "Cupom aplicado: " + (row.descricao || CUPOM_OK) + ". O desconto entra na sua reserva.";
+      msg.textContent = vf <= 0
+        ? "Cupom aplicado: taxa de cadastro ISENTA (R$ 0). É só finalizar o cadastro."
+        : "Cupom aplicado: taxa de cadastro por R$ " + vf.toFixed(2).replace(".", ",") + ".";
     });
 
     function extensao(file) {

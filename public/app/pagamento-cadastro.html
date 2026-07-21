@@ -53,6 +53,13 @@
         <li>Cadastro de acesso ao espaço</li>
       </ul>
       <div id="aviso-pagar" class="aviso aviso-atencao" style="display:none"></div>
+
+      <!-- Isenção por cupom de cadastro -->
+      <div id="box-isencao" class="aviso aviso-info" style="display:none">
+        <strong>Taxa de cadastro isenta</strong> pelo cupom <b id="isencao-cod"></b>. É só continuar.
+      </div>
+      <button class="btn btn-primario btn-bloco" id="btn-isencao" style="display:none">Continuar sem pagar</button>
+
       <button class="btn btn-primario btn-bloco" id="btn-gerar">Gerar QR Code Pix</button>
 
       <div id="box-qr" style="display:none">
@@ -204,6 +211,33 @@
       iniciarPoll();
     });
 
+    // ---- isenção por cupom de cadastro ------------------------------------
+    async function checarIsencao() {
+      if (!PERFIL || !PERFIL.cupom) return false;
+      var r = await DB.client.rpc("validar_cupom", { p_codigo: PERFIL.cupom, p_valor_base: 149, p_produto_id: null, p_escopo: "cadastro" });
+      var row = r.data && r.data[0];
+      if (!row || !row.valido || Number(row.valor_final) > 0) return false;
+      // isenção total disponível → mostra opção de pular o Pix
+      document.getElementById("isencao-cod").textContent = PERFIL.cupom;
+      document.getElementById("box-isencao").style.display = "block";
+      document.getElementById("btn-isencao").style.display = "block";
+      document.getElementById("btn-gerar").style.display = "none";
+      return true;
+    }
+    document.getElementById("btn-isencao").addEventListener("click", async function () {
+      var btn = this; btn.disabled = true; btn.textContent = "Aplicando…";
+      var r = await DB.client.rpc("isentar_taxa_cadastro", { p_codigo: PERFIL.cupom });
+      var row = r.data && r.data[0];
+      if (r.error || !row || !row.ok) {
+        avisoPagar((row && row.motivo) || "Não foi possível aplicar a isenção. Tente o pagamento.");
+        btn.disabled = false; btn.textContent = "Continuar sem pagar"; return;
+      }
+      // dispara a verificação (mesmo caminho do pagamento confirmado) e acompanha
+      await edge("verificar-cadastro", { perfil_id: PERFIL.id });
+      PERFIL.status = "pago_em_verificacao";
+      rotear("pago_em_verificacao");
+    });
+
     document.getElementById("btn-copiar").addEventListener("click", function () {
       var inp = document.getElementById("qr-payload");
       inp.select();
@@ -222,11 +256,17 @@
       }
       var perfil = await DB.exigirLogin();
       PERFIL = perfil;
+      // carrega tb id + cupom (perfilAtual não traz o cupom)
+      var pe = await DB.client.from("perfis").select("id,cupom,status").eq("user_id", perfil.user_id).maybeSingle();
+      if (pe.data) PERFIL = Object.assign(PERFIL, pe.data);
       // valor da taxa vem da CONFIG (nunca hardcode)
       var cfg = await DB.client.from("config").select("valor").eq("chave", "taxa_cadastro_valor").maybeSingle();
       document.getElementById("valor-taxa").textContent = brl(Number(cfg.data && cfg.data.valor) || 149);
-      rotear(perfil ? perfil.status : "docs_enviados");
+      rotear(PERFIL.status || "docs_enviados");
       app.hidden = false;
+      // se a view de pagar está visível e há cupom de isenção, oferece pular o Pix
+      var payVisivel = document.getElementById("view-pagar").style.display === "block";
+      if (payVisivel) await checarIsencao();
     })();
   })();
   </script>
