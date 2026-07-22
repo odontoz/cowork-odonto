@@ -68,7 +68,7 @@
         <p id="vazio" class="muted" style="display:none">Fechado nesse dia. Escolha outra data.</p>
         <p id="aviso-slot" class="aviso aviso-atencao" style="display:none;margin-top:10px"></p>
         <p class="muted" style="margin:10px 0 0;font-size:.85rem">
-          Cada bloco é <b>1 hora</b> (R$ 75). Toque para reservar; para ficar mais tempo, toque nas horas seguintes.
+          Cada bloco é <b>1 hora</b> (R$ 75). Toque no horário de <b>início</b> e depois no <b>final</b> para reservar várias horas seguidas.
         </p>
       </div>
 
@@ -132,6 +132,7 @@
   <script src="../../config/config.js" onerror="console.warn('config.js ausente — modo demonstração')"></script>
   <script src="../../assets/vendor/supabase.js"></script>
   <script src="../../assets/js/db.js"></script>
+  <script src="../../assets/js/nav-app.js" defer></script>
   <script src="../../assets/js/motor-reservas.js"></script>
   <script>
   (function () {
@@ -406,26 +407,59 @@
       return { inicio: LIVRES[idx].inicio, fim: LIVRES[idx + n - 1].fim };
     }
 
+    // todos os slots de 1h entre ini (incl.) e fim (excl.) precisam existir em LIVRES
+    function intervaloLivre(ini, fim) {
+      var passoMs = CFG.passoSlotMin * 60000;
+      for (var t = ini.getTime(); t < fim.getTime(); t += passoMs) {
+        var achou = LIVRES.some(function (x) { return x.inicio.getTime() === t; });
+        if (!achou) return false;
+      }
+      return true;
+    }
+
+    // Seleção por INTERVALO (acumula horas):
+    //  1º clique = âncora (1h). 2º clique num horário POSTERIOR = seleciona tudo até lá,
+    //  se o trecho for livre e contínuo. Clique DENTRO encolhe (âncora → desmarca).
     function escolher(s) {
       avisoSlot(null);
       resetarPagamento();
-      // ESTENDER: clicou no slot logo após a seleção atual e ele está livre → +1 slot
-      if (sel.inicio && sel.fim && s.inicio.getTime() === sel.fim.getTime() && ehLivre(s)) {
+
+      // NADA selecionado → âncora de 1h a partir de s
+      if (!sel.inicio) {
+        var b0 = blocoContiguo(s, slotsMinimos());
+        if (!b0) { avisoSlot("Não há 1 hora livre a partir desse horário. Escolha um horário mais cedo ou outra data."); return; }
+        sel = { inicio: b0.inicio, fim: b0.fim };
+        marcarSelecionados(); atualizarResumo(); return;
+      }
+
+      // Clique DENTRO da seleção → encolher: o slot clicado vira o último
+      if (s.inicio >= sel.inicio && s.inicio < sel.fim) {
+        if (s.inicio.getTime() === sel.inicio.getTime()) {   // clicou na âncora → desmarca tudo
+          sel = { inicio: null, fim: null };
+          marcarSelecionados();
+          document.getElementById("resumo").style.display = "none";
+          return;
+        }
         sel.fim = s.fim;
         marcarSelecionados(); atualizarResumo(); return;
       }
-      // NOVA SELEÇÃO: sempre começa com o bloco da duração mínima (1h por padrão)
-      var bloco = blocoContiguo(s, slotsMinimos());
-      if (!bloco) {
-        sel = { inicio: null, fim: null };
-        marcarSelecionados();
-        document.getElementById("resumo").style.display = "none";
-        avisoSlot("Não há 1 hora livre a partir desse horário. Escolha um horário mais cedo ou outra data.");
-        return;
+
+      // Clique ANTES da seleção → recomeça a âncora ali
+      if (s.inicio < sel.inicio) {
+        var b1 = blocoContiguo(s, slotsMinimos());
+        if (!b1) { avisoSlot("Não há 1 hora livre a partir desse horário. Escolha outro horário."); return; }
+        sel = { inicio: b1.inicio, fim: b1.fim };
+        marcarSelecionados(); atualizarResumo(); return;
       }
-      sel = { inicio: bloco.inicio, fim: bloco.fim };
-      marcarSelecionados();
-      atualizarResumo();
+
+      // Clique DEPOIS da seleção → ESTENDER até o fim do slot clicado,
+      // desde que TODO o trecho âncora→slot esteja livre e contínuo
+      if (!intervaloLivre(sel.inicio, s.fim)) {
+        avisoSlot("Esse intervalo tem um horário ocupado no meio. Escolha um trecho livre contínuo.");
+        return; // mantém a seleção anterior
+      }
+      sel.fim = s.fim;
+      marcarSelecionados(); atualizarResumo();
     }
     function marcarSelecionados() {
       document.querySelectorAll("#timeline .slot").forEach(function (d) {
@@ -444,9 +478,12 @@
       document.getElementById("r-ok").style.display = "none";
 
       document.getElementById("r-sala").textContent = nomeSala();
+      var horas = (sel.fim - sel.inicio) / 3600000;
+      var sufHoras = (PRODUTO_ATUAL && PRODUTO_ATUAL.modo === "fixo") ? "" :
+        " · " + (Number.isInteger(horas) ? horas : horas.toFixed(1)) + "h";
       document.getElementById("r-horario").textContent =
         (PRODUTO_ATUAL ? PRODUTO_ATUAL.label.split(" — ")[0] + " · " : "") +
-        new Date(sel.inicio).toLocaleDateString("pt-BR") + " · " + hhmm(sel.inicio) + " – " + hhmm(sel.fim);
+        new Date(sel.inicio).toLocaleDateString("pt-BR") + " · " + hhmm(sel.inicio) + " – " + hhmm(sel.fim) + sufHoras;
       // preço: bloco fixo = valor do produto; hora avulsa = proporcional
       PRECO_BASE = (PRODUTO_ATUAL && PRODUTO_ATUAL.modo === "fixo")
         ? Number(PRODUTO_ATUAL.valor)
