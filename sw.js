@@ -8,7 +8,7 @@
  * sem editar nada. O registro (assets/js/db.js e public/index.html) também usa
  * caminho relativo, e a fallback offline resolve pela BASE do sw.
  * ==========================================================================*/
-var CACHE = "enjoy-v8";
+var CACHE = "enjoy-v9";
 // BASE = diretório do sw.js (termina em "/"). new Request() abaixo resolve os
 // relativos contra a URL do sw, mas guardamos a base p/ a fallback de navegação.
 var BASE = self.location.href.replace(/sw\.js.*$/, "");
