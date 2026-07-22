@@ -94,10 +94,12 @@
       burger.setAttribute("aria-expanded", aberto ? "true" : "false");
     });
 
-    // Sair — usa DB.sair() se o banco estiver pronto; senão vai pro login
+    // Sair — usa EnjoyDB.sair() (encerra sessão + redireciona). O global é
+    // window.EnjoyDB (NÃO window.DB). Sem ele, redireciona pro login.
     wrap.querySelector("#nav-sair").addEventListener("click", function (e) {
       e.preventDefault();
-      try { if (window.DB && DB.pronto && DB.sair) { DB.sair(); return; } } catch (err) {}
+      var api = window.EnjoyDB;
+      if (api && typeof api.sair === "function") { api.sair("login.html"); return; }
       location.href = "login.html";
     });
   }
