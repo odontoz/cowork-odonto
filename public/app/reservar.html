@@ -107,6 +107,7 @@
         <p style="margin:0 0 8px;font-weight:800;text-align:center">Pague via Pix para confirmar</p>
         <div style="text-align:center">
           <img id="qr-img" alt="QR Code Pix" style="width:220px;max-width:100%;border:1px solid var(--linha);border-radius:8px;padding:8px;background:#fff">
+          <p id="qr-credito" class="aviso aviso-info" style="display:none;text-align:left;font-size:.85rem"></p>
           <p class="muted" style="font-size:.85rem">Escaneie com o app do seu banco ou use o copia-e-cola.<br>
             O horário fica reservado por <span id="qr-timeout">15</span> min.</p>
         </div>
@@ -121,7 +122,9 @@
 
       <p class="muted" style="font-size:.82rem;margin:0">
         Você paga primeiro (Pix) e o horário é confirmado na hora · duração mínima 1h ·
-        higienização de 30 min entre profissionais diferentes · cancelamento com 24h de antecedência.
+        higienização de 30 min entre profissionais diferentes · cancele com 24h+ de antecedência
+        e receba 100% em créditos (menos de 24h: 75% · não comparecimento: 50%) ·
+        créditos valem 90 dias e abatem novas reservas.
       </p>
     </div>
   </main>
@@ -547,6 +550,18 @@
         btn.style.display = "none";
         return;
       }
+      if (pg.status === 200 && pg.body.pago_com_credito) {
+        // créditos cobriram 100% — sem QR: a reserva já está confirmada
+        var okc = document.getElementById("r-ok");
+        okc.textContent = "Pago com seus créditos" +
+          (pg.body.credito_usado ? " (R$ " + Number(pg.body.credito_usado).toFixed(2).replace(".", ",") + ")" : "") +
+          "! Reserva garantida: " + nomeSala() + " · " +
+          new Date(sel.inicio).toLocaleDateString("pt-BR") + " " + hhmm(sel.inicio) + "–" + hhmm(sel.fim) +
+          ". Veja em Minhas reservas.";
+        okc.style.display = "block";
+        btn.style.display = "none";
+        return;
+      }
       if (pg.status !== 200 || !pg.body.qr) {
         eb.textContent = "Não foi possível iniciar o pagamento: " + (pg.body.erro || ("erro " + pg.status));
         eb.style.display = "block";
@@ -557,6 +572,12 @@
       document.getElementById("qr-img").src = "data:image/png;base64," + pg.body.qr.encodedImage;
       document.getElementById("qr-payload").value = pg.body.qr.payload;
       if (pg.body.expira_em_min) document.getElementById("qr-timeout").textContent = pg.body.expira_em_min;
+      var credNota = document.getElementById("qr-credito");
+      if (Number(pg.body.credito_usado) > 0) {
+        credNota.textContent = "R$ " + Number(pg.body.credito_usado).toFixed(2).replace(".", ",") +
+          " abatidos dos seus créditos — pague só o restante no Pix.";
+        credNota.style.display = "block";
+      } else { credNota.style.display = "none"; }
       document.getElementById("box-qr").style.display = "block";
       btn.style.display = "none";
       iniciarPollReserva(RESERVA_ATUAL.id);
