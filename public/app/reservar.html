@@ -278,7 +278,7 @@
     // ============ CARGA DE DADOS ============
     async function carregarReais(perfil) {
       MEU_ID = perfil ? perfil.id : "prof-eu";
-      APROVADO = !!perfil && perfil.status === "aprovado";
+      APROVADO = !!perfil && (perfil.status === "aprovado" || perfil.status === "ativo");
       if (!APROVADO) {
         var a = document.getElementById("aviso-status");
         a.textContent = perfil && perfil.status === "em_aprovacao"
