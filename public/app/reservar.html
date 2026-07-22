@@ -48,8 +48,13 @@
           <input id="data" type="date" onclick="this.showPicker?.()">
         </div>
       </div>
+      <div class="campo">
+        <label for="produto">O que você quer reservar?</label>
+        <select id="produto"></select>
+      </div>
 
-      <div>
+      <!-- MODO HORA: grade de blocos de 1 hora -->
+      <div id="bloco-horarios">
         <div class="row-between" style="margin-bottom:8px">
           <h2 style="margin:0">Horários</h2>
           <div class="legenda">
@@ -66,6 +71,12 @@
           Cada bloco é <b>1 hora</b> (R$ 75). Toque para reservar; para ficar mais tempo, toque nas horas seguintes.
         </p>
       </div>
+
+      <!-- MODO BLOCO FIXO: período / diária / noturno / fim de semana -->
+      <div id="bloco-fixo" style="display:none">
+        <p id="fixo-info" class="muted" style="margin:0 0 8px;font-size:.9rem"></p>
+        <p id="fixo-erro" class="aviso aviso-atencao" style="display:none"></p>
+      </div>
     </div>
 
     <!-- Resumo/confirmação -->
@@ -81,6 +92,11 @@
           <strong id="r-preco" style="font-size:1.3rem"></strong>
         </div>
       </div>
+      <div class="row" style="gap:8px">
+        <input id="cupom" class="grow" type="text" placeholder="Cupom (opcional)" style="text-transform:uppercase">
+        <button type="button" class="btn btn-neutro" id="btn-cupom">Aplicar</button>
+      </div>
+      <small id="cupom-msg" class="muted" style="display:none;margin-top:-4px"></small>
       <div id="r-erro" class="aviso aviso-atencao" style="display:none"></div>
       <div id="r-ok" class="aviso aviso-info" style="display:none"></div>
       <button id="btn-confirmar" class="btn btn-primario btn-bloco">Confirmar reserva</button>
@@ -126,6 +142,9 @@
     var SALAS = [];
     var PRODUTOS = [{ tipo: "hora", valor: 75 }];
     var PRODUTO_HORA_ID = null;
+    var PRODUTOS_MAP = {};        // tipo → { id, valor, nome }
+    var PRODUTO_ATUAL = null;     // opção escolhida (hora ou bloco fixo)
+    var PRECO_BASE = 0, PRECO_FINAL = 0, CUPOM_OK = null;
     var HORARIO = {
       "0": { abre: "08:00", fecha: "18:00" }, "1": { abre: "08:00", fecha: "22:00" },
       "2": { abre: "08:00", fecha: "22:00" }, "3": { abre: "08:00", fecha: "22:00" },
@@ -166,6 +185,90 @@
     function at(dataISO, hhmmStr) { var p = dataISO.split("-"), h = hhmmStr.split(":"); return new Date(+p[0], +p[1]-1, +p[2], +h[0], +h[1], 0, 0); }
     function hhmm(d) { return String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0"); }
     function nomeSala() { return elSala.options[elSala.selectedIndex].textContent; }
+    function brl2(n) { return "R$ " + Number(n||0).toFixed(2).replace(".", ","); }
+
+    // ============ PRODUTOS / BLOCOS FIXOS ============
+    var elProduto = document.getElementById("produto");
+    var OPCOES = [];
+    // opções de reserva: hora avulsa (grade) + blocos fixos (janela pré-definida)
+    function opcoesProduto() {
+      var P = PRODUTOS_MAP, ops = [];
+      if (P.hora)            ops.push({ modo:"hora", tipo:"hora",            label:"Hora avulsa — "+brl2(P.hora.valor)+"/h", valor:P.hora.valor });
+      if (P.periodo)       { ops.push({ modo:"fixo", tipo:"periodo",         label:"Período manhã (08:00–12:30) — "+brl2(P.periodo.valor), valor:P.periodo.valor, ini:"08:00", fim:"12:30" });
+                             ops.push({ modo:"fixo", tipo:"periodo",         label:"Período tarde (13:30–18:00) — "+brl2(P.periodo.valor), valor:P.periodo.valor, ini:"13:30", fim:"18:00" }); }
+      if (P.periodo_noturno) ops.push({ modo:"fixo", tipo:"periodo_noturno", label:"Período noturno (18:00–22:00) — "+brl2(P.periodo_noturno.valor), valor:P.periodo_noturno.valor, ini:"18:00", fim:"22:00" });
+      if (P.diaria)          ops.push({ modo:"fixo", tipo:"diaria",          label:"Diária (08:00–18:00) — "+brl2(P.diaria.valor), valor:P.diaria.valor, ini:"08:00", fim:"18:00" });
+      if (P.periodo_fds)     ops.push({ modo:"fixo", tipo:"periodo_fds",     label:"Fim de semana (08:00–12:30) — "+brl2(P.periodo_fds.valor), valor:P.periodo_fds.valor, ini:"08:00", fim:"12:30", fds:true });
+      return ops;
+    }
+    function montarSeletorProduto() {
+      OPCOES = opcoesProduto();
+      elProduto.innerHTML = OPCOES.map(function (o, i) { return '<option value="'+i+'">'+o.label+'</option>'; }).join("");
+      PRODUTO_ATUAL = OPCOES[0] || null;
+    }
+    function idProdutoAtual() {
+      var m = PRODUTOS_MAP[PRODUTO_ATUAL ? PRODUTO_ATUAL.tipo : "hora"];
+      return m ? m.id : null;
+    }
+    function reRender() {
+      if (PRODUTO_ATUAL && PRODUTO_ATUAL.modo === "fixo") renderFixo(); else renderTimeline();
+    }
+    elProduto.addEventListener("change", function () {
+      PRODUTO_ATUAL = OPCOES[+elProduto.value] || null;
+      resetarCupom();
+      document.getElementById("bloco-horarios").style.display = (PRODUTO_ATUAL && PRODUTO_ATUAL.modo === "fixo") ? "none" : "block";
+      document.getElementById("bloco-fixo").style.display = (PRODUTO_ATUAL && PRODUTO_ATUAL.modo === "fixo") ? "block" : "none";
+      document.getElementById("resumo").style.display = "none";
+      reRender();
+    });
+
+    // monta o bloco fixo do dia, valida disponibilidade e mostra o resumo
+    async function renderFixo() {
+      pararPollReserva(); RESERVA_ATUAL = null; resetarPagamento(); resetarCupom();
+      document.getElementById("r-ok").style.display = "none";
+      var erroEl = document.getElementById("fixo-erro"), infoEl = document.getElementById("fixo-info");
+      erroEl.style.display = "none";
+      var o = PRODUTO_ATUAL; if (!o) return;
+      var dataISO = elData.value || hojeISO();
+      infoEl.textContent = o.label.split(" — ")[0] + " · " + at(dataISO, "12:00").toLocaleDateString("pt-BR");
+      var ini = at(dataISO, o.ini), fim = at(dataISO, o.fim);
+      var dia = ini.getDay();
+      document.getElementById("resumo").style.display = "none";
+      if (o.fds && dia !== 0 && dia !== 6) { sel = { inicio:null, fim:null }; erroEl.textContent = "Fim de semana só aos sábados e domingos."; erroEl.style.display = "block"; return; }
+      if (ini < new Date()) { sel = { inicio:null, fim:null }; erroEl.textContent = "Esse período já passou. Escolha outra data."; erroEl.style.display = "block"; return; }
+      if (!APROVADO) { erroEl.textContent = "Seu cadastro precisa estar aprovado para reservar."; erroEl.style.display = "block"; return; }
+      var oc = await ocupacaoDoDia(elSala.value, dataISO); window.__oc = oc;
+      var v = M.podeReservar(oc.reservas, oc.bloqueios, HORARIO, { inicio: ini, fim: fim, profissionalId: MEU_ID }, CFG);
+      if (!v.ok) { sel = { inicio:null, fim:null }; erroEl.textContent = "Indisponível: " + v.motivo; erroEl.style.display = "block"; return; }
+      sel = { inicio: ini, fim: fim };
+      atualizarResumo();
+    }
+
+    // -------- cupom de reserva (desconta o produto selecionado) --------
+    function resetarCupom() {
+      CUPOM_OK = null;
+      var m = document.getElementById("cupom-msg"); if (m) m.style.display = "none";
+      var i = document.getElementById("cupom"); if (i) i.value = "";
+    }
+    document.getElementById("btn-cupom").addEventListener("click", async function () {
+      var msg = document.getElementById("cupom-msg");
+      var cod = document.getElementById("cupom").value.trim();
+      if (!cod) { return; }
+      if (!(DB && DB.pronto)) { msg.style.display = "block"; msg.className = "muted"; msg.textContent = "Cupom será validado com o banco conectado."; return; }
+      this.disabled = true;
+      var r = await DB.client.rpc("validar_cupom", { p_codigo: cod, p_valor_base: PRECO_BASE, p_produto_id: idProdutoAtual(), p_escopo: "reserva" });
+      this.disabled = false;
+      var row = r.data && r.data[0];
+      msg.style.display = "block";
+      if (r.error || !row || !row.valido) {
+        CUPOM_OK = null; PRECO_FINAL = PRECO_BASE;
+        msg.className = "aviso aviso-atencao"; msg.textContent = (row && row.motivo) || "Cupom inválido.";
+      } else {
+        CUPOM_OK = cod.toUpperCase(); PRECO_FINAL = Number(row.valor_final);
+        msg.className = "aviso aviso-info"; msg.textContent = (row.descricao || CUPOM_OK) + ": " + brl2(PRECO_FINAL);
+      }
+      document.getElementById("r-preco").textContent = brl2(PRECO_FINAL);
+    });
 
     // ============ CARGA DE DADOS ============
     async function carregarReais(perfil) {
@@ -181,7 +284,7 @@
 
       var salasP = DB.client.from("salas").select("id,nome,comodidades,ativa").eq("ativa", true).order("ordem");
       var cfgP = DB.client.from("config").select("chave,valor");
-      var prodP = DB.client.from("produtos_preco").select("id,tipo,valor").eq("tipo","hora").eq("ativo", true).limit(1);
+      var prodP = DB.client.from("produtos_preco").select("id,tipo,valor,nome").eq("ativo", true);
       var r = await Promise.all([salasP, cfgP, prodP]);
 
       SALAS = (r[0].data || []).map(function (s) {
@@ -193,9 +296,11 @@
         if (c.chave === "buffer_min") CFG.bufferMin = Number(c.valor) || 30;
         if (c.chave === "duracao_minima_min") CFG.duracaoMinimaMin = Number(c.valor) || 60;
       });
-      if (r[2].data && r[2].data[0]) {
-        PRODUTO_HORA_ID = r[2].data[0].id;
-        PRODUTOS = [{ tipo: "hora", valor: Number(r[2].data[0].valor) }];
+      // mapa de TODOS os produtos ativos, por tipo (hora, periodo, diaria, etc.)
+      (r[2].data || []).forEach(function (p) { PRODUTOS_MAP[p.tipo] = { id: p.id, valor: Number(p.valor), nome: p.nome }; });
+      if (PRODUTOS_MAP.hora) {
+        PRODUTO_HORA_ID = PRODUTOS_MAP.hora.id;
+        PRODUTOS = [{ tipo: "hora", valor: PRODUTOS_MAP.hora.valor }];
       }
     }
 
@@ -203,6 +308,10 @@
       document.getElementById("aviso-demo").style.display = "block";
       SALAS = [{ id: "s1", nome: "Consultório 1 (RX)" }, { id: "s2", nome: "Consultório 2" }];
       PRODUTOS = [{ tipo: "hora", valor: 75 }];
+      PRODUTOS_MAP = {
+        hora: { valor: 75 }, periodo: { valor: 250 }, periodo_noturno: { valor: 350 },
+        diaria: { valor: 400 }, periodo_fds: { valor: 300 }
+      };
       MEU_ID = "prof-eu";
     }
 
@@ -239,6 +348,7 @@
       pararPollReserva();
       RESERVA_ATUAL = null;
       resetarPagamento();
+      resetarCupom();
       document.getElementById("resumo").style.display = "none";
       document.getElementById("r-ok").style.display = "none";
       document.getElementById("aviso-slot").style.display = "none";
@@ -330,9 +440,14 @@
 
       document.getElementById("r-sala").textContent = nomeSala();
       document.getElementById("r-horario").textContent =
+        (PRODUTO_ATUAL ? PRODUTO_ATUAL.label.split(" — ")[0] + " · " : "") +
         new Date(sel.inicio).toLocaleDateString("pt-BR") + " · " + hhmm(sel.inicio) + " – " + hhmm(sel.fim);
-      var preco = M.calcularPreco(PRODUTOS, sel.inicio, sel.fim);
-      document.getElementById("r-preco").textContent = "R$ " + preco.toFixed(2).replace(".", ",");
+      // preço: bloco fixo = valor do produto; hora avulsa = proporcional
+      PRECO_BASE = (PRODUTO_ATUAL && PRODUTO_ATUAL.modo === "fixo")
+        ? Number(PRODUTO_ATUAL.valor)
+        : M.calcularPreco(PRODUTOS, sel.inicio, sel.fim);
+      PRECO_FINAL = PRECO_BASE;
+      document.getElementById("r-preco").textContent = brl2(PRECO_FINAL);
 
       var oc = window.__oc || { reservas: [], bloqueios: [] };
       var v = M.podeReservar(oc.reservas, oc.bloqueios, HORARIO,
@@ -389,7 +504,7 @@
     document.getElementById("btn-confirmar").addEventListener("click", async function () {
       if (!sel.inicio || !sel.fim) return;
       var btn = this;
-      var preco = M.calcularPreco(PRODUTOS, sel.inicio, sel.fim);
+      var preco = PRECO_FINAL;
       var eb = document.getElementById("r-erro");
       eb.className = "aviso aviso-atencao"; eb.style.display = "none";
 
@@ -409,7 +524,7 @@
         p_sala_id: elSala.value,
         p_inicio: sel.inicio.toISOString(),
         p_fim: sel.fim.toISOString(),
-        p_produto_id: PRODUTO_HORA_ID,
+        p_produto_id: idProdutoAtual(),
         p_valor: preco
       });
       if (rc.error) {
@@ -445,8 +560,8 @@
       iniciarPollReserva(RESERVA_ATUAL.id);
     });
 
-    elSala.addEventListener("change", renderTimeline);
-    elData.addEventListener("change", renderTimeline);
+    elSala.addEventListener("change", reRender);
+    elData.addEventListener("change", reRender);
 
     // -------- boot (auth ANTES de renderizar) --------
     (async function () {
@@ -455,9 +570,10 @@
       else carregarMock(perfil);
 
       SALAS.forEach(function (s) { var o = document.createElement("option"); o.value = s.id; o.textContent = s.nome; elSala.appendChild(o); });
+      montarSeletorProduto();
       elData.value = hojeISO(); elData.min = hojeISO();
       app.hidden = false;
-      await renderTimeline();
+      await reRender();
     })();
   })();
   </script>
