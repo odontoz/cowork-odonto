@@ -47,7 +47,7 @@
     // Contato — telefone oficial (06/07); e-mail/instagram a criar no domínio novo
     telefone:  "556135462675",    // (61) 3546-2675
     whatsapp:  "556135462675",    // confirmar se o fixo tem WhatsApp Business
-    email:     "contato@clinicshare.net",       // placeholder até criar a caixa (domínio .net decidido 16/07)
+    email:     "contato@clinicshare.net.br",       // caixa ATIVA via ImprovMX → Gmail (22/07)
     instagram: "clinicshareoficial",            // handle oficial (definido 17/07)
 
     // Registro — placeholder até abrir/definir o CNPJ da Enjoy
