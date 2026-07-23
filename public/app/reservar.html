@@ -100,8 +100,8 @@
       <div id="r-erro" class="aviso aviso-atencao" style="display:none"></div>
       <div id="r-ok" class="aviso aviso-info" style="display:none"></div>
       <p id="r-credito" class="aviso aviso-info" style="display:none;font-size:.9rem;margin:0"></p>
-      <label style="display:flex;gap:8px;align-items:flex-start;font-size:.82rem;margin:4px 0;color:var(--cinza)">
-        <input type="checkbox" id="aceite-cancel" style="margin-top:3px;flex:0 0 auto">
+      <label style="display:flex;gap:10px;align-items:flex-start;font-size:.82rem;margin:6px 0;color:var(--cinza);cursor:pointer">
+        <input type="checkbox" id="aceite-cancel" style="width:20px;height:20px;min-width:20px;flex:0 0 20px;margin:1px 0 0;padding:0;border-radius:5px;accent-color:var(--azul)">
         <span>Li e aceito a <strong>política de cancelamento</strong>: 7+ dias de antecedência = 100% em créditos ·
         entre 7 dias e 48h = 50% · menos de 48h ou não comparecimento = sem devolução (créditos valem 90 dias).</span>
       </label>
@@ -607,11 +607,13 @@
       }
       RESERVA_ATUAL = rc.data;
 
-      // registra o aceite da política na reserva (best-effort, não bloqueia)
+      // registra o aceite da política na reserva via RPC (RLS não deixa o
+      // cliente dar UPDATE direto). Best-effort — não bloqueia a reserva.
       try {
-        await DB.client.from("reservas").update({
-          observacao: "Aceite da política de cancelamento em " + new Date().toISOString() + " — " + POLITICA_CANCEL
-        }).eq("id", RESERVA_ATUAL.id);
+        await DB.client.rpc("registrar_aceite_politica", {
+          p_reserva_id: RESERVA_ATUAL.id,
+          p_texto: "Aceite da política de cancelamento em " + new Date().toISOString() + " — " + POLITICA_CANCEL
+        });
       } catch (e) { /* não bloqueia a reserva */ }
 
       // 2) inicia o pagamento: cobranca 'reserva' → pendente_pagamento (segura 15min) + QR Pix
