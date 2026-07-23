@@ -33,7 +33,7 @@
     </div>
     <div id="aviso-status" class="aviso aviso-atencao" style="margin-bottom:16px;display:none"></div>
     <div id="card-creditos" class="aviso aviso-info" style="margin-bottom:16px;display:none">
-      💳 Você tem <strong id="saldo-creditos">R$ 0,00</strong> em créditos — são usados automaticamente ao pagar suas reservas (validade de 90 dias).
+      ⏱ Você tem <strong id="saldo-creditos">0h</strong> de crédito — usadas automaticamente ao reservar (validade de 90 dias).
     </div>
 
     <!-- Atalhos -->
@@ -167,7 +167,7 @@
       var assP = DB.client.from("assinaturas")
         .select("status,produto_id,produtos_preco(nome,regras)").eq("status","ativa").limit(1);
       var hojeISO = new Date().getFullYear() + "-" + String(new Date().getMonth()+1).padStart(2,"0") + "-" + String(new Date().getDate()).padStart(2,"0");
-      var credP = DB.client.from("creditos").select("valor_restante").gt("valor_restante", 0).gte("validade", hojeISO);
+      var credP = DB.client.from("creditos").select("valor_restante,valor_hora").gt("valor_restante", 0).gte("validade", hojeISO);
 
       var res = await Promise.all([proxP, mesP, fatP, recP, assP, credP]);
       renderReservas(res[0].data || []);
@@ -188,10 +188,20 @@
       });
     }
 
+    function fmtHoras(h) {
+      h = Math.round(h * 100) / 100;
+      return ((h % 1 === 0) ? String(h) : h.toFixed(1).replace(".", ",")) + "h";
+    }
+    function somaHoras(lista) {
+      return (lista || []).reduce(function (s, c) {
+        var vh = Number(c.valor_hora) || 75;
+        return s + (Number(c.valor_restante || 0) / vh);
+      }, 0);
+    }
     function renderCreditos(lista) {
-      var total = (lista || []).reduce(function (s, c) { return s + Number(c.valor_restante || 0); }, 0);
-      if (total > 0) {
-        document.getElementById("saldo-creditos").textContent = brl(total);
+      var horas = somaHoras(lista);
+      if (horas > 0) {
+        document.getElementById("saldo-creditos").textContent = fmtHoras(horas);
         document.getElementById("card-creditos").style.display = "block";
       }
     }

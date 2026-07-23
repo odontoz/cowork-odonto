@@ -102,8 +102,8 @@
       <p id="r-credito" class="aviso aviso-info" style="display:none;font-size:.9rem;margin:0"></p>
       <label style="display:flex;gap:10px;align-items:flex-start;font-size:.82rem;margin:6px 0;color:var(--cinza);cursor:pointer">
         <input type="checkbox" id="aceite-cancel" style="width:20px;height:20px;min-width:20px;flex:0 0 20px;margin:1px 0 0;padding:0;border-radius:5px;accent-color:var(--azul)">
-        <span>Li e aceito a <strong>política de cancelamento</strong>: 7+ dias de antecedência = 100% em créditos ·
-        entre 7 dias e 48h = 50% · menos de 48h ou não comparecimento = sem devolução (créditos valem 90 dias).</span>
+        <span>Li e aceito a <strong>política de cancelamento</strong>: 7+ dias de antecedência = 100% em horas de crédito ·
+        entre 7 dias e 48h = 50% · menos de 48h ou não comparecimento = sem devolução (horas de crédito valem 90 dias).</span>
       </label>
       <button id="btn-confirmar" class="btn btn-primario btn-bloco">Confirmar reserva</button>
 
@@ -129,8 +129,8 @@
       <p class="muted" style="font-size:.82rem;margin:0">
         Você paga primeiro (Pix) e o horário é confirmado na hora · duração mínima 1h ·
         higienização de 30 min entre profissionais diferentes. <strong>Cancelamento:</strong>
-        7+ dias de antecedência = 100% em créditos · entre 7 dias e 48h = 50% · menos de 48h ou
-        não comparecimento = sem devolução. Créditos valem 90 dias e abatem novas reservas.
+        7+ dias de antecedência = 100% em horas de crédito · entre 7 dias e 48h = 50% · menos de 48h ou
+        não comparecimento = sem devolução. As horas de crédito valem 90 dias e abatem novas reservas.
       </p>
     </div>
   </main>
@@ -283,16 +283,18 @@
     });
 
     // ============ CARGA DE DADOS ============
-    var SALDO_CREDITOS = 0;
+    var SALDO_CREDITOS = 0, SALDO_HORAS = 0;
+    function fmtHoras(h) { h = Math.round(h*100)/100; return ((h % 1 === 0) ? String(h) : h.toFixed(1).replace(".",",")) + "h"; }
     async function carregarReais(perfil) {
       MEU_ID = perfil ? perfil.id : "prof-eu";
       APROVADO = !!perfil && (perfil.status === "aprovado" || perfil.status === "ativo");
       // saldo de créditos (abatido automaticamente na Edge; aqui é só informativo)
       try {
         var hoje = new Date().getFullYear() + "-" + String(new Date().getMonth()+1).padStart(2,"0") + "-" + String(new Date().getDate()).padStart(2,"0");
-        var cr = await DB.client.from("creditos").select("valor_restante").gt("valor_restante", 0).gte("validade", hoje);
+        var cr = await DB.client.from("creditos").select("valor_restante,valor_hora").gt("valor_restante", 0).gte("validade", hoje);
         SALDO_CREDITOS = (cr.data || []).reduce(function (s, c) { return s + Number(c.valor_restante || 0); }, 0);
-      } catch (e) { SALDO_CREDITOS = 0; }
+        SALDO_HORAS = (cr.data || []).reduce(function (s, c) { return s + (Number(c.valor_restante || 0) / (Number(c.valor_hora) || 75)); }, 0);
+      } catch (e) { SALDO_CREDITOS = 0; SALDO_HORAS = 0; }
       if (!APROVADO) {
         var a = document.getElementById("aviso-status");
         a.textContent = perfil && perfil.status === "em_aprovacao"
@@ -504,12 +506,12 @@
       PRECO_FINAL = PRECO_BASE;
       document.getElementById("r-preco").textContent = brl2(PRECO_FINAL);
 
-      // aviso de crédito (o abatimento real acontece na Edge ao confirmar)
+      // aviso de crédito em HORAS (o abatimento real acontece na Edge ao confirmar)
       var rc = document.getElementById("r-credito");
-      if (SALDO_CREDITOS > 0) {
+      if (SALDO_HORAS > 0) {
         var usa = Math.min(SALDO_CREDITOS, PRECO_FINAL);
-        rc.textContent = "💳 Você tem " + brl2(SALDO_CREDITOS) + " em créditos — " +
-          (usa >= PRECO_FINAL ? "cobrem esta reserva (sem precisar de Pix)." : brl2(usa) + " serão usados e o restante via Pix.");
+        rc.textContent = "⏱ Você tem " + fmtHoras(SALDO_HORAS) + " de crédito — " +
+          (usa >= PRECO_FINAL ? "cobrem esta reserva (sem precisar de Pix)." : brl2(usa) + " serão abatidos e o restante via Pix.");
         rc.style.display = "block";
       } else { rc.style.display = "none"; }
 
@@ -565,7 +567,7 @@
       var b = this; b.textContent = "Copiado!"; setTimeout(function () { b.textContent = "Copiar"; }, 2000);
     });
 
-    var POLITICA_CANCEL = "7+ dias=100% créditos · 7d-48h=50% · <48h/no-show=0% · créditos 90 dias (clinicshare-v3.2)";
+    var POLITICA_CANCEL = "7+ dias=100% horas · 7d-48h=50% · <48h/no-show=0% · horas de crédito 90 dias (clinicshare-v3.3)";
     document.getElementById("btn-confirmar").addEventListener("click", async function () {
       if (!sel.inicio || !sel.fim) return;
       var btn = this;

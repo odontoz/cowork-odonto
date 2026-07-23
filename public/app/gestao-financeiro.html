@@ -605,13 +605,14 @@
       var pp = (mesISO || "").split("-"), yy = +pp[0], mm = +pp[1];
       var ini = (yy && mm) ? new Date(yy, mm-1, 1) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
       var fim = new Date(ini.getFullYear(), ini.getMonth()+1, 1);
-      var q = await DB.client.from("creditos").select("valor,valor_restante,origem,validade,criado_em");
+      var q = await DB.client.from("creditos").select("valor,valor_restante,valor_hora,origem,validade,criado_em");
       var todos = q.data || [];
       var hoje = new Date(); hoje.setHours(0,0,0,0);
-      var circulante = 0, usados = 0, emitidosMes = 0, porOrigem = {};
+      var circulante = 0, circulanteH = 0, usados = 0, emitidosMes = 0, porOrigem = {};
+      function fmtH(h){ h=Math.round(h*100)/100; return ((h%1===0)?String(h):h.toFixed(1).replace(".",","))+"h"; }
       todos.forEach(function (c) {
-        var val = Number(c.valor||0), rest = Number(c.valor_restante||0);
-        if (rest > 0 && new Date(c.validade) >= hoje) circulante += rest;
+        var val = Number(c.valor||0), rest = Number(c.valor_restante||0), vh = Number(c.valor_hora)||75;
+        if (rest > 0 && new Date(c.validade) >= hoje) { circulante += rest; circulanteH += rest/vh; }
         usados += (val - rest);
         var dc = new Date(c.criado_em);
         if (dc >= ini && dc < fim) {
@@ -621,7 +622,7 @@
           porOrigem[o].qtd++; porOrigem[o].valor += val;
         }
       });
-      document.getElementById("cred-circulante").textContent = brlLocal(circulante);
+      document.getElementById("cred-circulante").textContent = fmtH(circulanteH) + " (" + brlLocal(circulante) + ")";
       document.getElementById("cred-emitidos").textContent = brlLocal(emitidosMes);
       document.getElementById("cred-usados").textContent = brlLocal(usados);
       var rotulo = { cancelamento: "Cancelamento (100%)", cancelamento_tardio: "Cancelamento tardio (50%)", no_show: "Não comparecimento", ajuste: "Ajuste manual" };

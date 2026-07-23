@@ -63,7 +63,7 @@
       </div>
       <p class="muted" style="font-size:.8rem;margin:12px 0 0" id="prev-nota"></p>
       <div id="prev-creditos" class="aviso aviso-info" style="display:none;margin:12px 0 0;font-size:.9rem">
-        💳 <strong id="prev-saldo-cred">R$ 0,00</strong> em créditos disponíveis — usados automaticamente ao pagar reservas.
+        ⏱ <strong id="prev-saldo-cred">0h</strong> de crédito disponíveis — usadas automaticamente ao reservar (validade 90 dias).
       </div>
     </section>
 
@@ -407,13 +407,17 @@
       this.textContent = "Copiado!"; var b = this; setTimeout(function () { b.textContent = "Copiar"; }, 2000);
     });
 
+    function fmtHoras(h) {
+      h = Math.round(h * 100) / 100;
+      return ((h % 1 === 0) ? String(h) : h.toFixed(1).replace(".", ",")) + "h";
+    }
     async function renderCreditos() {
       try {
         var hoje = new Date().getFullYear() + "-" + String(new Date().getMonth()+1).padStart(2,"0") + "-" + String(new Date().getDate()).padStart(2,"0");
-        var cr = await DB.client.from("creditos").select("valor_restante").gt("valor_restante", 0).gte("validade", hoje);
-        var total = (cr.data || []).reduce(function (s, c) { return s + Number(c.valor_restante || 0); }, 0);
-        if (total > 0) {
-          document.getElementById("prev-saldo-cred").textContent = brl(total);
+        var cr = await DB.client.from("creditos").select("valor_restante,valor_hora").gt("valor_restante", 0).gte("validade", hoje);
+        var horas = (cr.data || []).reduce(function (s, c) { return s + (Number(c.valor_restante || 0) / (Number(c.valor_hora) || 75)); }, 0);
+        if (horas > 0) {
+          document.getElementById("prev-saldo-cred").textContent = fmtHoras(horas);
           document.getElementById("prev-creditos").style.display = "block";
         }
       } catch (e) {}
