@@ -84,10 +84,26 @@
           <label for="doc-comprovante">Comprovante de residência *</label>
           <input id="doc-comprovante" type="file" accept="image/*,application/pdf" required>
         </div>
-        <div class="campo">
-          <label for="doc-selfie">Selfie (foto sua, de frente) *</label>
-          <input id="doc-selfie" type="file" accept="image/*" capture="user" required>
-          <small class="muted">Usada na prova de vida (confere com seu documento) e no acesso ao espaço.</small>
+        <div class="campo" id="campo-selfie">
+          <label>Selfie (foto sua, de frente) *</label>
+          <div id="selfie-cam" style="display:none">
+            <video id="selfie-video" autoplay playsinline muted style="width:100%;max-width:280px;border-radius:12px;background:#000;transform:scaleX(-1)"></video>
+            <div class="row" style="gap:8px;margin-top:8px">
+              <button type="button" class="btn btn-primario" id="selfie-tirar">📸 Tirar foto</button>
+            </div>
+          </div>
+          <div id="selfie-preview" style="display:none">
+            <img id="selfie-img" alt="Sua selfie" style="width:100%;max-width:280px;border-radius:12px;display:block">
+            <div class="row" style="gap:8px;margin-top:8px">
+              <button type="button" class="btn btn-neutro" id="selfie-refazer">↺ Refazer</button>
+            </div>
+          </div>
+          <canvas id="selfie-canvas" style="display:none"></canvas>
+          <div id="selfie-fallback" style="display:none">
+            <input id="doc-selfie" type="file" accept="image/*" capture="user">
+            <small class="muted">Tire uma foto sua <strong>agora</strong>. Fotos antigas da galeria podem reprovar na verificação.</small>
+          </div>
+          <small class="muted" id="selfie-hint">Confere com seu documento (prova de vida) e libera seu acesso ao espaço.</small>
         </div>
         <div class="campo">
           <label for="doc-carteirinha">Carteirinha do conselho <span class="muted">(opcional)</span></label>
@@ -138,6 +154,43 @@
     if (!DB || !DB.pronto) {
       mostrar("Modo demonstração: o cadastro real será liberado quando o banco estiver conectado.");
     }
+
+    // -------- selfie ao vivo (câmera; fallback = arquivo sem câmera) --------
+    var selfieFile = null, selfieStream = null;
+    var elCam = document.getElementById("selfie-cam");
+    var elPrev = document.getElementById("selfie-preview");
+    var elFallback = document.getElementById("selfie-fallback");
+    var elVideo = document.getElementById("selfie-video");
+    var elCanvas = document.getElementById("selfie-canvas");
+
+    function pararCam() { if (selfieStream) { selfieStream.getTracks().forEach(function (t) { t.stop(); }); selfieStream = null; } }
+    async function abrirCam() {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return usarFallback();
+      try {
+        selfieStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
+        elVideo.srcObject = selfieStream;
+        elCam.style.display = "block"; elPrev.style.display = "none"; elFallback.style.display = "none";
+      } catch (e) { usarFallback(); }
+    }
+    function usarFallback() {
+      pararCam();
+      elCam.style.display = "none"; elPrev.style.display = "none"; elFallback.style.display = "block";
+    }
+    document.getElementById("selfie-tirar").addEventListener("click", function () {
+      var w = elVideo.videoWidth || 480, h = elVideo.videoHeight || 640;
+      elCanvas.width = w; elCanvas.height = h;
+      elCanvas.getContext("2d").drawImage(elVideo, 0, 0, w, h);
+      elCanvas.toBlob(function (blob) {
+        if (!blob) { mostrar("Não consegui capturar a foto. Tente de novo."); return; }
+        selfieFile = new File([blob], "selfie.jpg", { type: "image/jpeg" });
+        document.getElementById("selfie-img").src = URL.createObjectURL(blob);
+        elCam.style.display = "none"; elPrev.style.display = "block";
+        pararCam();
+      }, "image/jpeg", 0.9);
+    });
+    document.getElementById("selfie-refazer").addEventListener("click", function () { selfieFile = null; abrirCam(); });
+    // inicia a câmera quando o banco está pronto (funil real)
+    if (DB && DB.pronto) abrirCam();
 
     // ---- catálogo de profissões/especialidades (config do banco) ----
     var CATALOGO = [];
@@ -228,10 +281,12 @@
       var fRg = document.getElementById("doc-rg").files[0];
       var fCart = document.getElementById("doc-carteirinha").files[0];
       var fComp = document.getElementById("doc-comprovante").files[0];
-      var fSelfie = document.getElementById("doc-selfie").files[0];
+      var elSelfieFile = document.getElementById("doc-selfie");
+      var fSelfie = selfieFile || (elSelfieFile && elSelfieFile.files[0]);
 
       if (!nome || !telefone || !profissao || !cro || !email || !senha) { mostrar("Preencha todos os campos obrigatórios."); return; }
-      if (!fRg || !fComp || !fSelfie) { mostrar("Envie o documento oficial (RG/CNH), o comprovante de residência e a selfie."); return; }
+      if (!fRg || !fComp) { mostrar("Envie o documento oficial (RG/CNH) e o comprovante de residência."); return; }
+      if (!fSelfie) { mostrar("Tire a sua selfie (toque em \"Tirar foto\") para continuar."); return; }
 
       if (!DB || !DB.pronto) { mostrar("Sem banco conectado — cadastro indisponível no modo demonstração."); return; }
 

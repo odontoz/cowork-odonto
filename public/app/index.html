@@ -32,6 +32,9 @@
       Modo demonstração com dados de exemplo — o banco real da ClinicShare ainda não foi conectado.
     </div>
     <div id="aviso-status" class="aviso aviso-atencao" style="margin-bottom:16px;display:none"></div>
+    <div id="card-creditos" class="aviso aviso-info" style="margin-bottom:16px;display:none">
+      💳 Você tem <strong id="saldo-creditos">R$ 0,00</strong> em créditos — são usados automaticamente ao pagar suas reservas (validade de 90 dias).
+    </div>
 
     <!-- Atalhos -->
     <div class="row" style="margin-bottom:8px">
@@ -129,10 +132,19 @@
       var profTxt = { odonto:"Odontologia", hof:"HOF", estetica:"Estética" }[perfil.profissao] || (perfil.profissao || "Profissional");
       document.getElementById("sub-perfil").textContent = profTxt + " · Águas Claras";
 
-      if (perfil.status !== "aprovado") {
-        var msg = perfil.status === "em_aprovacao"
-          ? "Seu cadastro está em análise. Assim que a gestão aprovar, você poderá reservar consultórios."
-          : ("Seu acesso está " + perfil.status + ". Fale com a gestão.");
+      // pode reservar quando aprovado ou ativo (pós-contrato); demais estados bloqueiam
+      if (perfil.status !== "aprovado" && perfil.status !== "ativo") {
+        var msg;
+        if (["em_aprovacao", "fila_revisao_humana", "pago_em_verificacao", "docs_enviados"].indexOf(perfil.status) !== -1)
+          msg = "Seu cadastro está em análise. Assim que a gestão aprovar, você poderá reservar consultórios.";
+        else if (perfil.status === "contrato_assinado")
+          msg = "Falta só aceitar o contrato para liberar as reservas. Veja em Contrato.";
+        else if (perfil.status === "aguardando_pagamento")
+          msg = "Conclua o pagamento da taxa de cadastro para continuar.";
+        else if (perfil.status === "recusado")
+          msg = "Seu cadastro não foi aprovado. Fale com a gestão.";
+        else
+          msg = "Seu acesso ainda não está ativo. Fale com a gestão.";
         bloquearReserva(msg);
       }
 
@@ -154,12 +166,15 @@
         .select("id,texto,lido,criado_em").order("criado_em", { ascending: false }).limit(5);
       var assP = DB.client.from("assinaturas")
         .select("status,produto_id,produtos_preco(nome,regras)").eq("status","ativa").limit(1);
+      var hojeISO = new Date().getFullYear() + "-" + String(new Date().getMonth()+1).padStart(2,"0") + "-" + String(new Date().getDate()).padStart(2,"0");
+      var credP = DB.client.from("creditos").select("valor_restante").gt("valor_restante", 0).gte("validade", hojeISO);
 
-      var res = await Promise.all([proxP, mesP, fatP, recP, assP]);
+      var res = await Promise.all([proxP, mesP, fatP, recP, assP, credP]);
       renderReservas(res[0].data || []);
       renderConsumo(res[1].data || [], res[4].data && res[4].data[0]);
       renderFaturas(res[2].data || []);
       renderRecados(res[3].data || []);
+      renderCreditos(res[5].data || []);
       app.hidden = false;
     }
 
@@ -171,6 +186,14 @@
         el.classList.add("btn-neutro"); el.setAttribute("aria-disabled","true");
         el.style.opacity = ".5"; el.style.pointerEvents = "none"; el.removeAttribute("href");
       });
+    }
+
+    function renderCreditos(lista) {
+      var total = (lista || []).reduce(function (s, c) { return s + Number(c.valor_restante || 0); }, 0);
+      if (total > 0) {
+        document.getElementById("saldo-creditos").textContent = brl(total);
+        document.getElementById("card-creditos").style.display = "block";
+      }
     }
 
     function renderReservas(lista) {

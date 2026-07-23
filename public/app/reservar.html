@@ -99,6 +99,12 @@
       <small id="cupom-msg" class="muted" style="display:none;margin-top:-4px"></small>
       <div id="r-erro" class="aviso aviso-atencao" style="display:none"></div>
       <div id="r-ok" class="aviso aviso-info" style="display:none"></div>
+      <p id="r-credito" class="aviso aviso-info" style="display:none;font-size:.9rem;margin:0"></p>
+      <label style="display:flex;gap:8px;align-items:flex-start;font-size:.82rem;margin:4px 0;color:var(--cinza)">
+        <input type="checkbox" id="aceite-cancel" style="margin-top:3px;flex:0 0 auto">
+        <span>Li e aceito a <strong>política de cancelamento</strong>: 7+ dias de antecedência = 100% em créditos ·
+        entre 7 dias e 48h = 50% · menos de 48h ou não comparecimento = sem devolução (créditos valem 90 dias).</span>
+      </label>
       <button id="btn-confirmar" class="btn btn-primario btn-bloco">Confirmar reserva</button>
 
       <!-- Pagamento Pix (paga-e-usa): a reserva confirma só após o pagamento -->
@@ -122,9 +128,9 @@
 
       <p class="muted" style="font-size:.82rem;margin:0">
         Você paga primeiro (Pix) e o horário é confirmado na hora · duração mínima 1h ·
-        higienização de 30 min entre profissionais diferentes · cancele com 24h+ de antecedência
-        e receba 100% em créditos (menos de 24h: 75% · não comparecimento: 50%) ·
-        créditos valem 90 dias e abatem novas reservas.
+        higienização de 30 min entre profissionais diferentes. <strong>Cancelamento:</strong>
+        7+ dias de antecedência = 100% em créditos · entre 7 dias e 48h = 50% · menos de 48h ou
+        não comparecimento = sem devolução. Créditos valem 90 dias e abatem novas reservas.
       </p>
     </div>
   </main>
@@ -277,9 +283,16 @@
     });
 
     // ============ CARGA DE DADOS ============
+    var SALDO_CREDITOS = 0;
     async function carregarReais(perfil) {
       MEU_ID = perfil ? perfil.id : "prof-eu";
       APROVADO = !!perfil && (perfil.status === "aprovado" || perfil.status === "ativo");
+      // saldo de créditos (abatido automaticamente na Edge; aqui é só informativo)
+      try {
+        var hoje = new Date().getFullYear() + "-" + String(new Date().getMonth()+1).padStart(2,"0") + "-" + String(new Date().getDate()).padStart(2,"0");
+        var cr = await DB.client.from("creditos").select("valor_restante").gt("valor_restante", 0).gte("validade", hoje);
+        SALDO_CREDITOS = (cr.data || []).reduce(function (s, c) { return s + Number(c.valor_restante || 0); }, 0);
+      } catch (e) { SALDO_CREDITOS = 0; }
       if (!APROVADO) {
         var a = document.getElementById("aviso-status");
         a.textContent = perfil && perfil.status === "em_aprovacao"
@@ -491,6 +504,15 @@
       PRECO_FINAL = PRECO_BASE;
       document.getElementById("r-preco").textContent = brl2(PRECO_FINAL);
 
+      // aviso de crédito (o abatimento real acontece na Edge ao confirmar)
+      var rc = document.getElementById("r-credito");
+      if (SALDO_CREDITOS > 0) {
+        var usa = Math.min(SALDO_CREDITOS, PRECO_FINAL);
+        rc.textContent = "💳 Você tem " + brl2(SALDO_CREDITOS) + " em créditos — " +
+          (usa >= PRECO_FINAL ? "cobrem esta reserva (sem precisar de Pix)." : brl2(usa) + " serão usados e o restante via Pix.");
+        rc.style.display = "block";
+      } else { rc.style.display = "none"; }
+
       var oc = window.__oc || { reservas: [], bloqueios: [] };
       var v = M.podeReservar(oc.reservas, oc.bloqueios, HORARIO,
         { inicio: sel.inicio, fim: sel.fim, profissionalId: MEU_ID }, CFG);
@@ -543,12 +565,20 @@
       var b = this; b.textContent = "Copiado!"; setTimeout(function () { b.textContent = "Copiar"; }, 2000);
     });
 
+    var POLITICA_CANCEL = "7+ dias=100% créditos · 7d-48h=50% · <48h/no-show=0% · créditos 90 dias (clinicshare-v3.2)";
     document.getElementById("btn-confirmar").addEventListener("click", async function () {
       if (!sel.inicio || !sel.fim) return;
       var btn = this;
       var preco = PRECO_FINAL;
       var eb = document.getElementById("r-erro");
       eb.className = "aviso aviso-atencao"; eb.style.display = "none";
+
+      // aceite expresso da política de cancelamento (obrigatório)
+      if (!document.getElementById("aceite-cancel").checked) {
+        eb.textContent = "Marque que leu e aceita a política de cancelamento para confirmar.";
+        eb.style.display = "block";
+        return;
+      }
 
       // Demonstração (sem banco/gateway): explica o fluxo, não finge confirmar.
       if (!(DB && DB.pronto)) {
@@ -576,6 +606,13 @@
         return;
       }
       RESERVA_ATUAL = rc.data;
+
+      // registra o aceite da política na reserva (best-effort, não bloqueia)
+      try {
+        await DB.client.from("reservas").update({
+          observacao: "Aceite da política de cancelamento em " + new Date().toISOString() + " — " + POLITICA_CANCEL
+        }).eq("id", RESERVA_ATUAL.id);
+      } catch (e) { /* não bloqueia a reserva */ }
 
       // 2) inicia o pagamento: cobranca 'reserva' → pendente_pagamento (segura 15min) + QR Pix
       btn.textContent = "Gerando pagamento…";

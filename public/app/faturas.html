@@ -62,6 +62,9 @@
         <div class="bloco"><p class="rotulo">Fatura prevista</p><p class="dado" id="prev-valor">—</p></div>
       </div>
       <p class="muted" style="font-size:.8rem;margin:12px 0 0" id="prev-nota"></p>
+      <div id="prev-creditos" class="aviso aviso-info" style="display:none;margin:12px 0 0;font-size:.9rem">
+        💳 <strong id="prev-saldo-cred">R$ 0,00</strong> em créditos disponíveis — usados automaticamente ao pagar reservas.
+      </div>
     </section>
 
     <section class="card">
@@ -404,6 +407,18 @@
       this.textContent = "Copiado!"; var b = this; setTimeout(function () { b.textContent = "Copiar"; }, 2000);
     });
 
+    async function renderCreditos() {
+      try {
+        var hoje = new Date().getFullYear() + "-" + String(new Date().getMonth()+1).padStart(2,"0") + "-" + String(new Date().getDate()).padStart(2,"0");
+        var cr = await DB.client.from("creditos").select("valor_restante").gt("valor_restante", 0).gte("validade", hoje);
+        var total = (cr.data || []).reduce(function (s, c) { return s + Number(c.valor_restante || 0); }, 0);
+        if (total > 0) {
+          document.getElementById("prev-saldo-cred").textContent = brl(total);
+          document.getElementById("prev-creditos").style.display = "block";
+        }
+      } catch (e) {}
+    }
+
     async function recarregarMes() {
       var mesISO = document.getElementById("mes").value;
       var horas = await horasUsadasNoMes(mesISO);
@@ -424,6 +439,7 @@
       await carregar(perfil);
       renderFaturas();
       await renderPlanos();
+      await renderCreditos();
       elMes.addEventListener("change", recarregarMes);
       await recarregarMes();
       app.hidden = false;

@@ -123,6 +123,25 @@
       </div>
     </section>
 
+    <section class="card" id="sec-creditos" style="margin-top:16px">
+      <h2>Créditos de reserva</h2>
+      <p class="muted" style="font-size:.85rem;margin-top:0">
+        Passivo circulante da política de cancelamento — créditos emitidos por cancelamento/no-show/ajuste
+        que abatem reservas futuras (validade 90 dias). É a "inteligência de estorno" do sistema.
+      </p>
+      <div class="row" style="gap:24px;flex-wrap:wrap;margin-bottom:6px">
+        <div><div class="muted" style="font-size:.78rem">Saldo circulante (a usar)</div><strong id="cred-circulante" style="font-size:1.35rem">—</strong></div>
+        <div><div class="muted" style="font-size:.78rem">Emitidos no mês</div><strong id="cred-emitidos" style="font-size:1.35rem">—</strong></div>
+        <div><div class="muted" style="font-size:.78rem">Já usados/expirados (total)</div><strong id="cred-usados" style="font-size:1.35rem">—</strong></div>
+      </div>
+      <div class="scroll-x" style="margin-top:12px">
+        <table class="fin-tab" id="tab-cred-origem">
+          <thead><tr><th>Origem (emitidos no mês)</th><th class="num">Qtd</th><th class="num">Valor</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
     <div class="duo" style="margin-top:16px">
       <section class="card">
         <h2>Quebra por produto</h2>
@@ -579,7 +598,42 @@
     elMes.value = FIN.mesAtualLocal();
     function labelPeriodo() { document.getElementById("periodo-label").textContent = "Competência " + FIN.competencia(elMes.value || FIN.mesAtualLocal()); }
 
-    async function recarregarResumo() { labelPeriodo(); await FIN.carregar(elMes.value); FIN.render(); }
+    function brlLocal(n) { return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n || 0); }
+    async function carregarCreditos(mesISO) {
+      var sec = document.getElementById("sec-creditos");
+      if (!(DB && DB.pronto)) { sec.style.display = "none"; return; }
+      var pp = (mesISO || "").split("-"), yy = +pp[0], mm = +pp[1];
+      var ini = (yy && mm) ? new Date(yy, mm-1, 1) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+      var fim = new Date(ini.getFullYear(), ini.getMonth()+1, 1);
+      var q = await DB.client.from("creditos").select("valor,valor_restante,origem,validade,criado_em");
+      var todos = q.data || [];
+      var hoje = new Date(); hoje.setHours(0,0,0,0);
+      var circulante = 0, usados = 0, emitidosMes = 0, porOrigem = {};
+      todos.forEach(function (c) {
+        var val = Number(c.valor||0), rest = Number(c.valor_restante||0);
+        if (rest > 0 && new Date(c.validade) >= hoje) circulante += rest;
+        usados += (val - rest);
+        var dc = new Date(c.criado_em);
+        if (dc >= ini && dc < fim) {
+          emitidosMes += val;
+          var o = c.origem || "outro";
+          porOrigem[o] = porOrigem[o] || { qtd: 0, valor: 0 };
+          porOrigem[o].qtd++; porOrigem[o].valor += val;
+        }
+      });
+      document.getElementById("cred-circulante").textContent = brlLocal(circulante);
+      document.getElementById("cred-emitidos").textContent = brlLocal(emitidosMes);
+      document.getElementById("cred-usados").textContent = brlLocal(usados);
+      var rotulo = { cancelamento: "Cancelamento (100%)", cancelamento_tardio: "Cancelamento tardio (50%)", no_show: "Não comparecimento", ajuste: "Ajuste manual" };
+      var tb = document.querySelector("#tab-cred-origem tbody");
+      var chaves = Object.keys(porOrigem);
+      tb.innerHTML = chaves.length
+        ? chaves.map(function (k) { return "<tr><td>" + (rotulo[k]||k) + "</td><td class='num'>" + porOrigem[k].qtd + "</td><td class='num'>" + brlLocal(porOrigem[k].valor) + "</td></tr>"; }).join("")
+        : "<tr><td colspan='3' class='muted'>Nenhum crédito emitido neste mês.</td></tr>";
+      sec.style.display = "block";
+    }
+
+    async function recarregarResumo() { labelPeriodo(); await FIN.carregar(elMes.value); FIN.render(); await carregarCreditos(elMes.value); }
     elMes.addEventListener("change", recarregarResumo);
     document.getElementById("btn-csv").addEventListener("click", function () { FIN.exportarCSV(elMes.value); });
 

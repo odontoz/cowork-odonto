@@ -94,9 +94,12 @@
   <div class="ficha-bg" id="ficha-bg">
     <div class="ficha">
       <div class="ficha-topo">
-        <div>
-          <strong id="fi-nome" style="font-size:1.1rem"></strong>
-          <div class="muted" id="fi-sub" style="font-size:.85rem"></div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div id="fi-avatar" style="width:56px;height:56px;border-radius:50%;flex:0 0 auto;background:var(--fundo);border:1px solid var(--linha);display:grid;place-items:center;font-weight:800;color:var(--cinza);background-size:cover;background-position:center"></div>
+          <div>
+            <strong id="fi-nome" style="font-size:1.1rem"></strong>
+            <div class="muted" id="fi-sub" style="font-size:.85rem"></div>
+          </div>
         </div>
         <button class="fechar" id="fi-fechar" aria-label="Fechar">&times;</button>
       </div>
@@ -183,6 +186,16 @@
       var corpo = document.getElementById("fi-corpo");
       corpo.innerHTML = '<p class="vazio">Carregando…</p>';
       bg.classList.add("on");
+
+      // avatar: carrega a selfie na hora (fallback iniciais)
+      var av = document.getElementById("fi-avatar");
+      var iniciais = (p.nome || "?").trim().split(/\s+/).slice(0,2).map(function(x){return x[0];}).join("").toUpperCase();
+      av.style.backgroundImage = ""; av.textContent = iniciais;
+      if (p.selfie_url) {
+        DB.urlAssinada("documentos", p.selfie_url, 3600).then(function (u) {
+          if (u) { av.style.backgroundImage = "url('" + u + "')"; av.textContent = ""; }
+        });
+      }
 
       // consultas paralelas do histórico
       var res = await Promise.all([
