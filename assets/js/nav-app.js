@@ -15,11 +15,12 @@
   var arquivo = (location.pathname.split("/").pop() || "index.html").toLowerCase();
 
   // menus por contexto (dentista x gestão) — decidido pelo nome do arquivo
-  var GESTAO = ["gestao.html", "gestao-financeiro.html"];
+  var GESTAO = ["gestao.html", "gestao-financeiro.html", "gestao-cadastros.html"];
   var ehGestao = GESTAO.indexOf(arquivo) !== -1;
 
   var LINKS = ehGestao ? [
-    { href: "gestao.html",            txt: "Agenda & gestão" },
+    { href: "gestao.html",            txt: "Agenda" },
+    { href: "gestao-cadastros.html",  txt: "Cadastros" },
     { href: "gestao-financeiro.html", txt: "Financeiro" }
   ] : [
     { href: "index.html",    txt: "Início" },

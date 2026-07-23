@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cadastros — Gestão ClinicShare</title>
+  <meta name="theme-color" content="#0E2A47">
+  <link rel="icon" type="image/png" sizes="32x32" href="../../assets/img/favicon-32.png">
+  <link rel="apple-touch-icon" href="../../assets/img/favicon-clinicshare.png">
+  <link rel="manifest" href="../../manifest.webmanifest">
+  <link rel="stylesheet" href="../../assets/css/base.css">
+  <script src="../../assets/js/brand.js" defer></script>
+  <style>
+    .filtros { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:16px }
+    .filtros input, .filtros select { height:42px }
+    .filtros input[type=search]{ flex:1; min-width:180px }
+    table.roster { width:100%; border-collapse:collapse }
+    table.roster th, table.roster td { text-align:left; padding:11px 12px; border-bottom:1px solid var(--linha); font-size:.95rem }
+    table.roster th { color:var(--cinza); font-weight:600; font-size:.8rem; text-transform:uppercase; letter-spacing:.03em }
+    table.roster tbody tr { cursor:pointer }
+    table.roster tbody tr:hover { background:var(--fundo) }
+    .st { display:inline-block; padding:3px 10px; border-radius:99px; font-size:.75rem; font-weight:700; white-space:nowrap }
+    .st-verde { background:#e4f5ec; color:#137a41 } .st-amarelo{ background:#fdf3d8; color:#8a6400 }
+    .st-vermelho{ background:#fbe4e4; color:#a12d2d } .st-cinza{ background:#eef1f5; color:#5b6b7b }
+    .st-azul{ background:#e7f0fb; color:#1a539c }
+    /* ficha (overlay) */
+    .ficha-bg { position:fixed; inset:0; background:rgba(16,32,43,.45); display:none; z-index:50; padding:24px; overflow:auto }
+    .ficha-bg.on { display:flex; align-items:flex-start; justify-content:center }
+    .ficha { background:var(--branco); border-radius:16px; box-shadow:var(--sombra); width:100%; max-width:720px; margin:auto }
+    .ficha-topo { position:sticky; top:0; background:var(--branco); border-bottom:1px solid var(--linha); border-radius:16px 16px 0 0;
+      padding:18px 22px; display:flex; align-items:center; justify-content:space-between; z-index:2 }
+    .ficha-corpo { padding:22px }
+    .ficha-corpo h3 { font-size:.82rem; text-transform:uppercase; letter-spacing:.05em; color:var(--cinza); margin:22px 0 10px }
+    .ficha-corpo h3:first-child { margin-top:0 }
+    .kv { display:grid; grid-template-columns:130px 1fr; gap:6px 12px; font-size:.95rem }
+    .kv .k { color:var(--cinza) }
+    .docs-linha { display:flex; gap:8px; flex-wrap:wrap }
+    .docs-linha a { display:inline-block; padding:8px 12px; border:1px solid var(--linha); border-radius:9px; font-weight:600; font-size:.9rem }
+    .tl { list-style:none; padding:0; margin:0 }
+    .tl li { position:relative; padding:0 0 14px 20px; border-left:2px solid var(--linha); margin-left:5px }
+    .tl li:last-child { border-left-color:transparent }
+    .tl li::before { content:""; position:absolute; left:-6px; top:3px; width:10px; height:10px; border-radius:50%; background:var(--azul) }
+    .tl .quando { color:var(--cinza); font-size:.8rem }
+    .mini { font-size:.9rem; border-collapse:collapse; width:100% }
+    .mini th,.mini td { text-align:left; padding:7px 8px; border-bottom:1px solid var(--linha) }
+    .fechar { background:none; border:1px solid var(--linha); border-radius:9px; width:38px; height:38px; font-size:20px; cursor:pointer; color:var(--tinta) }
+    .vazio { color:var(--cinza); font-size:.9rem; margin:4px 0 }
+  </style>
+</head>
+<body data-no-wpp>
+  <header class="topbar">
+    <div class="container">
+      <a class="marca" href="gestao.html">Coworking <span>Odontológico</span> · Gestão</a>
+      <a class="muted" href="gestao.html">← Agenda</a>
+    </div>
+  </header>
+
+  <main class="container" style="padding:24px 16px" id="app" hidden>
+    <div class="row-between" style="margin-bottom:16px">
+      <h1 style="margin:0">Cadastros de dentistas</h1>
+      <span class="badge badge-cinza" id="total-count">0</span>
+    </div>
+
+    <div class="aviso aviso-info" id="aviso-demo" style="display:none;margin-bottom:16px">
+      Modo demonstração — conecte o banco para ver os cadastros reais.
+    </div>
+
+    <div class="filtros">
+      <input type="search" id="busca" placeholder="Buscar por nome, CRO ou CPF…">
+      <select id="f-status">
+        <option value="">Todos os status</option>
+        <option value="ativo">Ativos</option>
+        <option value="aprovado">Aprovados / contrato</option>
+        <option value="fila_revisao_humana">Aguardando revisão</option>
+        <option value="pago_em_verificacao">Em verificação</option>
+        <option value="aguardando_pagamento">Aguardando pagamento</option>
+        <option value="rascunho">Rascunho / incompleto</option>
+        <option value="recusado">Recusados</option>
+      </select>
+    </div>
+
+    <div class="card" style="padding:0;overflow:hidden">
+      <div class="scroll-x">
+        <table class="roster">
+          <thead><tr><th>Nome</th><th>CRO</th><th>Status</th><th>Cadastro</th></tr></thead>
+          <tbody id="corpo-roster"></tbody>
+        </table>
+      </div>
+      <p id="roster-vazio" class="vazio" style="padding:18px;display:none">Nenhum cadastro encontrado.</p>
+    </div>
+  </main>
+
+  <!-- Ficha completa -->
+  <div class="ficha-bg" id="ficha-bg">
+    <div class="ficha">
+      <div class="ficha-topo">
+        <div>
+          <strong id="fi-nome" style="font-size:1.1rem"></strong>
+          <div class="muted" id="fi-sub" style="font-size:.85rem"></div>
+        </div>
+        <button class="fechar" id="fi-fechar" aria-label="Fechar">&times;</button>
+      </div>
+      <div class="ficha-corpo" id="fi-corpo"></div>
+    </div>
+  </div>
+
+  <script src="../../config/config.js" onerror="console.warn('config.js ausente — modo demonstração')"></script>
+  <script src="../../assets/vendor/supabase.js"></script>
+  <script src="../../assets/js/db.js"></script>
+  <script src="../../assets/js/nav-app.js" defer></script>
+  <script>
+  (function () {
+    var DB = window.EnjoyDB;
+    var app = document.getElementById("app");
+    var TODOS = [];
+
+    function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
+    function fBRL(n){ return "R$ " + Number(n||0).toFixed(2).replace(".",","); }
+    function dt(s){ if(!s) return "—"; var d=new Date(s); return d.toLocaleDateString("pt-BR")+" "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"); }
+    function dia(s){ if(!s) return "—"; return new Date(s).toLocaleDateString("pt-BR"); }
+
+    // status → rótulo + classe de cor
+    var STATUS = {
+      rascunho:{t:"rascunho",c:"cinza"}, docs_enviados:{t:"docs enviados",c:"cinza"},
+      em_aprovacao:{t:"em aprovação",c:"amarelo"}, aguardando_pagamento:{t:"aguardando pagamento",c:"amarelo"},
+      pago_em_verificacao:{t:"em verificação",c:"azul"}, fila_revisao_humana:{t:"revisão manual",c:"amarelo"},
+      aprovado:{t:"aprovado",c:"azul"}, contrato_assinado:{t:"contrato assinado",c:"azul"},
+      ativo:{t:"ativo",c:"verde"}, recusado:{t:"recusado",c:"vermelho"}
+    };
+    function selo(st){ var m=STATUS[st]||{t:st,c:"cinza"}; return '<span class="st st-'+m.c+'">'+esc(m.t)+"</span>"; }
+
+    async function iniciar() {
+      if (!(DB && DB.pronto)) { document.getElementById("aviso-demo").style.display="block"; app.hidden=false; return; }
+      var perfil = await DB.exigirLogin({ exigirGestao: true });
+      if (!perfil) return;
+      app.hidden = false;
+      var r = await DB.client.from("perfis")
+        .select("id,user_id,nome,telefone,cro,cpf,profissao,status,docs,selfie_url,criado_em,atualizado_em,motivo_rejeicao")
+        .neq("tipo", "gestao").order("criado_em", { ascending: false });
+      TODOS = r.data || [];
+      render();
+    }
+
+    function filtrados() {
+      var q = document.getElementById("busca").value.trim().toLowerCase();
+      var st = document.getElementById("f-status").value;
+      return TODOS.filter(function (p) {
+        if (st && p.status !== st) return false;
+        if (!q) return true;
+        return (String(p.nome||"")+" "+String(p.cro||"")+" "+String(p.cpf||"")).toLowerCase().indexOf(q) !== -1;
+      });
+    }
+
+    function render() {
+      var lista = filtrados();
+      document.getElementById("total-count").textContent = lista.length + " de " + TODOS.length;
+      var corpo = document.getElementById("corpo-roster");
+      document.getElementById("roster-vazio").style.display = lista.length ? "none" : "block";
+      corpo.innerHTML = lista.map(function (p) {
+        return '<tr data-id="'+p.id+'"><td><strong>'+esc(p.nome||"—")+"</strong></td>"+
+          "<td>"+esc(p.cro||"—")+"</td><td>"+selo(p.status)+"</td><td>"+dia(p.criado_em)+"</td></tr>";
+      }).join("");
+      Array.prototype.forEach.call(corpo.querySelectorAll("tr"), function (tr) {
+        tr.addEventListener("click", function () { abrirFicha(tr.dataset.id); });
+      });
+    }
+
+    document.getElementById("busca").addEventListener("input", render);
+    document.getElementById("f-status").addEventListener("change", render);
+
+    // ---------- ficha completa ----------
+    var bg = document.getElementById("ficha-bg");
+    function fecharFicha(){ bg.classList.remove("on"); }
+    document.getElementById("fi-fechar").addEventListener("click", fecharFicha);
+    bg.addEventListener("click", function (e) { if (e.target === bg) fecharFicha(); });
+    document.addEventListener("keydown", function (e){ if (e.key === "Escape") fecharFicha(); });
+
+    async function abrirFicha(id) {
+      var p = TODOS.find(function (x){ return x.id === id; });
+      if (!p) return;
+      document.getElementById("fi-nome").textContent = p.nome || "—";
+      document.getElementById("fi-sub").innerHTML = selo(p.status) + " · " + esc(p.profissao || "") + " · cadastro em " + dia(p.criado_em);
+      var corpo = document.getElementById("fi-corpo");
+      corpo.innerHTML = '<p class="vazio">Carregando…</p>';
+      bg.classList.add("on");
+
+      // consultas paralelas do histórico
+      var res = await Promise.all([
+        DB.client.from("contratos").select("versao_template,status,aceite_em,valido_ate,criado_em").eq("cliente_id", id).order("criado_em",{ascending:false}),
+        DB.client.from("pagamentos").select("metodo,status,valor,gateway,pago_em,criado_em").eq("cliente_id", id).order("criado_em",{ascending:false}).limit(20),
+        DB.client.from("reservas").select("inicio,fim,status,valor,criado_em").eq("cliente_id", id).order("inicio",{ascending:false}).limit(20),
+        DB.client.from("verificacoes").select("fonte,resultado,score,criado_em").eq("cliente_id", id).order("criado_em",{ascending:false}).limit(20)
+      ]);
+      var contratos = res[0].data||[], pagamentos = res[1].data||[], reservas = res[2].data||[], verifs = res[3].data||[];
+
+      // documentos assinados
+      var docs = p.docs || {}, mapa = { rg_url:"RG", cro_url:"Carteirinha CRO", comprovante_url:"Comprovante" }, linksDoc = [];
+      for (var k in mapa) { if (docs[k]) { var u = await DB.urlAssinada("documentos", docs[k], 3600); if (u) linksDoc.push('<a href="'+u+'" target="_blank" rel="noopener">'+mapa[k]+" ↗</a>"); } }
+      if (p.selfie_url) { var us = await DB.urlAssinada("documentos", p.selfie_url, 3600); if (us) linksDoc.push('<a href="'+us+'" target="_blank" rel="noopener">Selfie ↗</a>'); }
+
+      var h = "";
+      // dados
+      h += "<h3>Dados cadastrais</h3><div class='kv'>"+
+        "<span class='k'>Nome</span><span>"+esc(p.nome||"—")+"</span>"+
+        "<span class='k'>CRO</span><span>"+esc(p.cro||"—")+"</span>"+
+        "<span class='k'>CPF</span><span>"+esc(p.cpf||"—")+"</span>"+
+        "<span class='k'>Telefone</span><span>"+esc(p.telefone||"—")+"</span>"+
+        "<span class='k'>Profissão</span><span>"+esc(p.profissao||"—")+"</span>"+
+        "<span class='k'>Status</span><span>"+selo(p.status)+"</span>"+
+        (p.motivo_rejeicao?"<span class='k'>Motivo recusa</span><span>"+esc(p.motivo_rejeicao)+"</span>":"")+
+        "<span class='k'>Atualizado</span><span>"+dt(p.atualizado_em)+"</span></div>";
+
+      // documentos
+      h += "<h3>Documentos</h3>"+(linksDoc.length?'<div class="docs-linha">'+linksDoc.join("")+"</div>":'<p class="vazio">Nenhum documento enviado.</p>');
+
+      // contrato
+      h += "<h3>Contrato</h3>";
+      if (contratos.length) { var c=contratos[0];
+        h += "<div class='kv'><span class='k'>Versão</span><span>"+esc(c.versao_template||"—")+"</span>"+
+          "<span class='k'>Status</span><span>"+esc(c.status||"—")+"</span>"+
+          "<span class='k'>Aceite</span><span>"+(c.aceite_em?dt(c.aceite_em):"pendente")+"</span>"+
+          "<span class='k'>Válido até</span><span>"+dia(c.valido_ate)+"</span></div>";
+      } else h += '<p class="vazio">Sem contrato gerado.</p>';
+
+      // pagamentos
+      h += "<h3>Pagamentos</h3>";
+      if (pagamentos.length) { h += "<table class='mini'><tr><th>Data</th><th>Método</th><th>Valor</th><th>Status</th></tr>"+
+        pagamentos.map(function(x){ return "<tr><td>"+dia(x.pago_em||x.criado_em)+"</td><td>"+esc(x.metodo||x.gateway||"—")+"</td><td>"+fBRL(x.valor)+"</td><td>"+esc(x.status||"—")+"</td></tr>"; }).join("")+"</table>";
+      } else h += '<p class="vazio">Nenhum pagamento.</p>';
+
+      // reservas
+      h += "<h3>Reservas</h3>";
+      if (reservas.length) { h += "<table class='mini'><tr><th>Início</th><th>Fim</th><th>Valor</th><th>Status</th></tr>"+
+        reservas.map(function(x){ return "<tr><td>"+dt(x.inicio)+"</td><td>"+(x.fim?new Date(x.fim).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}):"—")+"</td><td>"+fBRL(x.valor)+"</td><td>"+esc(x.status||"—")+"</td></tr>"; }).join("")+"</table>";
+      } else h += '<p class="vazio">Nenhuma reserva.</p>';
+
+      // histórico de verificações
+      h += "<h3>Histórico de verificação</h3>";
+      if (verifs.length) { h += "<ul class='tl'>"+verifs.map(function(v){
+        return "<li><div>"+esc(v.fonte)+" — <strong>"+esc(v.resultado)+"</strong>"+(v.score!=null?" (score "+Number(v.score).toFixed(2)+")":"")+"</div><div class='quando'>"+dt(v.criado_em)+"</div></li>";
+      }).join("")+"</ul>";
+      } else h += '<p class="vazio">Sem registros de verificação.</p>';
+
+      corpo.innerHTML = h;
+    }
+
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", iniciar); else iniciar();
+  })();
+  </script>
+</body>
+</html>
