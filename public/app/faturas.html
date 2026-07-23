@@ -89,15 +89,30 @@
       </div>
     </section>
 
-    <!-- Assinatura de plano (checkout do gateway — cartão nunca passa por aqui) -->
+    <!-- Assinatura de plano -->
     <section class="card" id="sec-planos" style="display:none">
       <h2>Assinar um plano mensal</h2>
       <p class="muted" style="font-size:.9rem;margin-top:0">
-        A assinatura é cobrada todo mês no cartão, em ambiente seguro do gateway de
-        pagamentos — seus dados de cartão nunca passam pelo nosso sistema.
+        Pague como preferir: <strong>Pix</strong> (sem juros, cai na hora), <strong>cartão em até 6x</strong>
+        ou <strong>cartão recorrente</strong> (renova sozinho todo mês). Os dados do cartão são digitados
+        em ambiente seguro do gateway — nunca passam pelo nosso sistema.
       </p>
       <div id="lista-planos" class="stack"></div>
       <div id="aviso-planos" class="aviso aviso-info" style="display:none;margin-top:12px"></div>
+
+      <!-- QR Pix do plano -->
+      <div id="plano-qr" style="display:none;margin-top:16px;border-top:1px solid var(--linha);padding-top:16px">
+        <p style="margin:0 0 8px;font-weight:800;text-align:center" id="plano-qr-titulo">Pague via Pix para ativar o plano</p>
+        <div style="text-align:center">
+          <img id="plano-qr-img" alt="QR Code Pix" style="width:220px;max-width:100%;border:1px solid var(--linha);border-radius:8px;padding:8px;background:#fff">
+          <p class="muted" style="font-size:.85rem">Escaneie com o app do seu banco ou use o copia-e-cola.</p>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <input id="plano-qr-payload" type="text" readonly onclick="this.select()" style="flex:1;font-size:.8rem;color:var(--cinza)">
+          <button type="button" class="btn btn-neutro" id="plano-qr-copiar">Copiar</button>
+        </div>
+        <p class="muted" style="text-align:center;margin:12px 0 0;font-size:.9rem" id="plano-qr-status">Aguardando o pagamento… o plano ativa sozinho.</p>
+      </div>
     </section>
   </main>
 
@@ -309,31 +324,85 @@
       var box = document.getElementById("lista-planos");
       box.innerHTML = planos.map(function (p, i) {
         var horas = p.regras && p.regras.horas_mes ? p.regras.horas_mes + " h/mês" : "";
-        return '<div class="row-between"><div><strong>' + esc(p.nome) + "</strong><br>" +
-          '<small class="muted">' + brl(p.valor) + "/mês" + (horas ? " · " + horas : "") + "</small></div>" +
-          '<button class="btn btn-primario btn-assinar" data-i="' + i + '">Assinar no cartão</button></div>';
+        return '<div style="border:1px solid var(--linha);border-radius:12px;padding:14px">' +
+          '<div class="row-between" style="margin-bottom:10px"><div><strong>' + esc(p.nome) + "</strong><br>" +
+          '<small class="muted">' + brl(p.valor) + "/mês" + (horas ? " · " + horas : "") + "</small></div></div>" +
+          '<div class="row" style="gap:8px">' +
+            '<button class="btn btn-primario grow btn-plano-pix" data-i="' + i + '">Pagar com Pix</button>' +
+            '<button class="btn btn-neutro grow btn-plano-cartao" data-i="' + i + '">Cartão até 6x</button>' +
+            '<button class="btn btn-neutro grow btn-plano-recorrente" data-i="' + i + '">Cartão recorrente</button>' +
+          "</div></div>";
       }).join("");
-      Array.prototype.forEach.call(box.querySelectorAll(".btn-assinar"), function (b) {
+      var av = document.getElementById("aviso-planos");
+      function avisar(msg) { av.textContent = msg; av.style.display = "block"; }
+
+      // Pix: gera QR e ativa o plano quando o pagamento cai
+      Array.prototype.forEach.call(box.querySelectorAll(".btn-plano-pix"), function (b) {
         b.addEventListener("click", async function () {
+          av.style.display = "none";
+          b.disabled = true; b.textContent = "Gerando Pix…";
+          var plano = planos[+b.dataset.i];
+          var resp = await edge("cobranca", { acao: "plano_pix", produto_id: plano.id });
+          b.disabled = false; b.textContent = "Pagar com Pix";
+          if (resp.status === 503) return avisar("Pagamento online indisponível — fale com a equipe.");
+          if (resp.status !== 200 || !resp.body.qr) return avisar("Não foi possível gerar o Pix: " + (resp.body.erro || resp.status));
+          mostrarPlanoQr(resp.body.qr, plano);
+        });
+      });
+
+      // Cartão até 6x: abre a tela branded de pagamento
+      Array.prototype.forEach.call(box.querySelectorAll(".btn-plano-cartao"), function (b) {
+        b.addEventListener("click", function () {
+          location.href = "pagamento-cartao.html?produto=" + encodeURIComponent(planos[+b.dataset.i].id);
+        });
+      });
+
+      // Cartão recorrente: assinatura mensal automática (fluxo antigo)
+      Array.prototype.forEach.call(box.querySelectorAll(".btn-plano-recorrente"), function (b) {
+        b.addEventListener("click", async function () {
+          av.style.display = "none";
           b.disabled = true; b.textContent = "Abrindo…";
           var resp = await edge("cobranca", { acao: "assinatura", produto_id: planos[+b.dataset.i].id });
-          var av = document.getElementById("aviso-planos");
-          if (resp.status === 503) {
-            av.textContent = "Assinatura online ainda não disponível — fale com a equipe para ativar seu plano.";
-            av.style.display = "block";
-          } else if (resp.status === 200 && resp.body.url) {
+          b.disabled = false; b.textContent = "Cartão recorrente";
+          if (resp.status === 200 && resp.body.url) {
             window.open(resp.body.url, "_blank", "noopener");
-            av.textContent = "Checkout aberto em nova aba. Assim que o primeiro pagamento for aprovado, seu plano ativa sozinho.";
-            av.style.display = "block";
+            avisar("Checkout aberto em nova aba. Assim que o primeiro pagamento for aprovado, seu plano ativa sozinho.");
+          } else if (resp.status === 503) {
+            avisar("Assinatura online ainda não disponível — fale com a equipe.");
           } else {
-            av.textContent = "Não foi possível abrir o checkout: " + (resp.body.erro || resp.status);
-            av.style.display = "block";
+            avisar("Não foi possível abrir o checkout: " + (resp.body.erro || resp.status));
           }
-          b.disabled = false; b.textContent = "Assinar no cartão";
         });
       });
       sec.style.display = "block";
     }
+
+    var pollPlano = null;
+    function mostrarPlanoQr(qr, plano) {
+      var box = document.getElementById("plano-qr");
+      document.getElementById("plano-qr-titulo").textContent = "Pague " + brl(plano.valor) + " via Pix para ativar o " + plano.nome;
+      document.getElementById("plano-qr-img").src = "data:image/png;base64," + qr.encodedImage;
+      document.getElementById("plano-qr-payload").value = qr.payload || "";
+      document.getElementById("plano-qr-status").textContent = "Aguardando o pagamento… o plano ativa sozinho.";
+      box.style.display = "block";
+      box.scrollIntoView({ behavior: "smooth", block: "center" });
+      // polling: quando surgir assinatura ativa desse produto, confirma
+      if (pollPlano) clearInterval(pollPlano);
+      pollPlano = setInterval(async function () {
+        var a = await DB.client.from("assinaturas").select("id")
+          .eq("produto_id", plano.id).eq("status", "ativa").limit(1);
+        if (a.data && a.data.length) {
+          clearInterval(pollPlano); pollPlano = null;
+          document.getElementById("plano-qr-status").innerHTML = "<strong style='color:var(--verde)'>Plano ativado! Recarregando…</strong>";
+          setTimeout(function () { location.reload(); }, 1500);
+        }
+      }, 4000);
+    }
+    document.getElementById("plano-qr-copiar").addEventListener("click", function () {
+      var inp = document.getElementById("plano-qr-payload"); inp.select();
+      try { navigator.clipboard.writeText(inp.value); } catch (e) { document.execCommand("copy"); }
+      this.textContent = "Copiado!"; var b = this; setTimeout(function () { b.textContent = "Copiar"; }, 2000);
+    });
 
     async function recarregarMes() {
       var mesISO = document.getElementById("mes").value;
