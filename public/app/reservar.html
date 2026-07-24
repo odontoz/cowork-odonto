@@ -506,12 +506,19 @@
       PRECO_FINAL = PRECO_BASE;
       document.getElementById("r-preco").textContent = brl2(PRECO_FINAL);
 
-      // aviso de crédito em HORAS (o abatimento real acontece na Edge ao confirmar)
+      // aviso de saldo de HORAS (o abatimento real 1:1 acontece na Edge ao confirmar)
       var rc = document.getElementById("r-credito");
-      if (SALDO_HORAS > 0) {
-        var usa = Math.min(SALDO_CREDITOS, PRECO_FINAL);
-        rc.textContent = "⏱ Você tem " + fmtHoras(SALDO_HORAS) + " de crédito — " +
-          (usa >= PRECO_FINAL ? "cobrem esta reserva (sem precisar de Pix)." : brl2(usa) + " serão abatidos e o restante via Pix.");
+      var horasReserva = (sel.fim - sel.inicio) / 3600000;
+      if (SALDO_HORAS > 0 && horasReserva > 0) {
+        if (SALDO_HORAS >= horasReserva - 0.001) {
+          rc.textContent = "⏱ Você tem " + fmtHoras(SALDO_HORAS) + " no saldo — esta reserva usa " +
+            fmtHoras(horasReserva) + " (sem precisar de Pix). Sobram " + fmtHoras(SALDO_HORAS - horasReserva) + ".";
+        } else {
+          var faltamH = horasReserva - SALDO_HORAS;
+          var valorPorH = PRECO_FINAL / horasReserva;
+          rc.textContent = "⏱ Você tem " + fmtHoras(SALDO_HORAS) + " no saldo — usa essas horas e faltam " +
+            fmtHoras(faltamH) + " (" + brl2(faltamH * valorPorH) + ") via Pix.";
+        }
         rc.style.display = "block";
       } else { rc.style.display = "none"; }
 
