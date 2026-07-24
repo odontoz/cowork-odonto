@@ -103,19 +103,22 @@
     <span id="resumo"></span>
 
     <!-- Resumo do mês -->
-    <div class="kpis" style="margin-bottom:16px">
-      <div class="kpi"><p class="rotulo">Faturamento (reservas)</p><p class="valor" id="kpi-fat">—</p></div>
-      <div class="kpi"><p class="rotulo">Recebido</p><p class="valor pos" id="kpi-rec">—</p></div>
-      <div class="kpi"><p class="rotulo">A receber</p><p class="valor pend" id="kpi-arec">—</p></div>
+    <div class="kpis" style="margin-bottom:8px">
+      <div class="kpi"><p class="rotulo">💰 Recebido no mês (dinheiro real)</p><p class="valor pos" id="kpi-rec">—</p></div>
+      <div class="kpi"><p class="rotulo">Horas vendidas no mês</p><p class="valor" id="kpi-horas-vend">—</p></div>
+      <div class="kpi"><p class="rotulo">Saldo de horas em uso (passivo)</p><p class="valor" id="kpi-saldo-h">—</p></div>
       <div class="kpi"><p class="rotulo">Reservas no mês</p><p class="valor" id="kpi-res">—</p></div>
     </div>
+    <p class="muted" style="font-size:.8rem;margin:0 0 16px">
+      "Recebido" = dinheiro que entrou de verdade (Pix/cartão pela compra de horas/planos). As reservas <b>não</b> são receita — são consumo das horas já pagas.
+    </p>
 
     <section class="card">
-      <h2>Receitas por cliente</h2>
+      <h2>Recebido por cliente (dinheiro real)</h2>
       <div class="scroll-x">
         <table class="fin-tab" id="tab-clientes">
           <thead>
-            <tr><th>Cliente</th><th class="num">Faturado</th><th class="num">Recebido</th><th>Status</th><th class="num">Reservas</th></tr>
+            <tr><th>Cliente</th><th class="num">Recebido</th><th class="num">Horas compradas</th><th class="num">Saldo atual</th></tr>
           </thead>
           <tbody></tbody>
           <tfoot></tfoot>
@@ -124,44 +127,30 @@
     </section>
 
     <section class="card" id="sec-creditos" style="margin-top:16px">
-      <h2>Créditos de reserva</h2>
+      <h2>Saldo de horas dos clientes</h2>
       <p class="muted" style="font-size:.85rem;margin-top:0">
-        Passivo circulante da política de cancelamento — créditos emitidos por cancelamento/no-show/ajuste
-        que abatem reservas futuras (validade 90 dias). É a "inteligência de estorno" do sistema.
+        Horas que cada cliente ainda tem pra usar (passivo — serviço a entregar). <b>Não é dinheiro</b> —
+        o dinheiro entrou na compra. Separado por origem: <b>compradas</b> (plano/avulso, dinheiro real),
+        <b>cortesia</b> (1ª hora grátis) e <b>devolução</b> (cancelamento).
       </p>
-      <div class="row" style="gap:24px;flex-wrap:wrap;margin-bottom:6px">
-        <div><div class="muted" style="font-size:.78rem">Saldo circulante (a usar)</div><strong id="cred-circulante" style="font-size:1.35rem">—</strong></div>
-        <div><div class="muted" style="font-size:.78rem">Emitidos no mês</div><strong id="cred-emitidos" style="font-size:1.35rem">—</strong></div>
-        <div><div class="muted" style="font-size:.78rem">Já usados/expirados (total)</div><strong id="cred-usados" style="font-size:1.35rem">—</strong></div>
-      </div>
       <div class="scroll-x" style="margin-top:12px">
-        <table class="fin-tab" id="tab-cred-origem">
-          <thead><tr><th>Origem (emitidos no mês)</th><th class="num">Qtd</th><th class="num">Valor</th></tr></thead>
-          <tbody></tbody>
+        <table class="fin-tab" id="tab-saldo-cliente">
+          <thead><tr><th>Cliente</th><th class="num">Compradas</th><th class="num">Cortesia</th><th class="num">Devolução</th><th class="num">Saldo total</th></tr></thead>
+          <tbody></tbody><tfoot></tfoot>
         </table>
       </div>
     </section>
 
-    <div class="duo" style="margin-top:16px">
-      <section class="card">
-        <h2>Quebra por produto</h2>
-        <div class="scroll-x">
-          <table class="fin-tab" id="tab-produtos">
-            <thead><tr><th>Produto</th><th class="num">Valor</th><th class="num">%</th></tr></thead>
-            <tbody></tbody><tfoot></tfoot>
-          </table>
-        </div>
-      </section>
-      <section class="card">
-        <h2>Quebra por sala</h2>
-        <div class="scroll-x">
-          <table class="fin-tab" id="tab-salas">
-            <thead><tr><th>Consultório</th><th class="num">Valor</th><th class="num">%</th></tr></thead>
-            <tbody></tbody><tfoot></tfoot>
-          </table>
-        </div>
-      </section>
-    </div>
+    <section class="card" style="margin-top:16px">
+      <h2>Vendas por tipo (dinheiro real)</h2>
+      <p class="muted" style="font-size:.85rem;margin-top:0">O que foi comprado com dinheiro de verdade no mês (planos, horas avulsas, taxa de cadastro).</p>
+      <div class="scroll-x">
+        <table class="fin-tab" id="tab-produtos">
+          <thead><tr><th>Tipo de venda</th><th class="num">Valor</th><th class="num">%</th></tr></thead>
+          <tbody></tbody><tfoot></tfoot>
+        </table>
+      </div>
+    </section>
 
     <!-- ================= LIVRO CAIXA ================= -->
     <section class="card" id="livro-caixa" style="margin-top:24px">
@@ -282,42 +271,62 @@
 
     var DADOS = { clientes: [], produtos: [], salas: [], fat: 0, rec: 0, res: 0 };
 
+    // conta de demonstração/teste NÃO entra no financeiro real
+    function ehTeste(nome){ return /demonstra|teste/i.test(String(nome||"")); }
+    function horasDe(c){ return Number(c.valor_restante||0)/(Number(c.valor_hora)||75); }
+
     async function carregar(mesISO) {
       if (!(DB && DB.pronto)) return carregarMock();
       var r = rangeMes(mesISO);
-      var reservasP = DB.client.from("reservas")
-        .select("valor,cliente_id,sala_id,produto_id,perfis:cliente_id(nome),salas(nome),produtos_preco(nome)")
+      var hojeISO = new Date().getFullYear()+"-"+String(new Date().getMonth()+1).padStart(2,"0")+"-"+String(new Date().getDate()).padStart(2,"0");
+      // DINHEIRO REAL que entrou no mês — exclui gateway 'creditos' (consumo de saldo, não é receita)
+      var pagP = DB.client.from("pagamentos")
+        .select("valor,cliente_id,gateway,fatura_id,reserva_id,perfis:cliente_id(nome)")
+        .eq("status","pago").neq("gateway","creditos")
+        .gte("pago_em", r.ini.toISOString()).lt("pago_em", r.fim.toISOString());
+      // reservas do mês (só contagem — é consumo, não receita)
+      var resP = DB.client.from("reservas").select("id,perfis:cliente_id(nome)")
         .gte("inicio", r.ini.toISOString()).lt("inicio", r.fim.toISOString())
-        .in("status", ["pendente","confirmada","concluida"]);
-      var pagP = DB.client.from("pagamentos").select("valor,cliente_id,status,pago_em")
-        .eq("status","pago").gte("pago_em", r.ini.toISOString()).lt("pago_em", r.fim.toISOString());
-      var res = await Promise.all([reservasP, pagP]);
-      var reservas = res[0].data || [], pagos = res[1].data || [];
+        .in("status",["pendente","pendente_pagamento","confirmada","concluida"]);
+      // saldo de horas circulante por cliente
+      var credP = DB.client.from("creditos")
+        .select("cliente_id,origem,valor,valor_restante,valor_hora,criado_em,perfis:cliente_id(nome)")
+        .gt("valor_restante",0).gte("validade",hojeISO);
+      var res = await Promise.all([pagP, resP, credP]);
+      var pagos = (res[0].data||[]).filter(function(p){ return !ehTeste(p.perfis&&p.perfis.nome); });
+      var reservas = (res[1].data||[]).filter(function(x){ return !ehTeste(x.perfis&&x.perfis.nome); });
+      var creds = (res[2].data||[]).filter(function(c){ return !ehTeste(c.perfis&&c.perfis.nome); });
 
-      var porCliente = {}, porProduto = {}, porSala = {};
-      var fat = 0, resCount = reservas.length;
-      reservas.forEach(function (rv) {
-        var v = Number(rv.valor) || 0; fat += v;
-        var cn = rv.perfis ? rv.perfis.nome : "—";
-        porCliente[rv.cliente_id] = porCliente[rv.cliente_id] || { nome: cn, faturado: 0, recebido: 0, reservas: 0 };
-        porCliente[rv.cliente_id].faturado += v; porCliente[rv.cliente_id].reservas++;
-        var pn = rv.produtos_preco ? rv.produtos_preco.nome : "Avulso/Outro";
-        porProduto[pn] = (porProduto[pn] || 0) + v;
-        var sn = rv.salas ? rv.salas.nome : "—";
-        porSala[sn] = (porSala[sn] || 0) + v;
-      });
-      var rec = 0;
+      // recebido real por cliente + vendas por tipo
+      var porCliente = {}, porTipo = {}, rec = 0;
       pagos.forEach(function (p) {
-        var v = Number(p.valor) || 0; rec += v;
-        if (porCliente[p.cliente_id]) porCliente[p.cliente_id].recebido += v;
+        var v = Number(p.valor)||0; rec += v;
+        var cn = p.perfis ? p.perfis.nome : "—";
+        porCliente[p.cliente_id] = porCliente[p.cliente_id] || { nome:cn, recebido:0, compradas:0, cortesia:0, devolucao:0 };
+        porCliente[p.cliente_id].recebido += v;
+        var tipo = p.fatura_id ? "Plano mensal" : (p.reserva_id ? "Hora avulsa" : "Taxa de cadastro");
+        porTipo[tipo] = (porTipo[tipo]||0) + v;
+      });
+      // saldo de horas por cliente, separado por natureza
+      var saldoTotalH = 0, horasVendidasReais = 0;
+      creds.forEach(function (c) {
+        var h = horasDe(c); saldoTotalH += h;
+        var cn = c.perfis ? c.perfis.nome : "—";
+        porCliente[c.cliente_id] = porCliente[c.cliente_id] || { nome:cn, recebido:0, compradas:0, cortesia:0, devolucao:0 };
+        if (["plano","compra"].indexOf(c.origem)!==-1) porCliente[c.cliente_id].compradas += h;
+        else if (c.origem==="boas_vindas") porCliente[c.cliente_id].cortesia += h;
+        else porCliente[c.cliente_id].devolucao += h;
+      });
+      // horas vendidas no mês = horas compradas (plano/compra) criadas no mês
+      creds.forEach(function (c) {
+        var dc = new Date(c.criado_em);
+        if ((c.origem==="plano"||c.origem==="compra") && dc>=r.ini && dc<r.fim) horasVendidasReais += Number(c.horas||0);
       });
 
       DADOS = {
-        clientes: Object.keys(porCliente).map(function (k) { var c = porCliente[k];
-          c.status = c.recebido >= c.faturado && c.faturado > 0 ? "paga" : "em aberto"; return c; }),
-        produtos: Object.keys(porProduto).map(function (k) { return { rotulo: k, valor: porProduto[k] }; }),
-        salas: Object.keys(porSala).map(function (k) { return { rotulo: k, valor: porSala[k] }; }),
-        fat: fat, rec: rec, res: resCount
+        clientes: Object.keys(porCliente).map(function(k){ return porCliente[k]; }),
+        produtos: Object.keys(porTipo).map(function(k){ return { rotulo:k, valor:porTipo[k] }; }),
+        rec: rec, res: reservas.length, saldoH: saldoTotalH, horasVend: horasVendidasReais
       };
     }
 
@@ -325,34 +334,50 @@
       document.getElementById("aviso-demo").style.display = "block";
       DADOS = {
         clientes: [
-          { nome: "Dra. Alyne (exemplo)", faturado: 6000, recebido: 6000, status: "paga", reservas: 8 },
-          { nome: "Dra. Mariane (exemplo)", faturado: 4000, recebido: 4000, status: "paga", reservas: 4 },
-          { nome: "Dr. Paulo (exemplo)", faturado: 1239, recebido: 0, status: "em aberto", reservas: 6 }
+          { nome: "Dra. Alyne (exemplo)", recebido: 990, compradas: 20, cortesia: 1, devolucao: 0 },
+          { nome: "Dra. Mariane (exemplo)", recebido: 590, compradas: 10, cortesia: 1, devolucao: 2 }
         ],
-        produtos: [{ rotulo: "Hora avulsa", valor: 750 }, { rotulo: "Planos", valor: 10000 }, { rotulo: "Taxa de cadastro", valor: 149 }, { rotulo: "Mercadinho", valor: 90 }],
-        salas: [{ rotulo: "Consultório 1 (RX)", valor: 6899 }, { rotulo: "Consultório 2", valor: 4340 }],
-        fat: 11239, rec: 10000, res: 18
+        produtos: [{ rotulo: "Plano mensal", valor: 1580 }, { rotulo: "Hora avulsa", valor: 300 }],
+        rec: 1580, res: 6, saldoH: 34, horasVend: 30
       };
     }
 
+    function fmtH(h){ h=Math.round(h*100)/100; return ((h%1===0)?String(h):h.toFixed(1).replace(".",","))+"h"; }
     function render() {
-      var d = DADOS, aReceber = d.fat - d.rec;
-      document.getElementById("kpi-fat").textContent  = brl(d.fat);
-      document.getElementById("kpi-rec").textContent  = brl(d.rec);
-      document.getElementById("kpi-arec").textContent = brl(aReceber);
-      document.getElementById("kpi-res").textContent  = d.res;
+      var d = DADOS;
+      document.getElementById("kpi-rec").textContent = brl(d.rec);
+      document.getElementById("kpi-horas-vend").textContent = fmtH(d.horasVend||0);
+      document.getElementById("kpi-saldo-h").textContent = fmtH(d.saldoH||0);
+      document.getElementById("kpi-res").textContent = d.res;
 
+      // recebido por cliente (dinheiro real)
       var tb = document.querySelector("#tab-clientes tbody");
-      tb.innerHTML = d.clientes.length ? d.clientes.map(function (c) {
+      var comReceita = d.clientes.filter(function(c){ return c.recebido>0; });
+      tb.innerHTML = comReceita.length ? comReceita.map(function (c) {
+        var saldo = (c.compradas||0)+(c.cortesia||0)+(c.devolucao||0);
         return "<tr><td><strong>" + esc(c.nome) + "</strong></td>" +
-          '<td class="num">' + brl(c.faturado) + '</td><td class="num">' + brl(c.recebido) + "</td>" +
-          "<td>" + badge(c.status) + '</td><td class="num">' + c.reservas + "</td></tr>";
-      }).join("") : '<tr><td colspan="5" class="muted" style="text-align:center;padding:16px">Nenhuma receita neste mês.</td></tr>';
+          '<td class="num">' + brl(c.recebido) + '</td>' +
+          '<td class="num">' + fmtH(c.compradas||0) + '</td>' +
+          '<td class="num">' + fmtH(saldo) + "</td></tr>";
+      }).join("") : '<tr><td colspan="4" class="muted" style="text-align:center;padding:16px">Nenhum recebimento neste mês.</td></tr>';
       document.querySelector("#tab-clientes tfoot").innerHTML =
-        '<tr><td>Total</td><td class="num">' + brl(d.fat) + '</td><td class="num">' + brl(d.rec) + '</td><td></td><td class="num">' + d.res + "</td></tr>";
+        '<tr><td>Total</td><td class="num">' + brl(d.rec) + '</td><td class="num"></td><td class="num"></td></tr>';
 
-      renderQuebra("#tab-produtos", d.produtos, d.fat);
-      renderQuebra("#tab-salas", d.salas, d.fat);
+      // saldo de horas por cliente (separado por natureza)
+      var ts = document.querySelector("#tab-saldo-cliente tbody");
+      var comSaldo = d.clientes.filter(function(c){ return (c.compradas||0)+(c.cortesia||0)+(c.devolucao||0) > 0.001; });
+      ts.innerHTML = comSaldo.length ? comSaldo.map(function (c) {
+        var tot=(c.compradas||0)+(c.cortesia||0)+(c.devolucao||0);
+        return "<tr><td><strong>"+esc(c.nome)+"</strong></td>"+
+          '<td class="num">'+fmtH(c.compradas||0)+'</td>'+
+          '<td class="num">'+fmtH(c.cortesia||0)+'</td>'+
+          '<td class="num">'+fmtH(c.devolucao||0)+'</td>'+
+          '<td class="num"><strong>'+fmtH(tot)+"</strong></td></tr>";
+      }).join("") : '<tr><td colspan="5" class="muted" style="text-align:center;padding:12px">Nenhum cliente com saldo de horas.</td></tr>';
+      document.querySelector("#tab-saldo-cliente tfoot").innerHTML =
+        '<tr><td>Total</td><td class="num"></td><td class="num"></td><td class="num"></td><td class="num"><strong>'+fmtH(d.saldoH||0)+"</strong></td></tr>";
+
+      renderQuebra("#tab-produtos", d.produtos, d.rec);
     }
     function renderQuebra(sel, arr, total) {
       document.querySelector(sel + " tbody").innerHTML = arr.length ? arr.map(function (it) {
@@ -366,11 +391,12 @@
       var comp = competencia(mesISO || mesAtualLocal()), sep = ";";
       function n(v) { return String((v||0).toFixed(2)).replace(".", ","); }
       function q(s) { return '"' + String(s==null?"":s).replace(/"/g, '""') + '"'; }
-      var linhas = [["Competência","Cliente","Faturado","Recebido","A receber","Status","Reservas"].map(q).join(sep)];
+      var linhas = [["Competência","Cliente","Recebido (real)","Horas compradas","Saldo de horas"].map(q).join(sep)];
       DADOS.clientes.forEach(function (c) {
-        linhas.push([comp, c.nome, n(c.faturado), n(c.recebido), n(c.faturado - c.recebido), c.status, c.reservas].map(q).join(sep));
+        var saldo=(c.compradas||0)+(c.cortesia||0)+(c.devolucao||0);
+        linhas.push([comp, c.nome, n(c.recebido), n(c.compradas||0), n(saldo)].map(q).join(sep));
       });
-      linhas.push([comp, "TOTAL", n(DADOS.fat), n(DADOS.rec), n(DADOS.fat - DADOS.rec), "", DADOS.res].map(q).join(sep));
+      linhas.push([comp, "TOTAL", n(DADOS.rec), n(DADOS.horasVend||0), n(DADOS.saldoH||0)].map(q).join(sep));
       var blob = new Blob(["\uFEFF" + linhas.join("\r\n")], { type: "text/csv;charset=utf-8;" });
       var url = URL.createObjectURL(blob), a = document.createElement("a");
       a.href = url; a.download = "financeiro-enjoy-" + (mesISO || mesAtualLocal()) + ".csv";
@@ -421,10 +447,30 @@
         if (tipo && tipo !== "todos") q = q.eq("tipo", tipo);
         var r = await q;
         if (r.error) { console.warn("lancamentos_caixa:", r.error.message); return []; }
-        return (r.data || []).map(function (l) { return {
+        var manuais = (r.data || []).map(function (l) { return {
           id: l.id, tipo: l.tipo, valor: Number(l.valor), descricao: l.descricao, categoria: l.categoria,
           data_lancamento: String(l.data_lancamento).slice(0,10), comprovante_url: l.comprovante_url,
-          cliente: l.perfis ? l.perfis.nome : "" }; });
+          cliente: l.perfis ? l.perfis.nome : "", auto: false }; });
+        // ENTRADAS AUTOMÁTICAS: dinheiro real recebido pelo gateway (Pix/cartão) — exclui crédito (consumo) e conta teste
+        var pg = DB.client.from("pagamentos")
+          .select("id,valor,pago_em,fatura_id,reserva_id,perfis:cliente_id(nome)")
+          .eq("status","pago").neq("gateway","creditos").order("pago_em",{ascending:false});
+        if (de) pg = pg.gte("pago_em", de + "T00:00:00");
+        if (ate) pg = pg.lte("pago_em", ate + "T23:59:59");
+        var rp = await pg;
+        var autos = [];
+        if (!rp.error && (!tipo || tipo==="todos" || tipo==="entrada")) {
+          autos = (rp.data||[]).filter(function(p){ return !/demonstra|teste/i.test(String(p.perfis&&p.perfis.nome||"")); })
+            .map(function (p) {
+              var quem = p.perfis ? p.perfis.nome : "cliente";
+              var oque = p.fatura_id ? "plano/mensalidade" : (p.reserva_id ? "hora avulsa" : "taxa de cadastro");
+              return { id: "pg:"+p.id, tipo:"entrada", valor:Number(p.valor),
+                descricao:"Recebimento "+quem+" — "+oque+" (via gateway)",
+                categoria: p.fatura_id ? "mensalidade" : "aluguel_sala",
+                data_lancamento: String(p.pago_em).slice(0,10), comprovante_url:null,
+                cliente: quem, auto:true }; });
+        }
+        return manuais.concat(autos).sort(function(a,b){ return a.data_lancamento < b.data_lancamento ? 1 : -1; });
       }
       var lista = lsCarregar().filter(function (l) {
         if (de && l.data_lancamento < de) return false;
@@ -489,7 +535,7 @@
             "<td>" + (l.cliente ? esc(l.cliente) : '<span class="muted">—</span>') + "</td>" +
             '<td class="num">' + (l.tipo === "entrada" ? '<span style="color:var(--verde)">' + brl(l.valor) + "</span>" : "—") + "</td>" +
             '<td class="num">' + (l.tipo === "saida" ? '<span style="color:var(--vermelho)">' + brl(l.valor) + "</span>" : "—") + "</td>" +
-            "<td>" + comp + '</td><td><button class="lixo" title="Excluir" data-id="' + l.id + '">✕</button></td></tr>';
+            "<td>" + comp + '</td><td>' + (l.auto ? '<span class="muted" title="Recebido pelo gateway — automático" style="font-size:.75rem">🔒 auto</span>' : '<button class="lixo" title="Excluir" data-id="' + l.id + '">✕</button>') + "</td></tr>";
         }).join("");
       }
       document.querySelector("#tab-caixa tfoot").innerHTML =
@@ -598,43 +644,7 @@
     elMes.value = FIN.mesAtualLocal();
     function labelPeriodo() { document.getElementById("periodo-label").textContent = "Competência " + FIN.competencia(elMes.value || FIN.mesAtualLocal()); }
 
-    function brlLocal(n) { return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n || 0); }
-    async function carregarCreditos(mesISO) {
-      var sec = document.getElementById("sec-creditos");
-      if (!(DB && DB.pronto)) { sec.style.display = "none"; return; }
-      var pp = (mesISO || "").split("-"), yy = +pp[0], mm = +pp[1];
-      var ini = (yy && mm) ? new Date(yy, mm-1, 1) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-      var fim = new Date(ini.getFullYear(), ini.getMonth()+1, 1);
-      var q = await DB.client.from("creditos").select("valor,valor_restante,valor_hora,origem,validade,criado_em");
-      var todos = q.data || [];
-      var hoje = new Date(); hoje.setHours(0,0,0,0);
-      var circulante = 0, circulanteH = 0, usados = 0, emitidosMes = 0, porOrigem = {};
-      function fmtH(h){ h=Math.round(h*100)/100; return ((h%1===0)?String(h):h.toFixed(1).replace(".",","))+"h"; }
-      todos.forEach(function (c) {
-        var val = Number(c.valor||0), rest = Number(c.valor_restante||0), vh = Number(c.valor_hora)||75;
-        if (rest > 0 && new Date(c.validade) >= hoje) { circulante += rest; circulanteH += rest/vh; }
-        usados += (val - rest);
-        var dc = new Date(c.criado_em);
-        if (dc >= ini && dc < fim) {
-          emitidosMes += val;
-          var o = c.origem || "outro";
-          porOrigem[o] = porOrigem[o] || { qtd: 0, valor: 0 };
-          porOrigem[o].qtd++; porOrigem[o].valor += val;
-        }
-      });
-      document.getElementById("cred-circulante").textContent = fmtH(circulanteH) + " (" + brlLocal(circulante) + ")";
-      document.getElementById("cred-emitidos").textContent = brlLocal(emitidosMes);
-      document.getElementById("cred-usados").textContent = brlLocal(usados);
-      var rotulo = { cancelamento: "Cancelamento (100%)", cancelamento_tardio: "Cancelamento tardio (50%)", no_show: "Não comparecimento", ajuste: "Ajuste manual" };
-      var tb = document.querySelector("#tab-cred-origem tbody");
-      var chaves = Object.keys(porOrigem);
-      tb.innerHTML = chaves.length
-        ? chaves.map(function (k) { return "<tr><td>" + (rotulo[k]||k) + "</td><td class='num'>" + porOrigem[k].qtd + "</td><td class='num'>" + brlLocal(porOrigem[k].valor) + "</td></tr>"; }).join("")
-        : "<tr><td colspan='3' class='muted'>Nenhum crédito emitido neste mês.</td></tr>";
-      sec.style.display = "block";
-    }
-
-    async function recarregarResumo() { labelPeriodo(); await FIN.carregar(elMes.value); FIN.render(); await carregarCreditos(elMes.value); }
+    async function recarregarResumo() { labelPeriodo(); await FIN.carregar(elMes.value); FIN.render(); }
     elMes.addEventListener("change", recarregarResumo);
     document.getElementById("btn-csv").addEventListener("click", function () { FIN.exportarCSV(elMes.value); });
 
