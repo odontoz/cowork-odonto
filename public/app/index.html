@@ -95,9 +95,12 @@
     function labelInicio(d) { return DIAS[d.getDay()] + ", " + ddmm(d) + " · " + hhmm(d); }
     function esc(s) { return String(s==null?"":s).replace(/[&<>"]/g, function (c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
     function badgeStatus(s) {
-      var map = { confirmada:"badge-verde", pendente:"badge-amarelo", concluida:"badge-cinza",
-                  paga:"badge-verde", aberta:"badge-amarelo", vencida:"badge-vermelho", cancelada:"badge-cinza" };
-      return '<span class="badge ' + (map[s] || "badge-cinza") + '">' + s + "</span>";
+      var map = { confirmada:"badge-verde", pendente:"badge-amarelo", pendente_pagamento:"badge-amarelo",
+                  concluida:"badge-cinza", paga:"badge-verde", aberta:"badge-amarelo",
+                  vencida:"badge-vermelho", cancelada:"badge-cinza", expirada:"badge-cinza" };
+      var rotulo = { confirmada:"confirmada", pendente:"aguardando", pendente_pagamento:"aguardando pagamento",
+                     concluida:"concluída", expirada:"expirada", cancelada:"cancelada" };
+      return '<span class="badge ' + (map[s] || "badge-cinza") + '">' + (rotulo[s] || s) + "</span>";
     }
     function mesAtualLocal() { var d = new Date(); return { ini: new Date(d.getFullYear(), d.getMonth(), 1), fim: new Date(d.getFullYear(), d.getMonth()+1, 1) }; }
 
@@ -154,7 +157,7 @@
       // consultas em paralelo (RLS já filtra pelo próprio cliente)
       var proxP = DB.client.from("reservas")
         .select("id,inicio,fim,status,valor,salas(nome)")
-        .gte("inicio", agoraISO).in("status", ["pendente","confirmada"])
+        .gte("inicio", agoraISO).in("status", ["pendente","pendente_pagamento","confirmada"])
         .order("inicio", { ascending: true }).limit(6);
       var mesP = DB.client.from("reservas")
         .select("inicio,fim,status")
