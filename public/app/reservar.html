@@ -19,6 +19,8 @@
              background: var(--azul); margin-right: 8px; vertical-align: middle;
              animation: pulso 1.2s infinite; }
     @keyframes pulso { 0%,100% { opacity: .25 } 50% { opacity: 1 } }
+    /* botão Confirmar bloqueado até aceitar a política de cancelamento */
+    #btn-confirmar:disabled { opacity: .5; cursor: not-allowed; box-shadow: none; filter: grayscale(.3); }
   </style>
 </head>
 <body data-no-wpp>
@@ -526,9 +528,19 @@
       var v = M.podeReservar(oc.reservas, oc.bloqueios, HORARIO,
         { inicio: sel.inicio, fim: sel.fim, profissionalId: MEU_ID }, CFG);
       var btn = document.getElementById("btn-confirmar");
-      if (!v.ok) { erroBox.textContent = v.motivo; erroBox.style.display = "block"; btn.disabled = true; }
-      else { erroBox.style.display = "none"; btn.disabled = false; }
+      if (!v.ok) { erroBox.textContent = v.motivo; erroBox.style.display = "block"; }
+      else { erroBox.style.display = "none"; }
+      sincronizarBotao();   // habilita só se v.ok E checkbox marcado
     }
+
+    // botão Confirmar só fica clicável com a política aceita E a reserva válida
+    function sincronizarBotao() {
+      var btn = document.getElementById("btn-confirmar");
+      var aceito = document.getElementById("aceite-cancel").checked;
+      var semErro = document.getElementById("r-erro").style.display === "none";
+      btn.disabled = !(aceito && semErro && sel.inicio && sel.fim);
+    }
+    document.getElementById("aceite-cancel").addEventListener("change", sincronizarBotao);
 
     // -------- pagamento (paga-e-usa): 1º paga, depois usa --------
     function resetarPagamento() {
