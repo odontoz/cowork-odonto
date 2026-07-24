@@ -23,10 +23,11 @@
     { href: "gestao-cadastros.html",  txt: "Cadastros" },
     { href: "gestao-financeiro.html", txt: "Financeiro" }
   ] : [
-    { href: "index.html",    txt: "Início" },
-    { href: "reservar.html", txt: "Reservar" },
-    { href: "faturas.html",  txt: "Faturas" },
-    { href: "contrato.html", txt: "Contrato" }
+    { href: "index.html",          txt: "Início" },
+    { href: "reservar.html",       txt: "Reservar" },
+    { href: "minhas-reservas.html", txt: "Minhas reservas" },
+    { href: "faturas.html",        txt: "Faturas" },
+    { href: "contrato.html",       txt: "Contrato" }
   ];
 
   function css() {

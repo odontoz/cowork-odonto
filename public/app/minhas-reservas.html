@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Minhas reservas — ClinicShare</title>
+  <meta name="theme-color" content="#0E2A47">
+  <link rel="icon" type="image/png" sizes="32x32" href="../../assets/img/favicon-32.png">
+  <link rel="apple-touch-icon" href="../../assets/img/favicon-clinicshare.png">
+  <link rel="manifest" href="../../manifest.webmanifest">
+  <link rel="stylesheet" href="../../assets/css/base.css">
+  <script src="../../assets/js/brand.js" defer></script>
+  <style>
+    .res { display:flex; justify-content:space-between; align-items:flex-start; gap:12px;
+      border:1px solid var(--linha); border-radius:12px; padding:14px; background:var(--branco); margin-bottom:10px }
+    .res .dia { font-weight:800; font-size:1.05rem; letter-spacing:-.01em }
+    .res .sala { color:var(--cinza); font-size:.9rem; margin-top:2px }
+    .res .hora { margin-top:6px; font-weight:600 }
+    .res .dir { text-align:right; flex:0 0 auto; display:flex; flex-direction:column; align-items:flex-end; gap:8px }
+    .res .dur { color:var(--cinza); font-size:.85rem }
+    .st { display:inline-block; padding:3px 10px; border-radius:99px; font-size:.75rem; font-weight:700; white-space:nowrap }
+    .st-verde{ background:#e4f5ec; color:#137a41 } .st-amarelo{ background:#fdf3d8; color:#8a6400 }
+    .st-cinza{ background:#eef1f5; color:#5b6b7b } .st-vermelho{ background:#fbe4e4; color:#a12d2d }
+    .btn-cancel { background:none; border:1px solid var(--linha); color:var(--vermelho); border-radius:9px;
+      padding:6px 12px; font-size:.82rem; font-weight:600; cursor:pointer }
+    .btn-cancel:hover { background:#fbe4e4 }
+    h2.sec { font-size:1.05rem; margin:22px 0 10px }
+    .vazio { color:var(--cinza); font-size:.95rem; padding:8px 0 }
+    .res.passada { opacity:.72 }
+  </style>
+</head>
+<body data-no-wpp>
+  <header class="topbar">
+    <div class="container">
+      <a class="marca" href="index.html">Coworking <span>Odontológico</span></a>
+      <a class="muted" href="index.html">← Início</a>
+    </div>
+  </header>
+
+  <main class="container" style="padding:24px 16px" id="app" hidden>
+    <div class="row-between" style="margin-bottom:8px">
+      <h1 style="margin:0">Minhas reservas</h1>
+      <a class="btn btn-primario" href="reservar.html">+ Reservar</a>
+    </div>
+    <div id="card-saldo" class="aviso aviso-info" style="display:none;margin-bottom:16px">
+      ⏱ Você tem <strong id="saldo-horas">0h</strong> no seu saldo — usadas automaticamente ao reservar.
+    </div>
+
+    <div id="aviso-demo" class="aviso aviso-info" style="display:none;margin-bottom:16px">
+      Modo demonstração — conecte o banco para ver suas reservas reais.
+    </div>
+    <div id="erro" class="aviso aviso-atencao" style="display:none;margin-bottom:16px"></div>
+
+    <section>
+      <h2 class="sec">Próximas</h2>
+      <div id="futuras"></div>
+    </section>
+    <section>
+      <h2 class="sec">Anteriores</h2>
+      <div id="passadas"></div>
+    </section>
+  </main>
+
+  <script src="../../config/config.js" onerror="console.warn('config.js ausente — modo demonstração')"></script>
+  <script src="../../assets/vendor/supabase.js"></script>
+  <script src="../../assets/js/db.js"></script>
+  <script src="../../assets/js/nav-app.js" defer></script>
+  <script>
+  (function () {
+    var DB = window.EnjoyDB;
+    var app = document.getElementById("app");
+    var DIAS = ["Domingo","Segunda","Terça","Quarta","Quinta","Sexta","Sábado"];
+
+    function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
+    function p2(n){ return String(n).padStart(2,"0"); }
+    function hhmm(d){ return p2(d.getHours())+":"+p2(d.getMinutes()); }
+    function dataLonga(d){ return DIAS[d.getDay()]+", "+p2(d.getDate())+"/"+p2(d.getMonth()+1)+"/"+d.getFullYear(); }
+    function fmtHoras(h){ h=Math.round(h*100)/100; return ((h%1===0)?String(h):h.toFixed(1).replace(".",","))+"h"; }
+
+    var STATUS = {
+      confirmada:{t:"confirmada",c:"verde"}, pendente:{t:"aguardando",c:"amarelo"},
+      pendente_pagamento:{t:"aguardando pagamento",c:"amarelo"},
+      concluida:{t:"concluída",c:"cinza"}, cancelada:{t:"cancelada",c:"cinza"},
+      expirada:{t:"expirada",c:"cinza"}, noshow:{t:"não compareceu",c:"vermelho"}
+    };
+    function selo(st){ var m=STATUS[st]||{t:st,c:"cinza"}; return '<span class="st st-'+m.c+'">'+esc(m.t)+"</span>"; }
+
+    async function iniciar() {
+      if (!(DB && DB.pronto)) { document.getElementById("aviso-demo").style.display="block"; app.hidden=false; return; }
+      var perfil = await DB.exigirLogin();
+      if (!perfil) return;
+      app.hidden = false;
+      await Promise.all([carregarSaldo(), carregarReservas()]);
+    }
+
+    async function carregarSaldo() {
+      try {
+        var hoje = new Date().getFullYear()+"-"+p2(new Date().getMonth()+1)+"-"+p2(new Date().getDate());
+        var cr = await DB.client.from("creditos").select("valor_restante,valor_hora").gt("valor_restante",0).gte("validade",hoje);
+        var horas = (cr.data||[]).reduce(function(s,c){ return s + (Number(c.valor_restante||0)/(Number(c.valor_hora)||75)); },0);
+        if (horas > 0) {
+          document.getElementById("saldo-horas").textContent = fmtHoras(horas);
+          document.getElementById("card-saldo").style.display = "block";
+        }
+      } catch(e){}
+    }
+
+    async function carregarReservas() {
+      var r = await DB.client.from("reservas")
+        .select("id,inicio,fim,status,valor,salas(nome)")
+        .order("inicio", { ascending: false }).limit(100);
+      if (r.error) { erro("Não foi possível carregar suas reservas: " + r.error.message); return; }
+      var agora = new Date();
+      var futuras = [], passadas = [];
+      (r.data||[]).forEach(function (x) {
+        // esconde canceladas/expiradas antigas pra não poluir
+        if ((x.status==="cancelada"||x.status==="expirada") && new Date(x.fim) < agora) return;
+        if (new Date(x.fim) >= agora && ["pendente","pendente_pagamento","confirmada"].indexOf(x.status)!==-1) futuras.push(x);
+        else passadas.push(x);
+      });
+      futuras.sort(function(a,b){ return new Date(a.inicio)-new Date(b.inicio); });
+      render("futuras", futuras, false);
+      render("passadas", passadas, true);
+    }
+
+    function render(alvo, lista, passada) {
+      var box = document.getElementById(alvo);
+      if (!lista.length) {
+        box.innerHTML = '<p class="vazio">'+(passada?"Nenhuma reserva anterior.":'Nenhuma reserva futura. <a href="reservar.html">Reserve agora</a>.')+"</p>";
+        return;
+      }
+      box.innerHTML = "";
+      lista.forEach(function (x) {
+        var ini=new Date(x.inicio), fim=new Date(x.fim);
+        var horas=(fim-ini)/3600000;
+        var sala = x.salas ? x.salas.nome : "Consultório";
+        var el=document.createElement("div");
+        el.className="res"+(passada?" passada":"");
+        var podeCancelar = !passada && ["pendente","pendente_pagamento","confirmada"].indexOf(x.status)!==-1 && ini>new Date();
+        el.innerHTML =
+          '<div><div class="dia">'+dataLonga(ini)+'</div>'+
+          '<div class="sala">'+esc(sala)+'</div>'+
+          '<div class="hora">'+hhmm(ini)+' – '+hhmm(fim)+'</div></div>'+
+          '<div class="dir">'+selo(x.status)+
+          '<span class="dur">'+fmtHoras(horas)+'</span>'+
+          (podeCancelar?'<button class="btn-cancel" data-id="'+x.id+'">Cancelar</button>':'')+
+          '</div>';
+        box.appendChild(el);
+      });
+      Array.prototype.forEach.call(box.querySelectorAll(".btn-cancel"), function (b) {
+        b.addEventListener("click", function(){ cancelar(b.dataset.id, b); });
+      });
+    }
+
+    async function cancelar(id, btn) {
+      if (!confirm("Cancelar esta reserva? Conforme a política: 7+ dias de antecedência devolvem 100% das horas; entre 7 dias e 48h, 50%; menos de 48h, sem devolução.")) return;
+      btn.disabled=true; btn.textContent="Cancelando…";
+      var r = await DB.client.rpc("cancelar_reserva", { p_reserva_id: id });
+      if (r.error) { alert("Não foi possível cancelar: " + r.error.message); btn.disabled=false; btn.textContent="Cancelar"; return; }
+      await Promise.all([carregarSaldo(), carregarReservas()]);
+    }
+
+    function erro(m){ var e=document.getElementById("erro"); e.textContent=m; e.style.display="block"; }
+
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", iniciar); else iniciar();
+  })();
+  </script>
+</body>
+</html>
