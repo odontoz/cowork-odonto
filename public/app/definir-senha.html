@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Criar senha — ClinicShare</title>
+  <meta name="theme-color" content="#0E2A47">
+  <link rel="icon" type="image/png" sizes="32x32" href="../../assets/img/favicon-32.png">
+  <link rel="apple-touch-icon" href="../../assets/img/favicon-clinicshare.png">
+  <link rel="manifest" href="../../manifest.webmanifest">
+  <link rel="stylesheet" href="../../assets/css/base.css">
+  <script src="../../assets/js/brand.js" defer></script>
+</head>
+<body data-no-wpp>
+  <header class="topbar">
+    <div class="container"><a class="marca" href="../index.html">Clinic<span>Share</span></a></div>
+  </header>
+
+  <main class="container container-sm" style="padding:40px 16px">
+    <div class="card stack">
+      <div>
+        <h1>Criar sua senha</h1>
+        <p class="muted" id="sub">Escolha uma senha para entrar no sistema.</p>
+      </div>
+
+      <div id="aviso" class="aviso aviso-atencao" style="display:none"></div>
+
+      <form id="form-senha" class="stack" autocomplete="on" style="display:none">
+        <div class="campo">
+          <label for="s1">Nova senha</label>
+          <input id="s1" type="password" required minlength="8" placeholder="mínimo 8 caracteres" autocomplete="new-password">
+        </div>
+        <div class="campo">
+          <label for="s2">Repita a senha</label>
+          <input id="s2" type="password" required minlength="8" placeholder="••••••••" autocomplete="new-password">
+        </div>
+        <button class="btn btn-primario btn-bloco" type="submit" id="btn-salvar">Salvar e entrar</button>
+      </form>
+
+      <p class="muted" style="font-size:.85rem">
+        Link expirado ou já usado? <a href="login.html">Volte ao login</a> e clique em “Esqueci a senha”.
+      </p>
+    </div>
+  </main>
+
+  <script src="../../config/config.js" onerror="console.warn('config.js ausente')"></script>
+  <script src="../../assets/vendor/supabase.js"></script>
+  <script src="../../assets/js/db.js"></script>
+  <script>
+    (function () {
+      var DB = window.EnjoyDB;
+      var aviso = document.getElementById("aviso");
+      var form  = document.getElementById("form-senha");
+
+      function mostrar(msg, tipo) {
+        aviso.textContent = msg;
+        aviso.className = "aviso " + (tipo === "ok" ? "aviso-info" : "aviso-atencao");
+        aviso.style.display = "block";
+      }
+
+      if (!DB || !DB.pronto) { mostrar("Sistema indisponível no momento. Tente novamente em instantes."); return; }
+
+      // O link do convite/recuperação chega com o token no fragmento (#access_token=…).
+      // O supabase-js (detectSessionInUrl:true) troca isso por uma sessão de forma
+      // ASSÍNCRONA — por isso esperamos o evento antes de renderizar o formulário.
+      // Padrão do projeto: auth ANTES de render.
+      var pronto = false;
+      function liberar() {
+        if (pronto) return;
+        pronto = true;
+        aviso.style.display = "none";
+        form.style.display = "";
+        try { history.replaceState(null, "", location.pathname); } catch (e) {}
+      }
+
+      DB.client.auth.onAuthStateChange(function (evento, sessao) {
+        if (sessao) liberar();
+      });
+
+      DB.client.auth.getSession().then(function (r) {
+        if (r && r.data && r.data.session) liberar();
+        else setTimeout(function () {
+          if (!pronto) mostrar("Este link não é mais válido (já foi usado ou expirou). Volte ao login e clique em “Esqueci a senha”.");
+        }, 2500);
+      });
+
+      form.addEventListener("submit", async function (e) {
+        e.preventDefault();
+        var s1 = document.getElementById("s1").value;
+        var s2 = document.getElementById("s2").value;
+        var btn = document.getElementById("btn-salvar");
+
+        if (s1.length < 8) { mostrar("A senha precisa ter pelo menos 8 caracteres."); return; }
+        if (s1 !== s2)     { mostrar("As duas senhas não são iguais."); return; }
+
+        btn.disabled = true; btn.textContent = "Salvando…";
+        var r = await DB.client.auth.updateUser({ password: s1 });
+        if (r.error) {
+          btn.disabled = false; btn.textContent = "Salvar e entrar";
+          mostrar("Não foi possível salvar: " + r.error.message);
+          return;
+        }
+
+        DB.limparCachePerfil();
+        var perfil = await DB.perfilAtual(true);
+        if (perfil && DB.ehGestao(perfil)) location.replace("gestao.html");
+        else location.replace("index.html");
+      });
+    })();
+  </script>
+</body>
+</html>

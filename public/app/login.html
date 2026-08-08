@@ -105,7 +105,12 @@
         if (!DB || !DB.pronto) { mostrar("Recuperação de senha disponível após a configuração do banco."); return; }
         var email = document.getElementById("email").value.trim();
         if (!email) { mostrar("Digite seu e-mail no campo acima e clique em “Esqueci a senha”."); return; }
-        var r = await DB.client.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
+        // Manda para a tela de criar senha, NÃO de volta para o login: caindo no
+        // próprio login.html a pessoa ganhava sessão e não tinha onde digitar a
+        // senha nova — o "Esqueci a senha" era um beco sem saída (achado 08/08/2026).
+        var r = await DB.client.auth.resetPasswordForEmail(email, {
+          redirectTo: location.origin + location.pathname.replace(/login\.html$/, "definir-senha.html"),
+        });
         if (r.error) mostrar("Não foi possível enviar: " + r.error.message);
         else mostrar("Enviamos um link de redefinição para " + email + ".", "ok");
       });
