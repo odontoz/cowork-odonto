@@ -24,9 +24,31 @@
     .btn-cancel { background:none; border:1px solid var(--linha); color:var(--vermelho); border-radius:9px;
       padding:6px 12px; font-size:.82rem; font-weight:600; cursor:pointer }
     .btn-cancel:hover { background:#fbe4e4 }
+    /* Trocar de sala é a ação SEM custo — por isso azul (ação normal), enquanto
+       cancelar é vermelho (ação que pode custar horas). */
+    .btn-trocar { background:none; border:1px solid var(--linha); color:var(--azul); border-radius:9px;
+      padding:6px 12px; font-size:.82rem; font-weight:600; cursor:pointer }
+    .btn-trocar:hover { background:#eaf1fd }
+    .res .acoes { display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end }
     h2.sec { font-size:1.05rem; margin:22px 0 10px }
     .vazio { color:var(--cinza); font-size:.95rem; padding:8px 0 }
     .res.passada { opacity:.72 }
+    /* Janela de confirmação (cancelamento e troca) — mostra os NÚMEROS antes de
+       o cliente decidir. Nasceu da queixa da Dra. Thaís: "eu já perco alguma
+       coisa, mas não me recordo do que é". */
+    .modal-fundo { position:fixed; inset:0; background:rgba(16,32,43,.45); display:none;
+      align-items:center; justify-content:center; padding:16px; z-index:60 }
+    .modal-cx { background:var(--branco); border-radius:14px; box-shadow:var(--sombra);
+      width:100%; max-width:460px; padding:20px; max-height:90vh; overflow:auto }
+    .modal-cx h3 { margin:0 0 12px; font-size:1.15rem }
+    .linha-num { display:flex; justify-content:space-between; align-items:baseline; gap:12px;
+      padding:8px 0; border-bottom:1px solid var(--linha); font-size:.92rem }
+    .linha-num:last-of-type { border-bottom:none }
+    .linha-num b { white-space:nowrap; text-align:right }
+    .num-volta { color:var(--verde) }
+    .num-perde { color:var(--vermelho) }
+    .modal-acoes { display:flex; gap:8px; margin-top:18px }
+    .modal-acoes .btn { flex:1 }
   </style>
 </head>
 <body data-no-wpp>
@@ -61,6 +83,20 @@
     </section>
   </main>
 
+  <!-- Janela de confirmação, usada tanto pelo cancelamento quanto pela troca de
+       sala. O conteúdo é montado no JS. -->
+  <div id="modal" class="modal-fundo">
+    <div class="modal-cx" role="dialog" aria-modal="true" aria-labelledby="modal-titulo">
+      <h3 id="modal-titulo"></h3>
+      <div id="modal-corpo"></div>
+      <div id="modal-erro" class="aviso aviso-atencao" style="display:none;margin-top:12px"></div>
+      <div class="modal-acoes">
+        <button type="button" class="btn btn-neutro" id="modal-nao">Voltar</button>
+        <button type="button" class="btn btn-primario" id="modal-sim">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
   <script src="../../config/config.js" onerror="console.warn('config.js ausente — modo demonstração')"></script>
   <script src="../../assets/vendor/supabase.js"></script>
   <script src="../../assets/js/db.js"></script>
@@ -70,6 +106,8 @@
     var DB = window.EnjoyDB;
     var app = document.getElementById("app");
     var DIAS = ["Domingo","Segunda","Terça","Quarta","Quinta","Sexta","Sábado"];
+    var SALAS = [];      // consultórios ativos (para a troca de sala)
+    var RESERVAS = {};   // id -> reserva carregada (para a troca de sala)
 
     function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
     function p2(n){ return String(n).padStart(2,"0"); }
@@ -90,7 +128,17 @@
       var perfil = await DB.exigirLogin();
       if (!perfil) return;
       app.hidden = false;
+      await carregarSalas();                 // antes do render: decide se cabe "Trocar de sala"
       await Promise.all([carregarSaldo(), carregarReservas()]);
+    }
+
+    // Consultórios ativos. Falhar aqui só tira o botão de troca — nunca derruba
+    // a listagem de reservas.
+    async function carregarSalas() {
+      try {
+        var s = await DB.client.from("salas").select("id,nome").eq("ativa", true).order("ordem");
+        if (!s.error) SALAS = s.data || [];
+      } catch (e) { console.warn("salas:", e); }
     }
 
     async function carregarSaldo() {
@@ -107,12 +155,14 @@
 
     async function carregarReservas() {
       var r = await DB.client.from("reservas")
-        .select("id,inicio,fim,status,valor,salas(nome)")
+        .select("id,inicio,fim,status,valor,sala_id,criado_em,salas(nome)")
         .order("inicio", { ascending: false }).limit(100);
       if (r.error) { erro("Não foi possível carregar suas reservas: " + r.error.message); return; }
       var agora = new Date();
       var futuras = [], passadas = [];
+      RESERVAS = {};
       (r.data||[]).forEach(function (x) {
+        RESERVAS[x.id] = x;
         // esconde canceladas/expiradas antigas pra não poluir
         if ((x.status==="cancelada"||x.status==="expirada") && new Date(x.fim) < agora) return;
         if (new Date(x.fim) >= agora && ["pendente","pendente_pagamento","confirmada"].indexOf(x.status)!==-1) futuras.push(x);
@@ -137,27 +187,217 @@
         var el=document.createElement("div");
         el.className="res"+(passada?" passada":"");
         var podeCancelar = !passada && ["pendente","pendente_pagamento","confirmada"].indexOf(x.status)!==-1 && ini>new Date();
+        // Trocar de sala vale nas mesmas reservas em que dá para cancelar —
+        // desde que exista outro consultório para onde levar.
+        var podeTrocar = podeCancelar && SALAS.length > 1;
         el.innerHTML =
           '<div><div class="dia">'+dataLonga(ini)+'</div>'+
           '<div class="sala">'+esc(sala)+'</div>'+
           '<div class="hora">'+hhmm(ini)+' – '+hhmm(fim)+'</div></div>'+
           '<div class="dir">'+selo(x.status)+
           '<span class="dur">'+fmtHoras(horas)+'</span>'+
-          (podeCancelar?'<button class="btn-cancel" data-id="'+x.id+'">Cancelar</button>':'')+
+          ((podeTrocar||podeCancelar)?'<div class="acoes">'+
+            (podeTrocar?'<button class="btn-trocar" data-id="'+x.id+'" title="Mesmo dia, mesmo horário, sem custo">Trocar de sala</button>':'')+
+            (podeCancelar?'<button class="btn-cancel" data-id="'+x.id+'">Cancelar</button>':'')+
+          '</div>':'')+
           '</div>';
         box.appendChild(el);
       });
       Array.prototype.forEach.call(box.querySelectorAll(".btn-cancel"), function (b) {
         b.addEventListener("click", function(){ cancelar(b.dataset.id, b); });
       });
+      Array.prototype.forEach.call(box.querySelectorAll(".btn-trocar"), function (b) {
+        b.addEventListener("click", function(){ trocarSala(b.dataset.id); });
+      });
     }
 
+    // ======================================================================
+    // Janela de confirmação (usada pelo cancelamento e pela troca de sala)
+    // ======================================================================
+    var modal      = document.getElementById("modal");
+    var mTitulo    = document.getElementById("modal-titulo");
+    var mCorpo     = document.getElementById("modal-corpo");
+    var mErro      = document.getElementById("modal-erro");
+    var mSim       = document.getElementById("modal-sim");
+    var mNao       = document.getElementById("modal-nao");
+    var acaoAtual  = null;
+
+    function abrirModal(titulo, html, rotuloSim, classeSim, acao) {
+      mTitulo.textContent = titulo;
+      mCorpo.innerHTML = html;
+      mErro.style.display = "none"; mErro.textContent = "";
+      acaoAtual = acao || null;
+      if (acao) {
+        mSim.textContent = rotuloSim;
+        mSim.className = "btn " + (classeSim || "btn-primario");
+        mSim.disabled = false;
+        mSim.style.display = "inline-block";
+        mNao.textContent = "Voltar";
+      } else {
+        mSim.style.display = "none";
+        mNao.textContent = "Fechar";
+      }
+      modal.style.display = "flex";
+    }
+    function fecharModal() { modal.style.display = "none"; acaoAtual = null; }
+    function erroModal(msg) { mErro.textContent = msg; mErro.style.display = "block"; }
+
+    mNao.addEventListener("click", fecharModal);
+    modal.addEventListener("click", function (e) { if (e.target === modal) fecharModal(); });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && modal.style.display === "flex") fecharModal();
+    });
+    mSim.addEventListener("click", async function () {
+      if (!acaoAtual) { fecharModal(); return; }
+      var fn = acaoAtual, rotulo = mSim.textContent;
+      mSim.disabled = true; mSim.textContent = "Aguarde…";
+      try { await fn(); }
+      catch (e) { erroModal("Não foi possível concluir: " + (e && e.message ? e.message : e)); }
+      finally { mSim.disabled = false; mSim.textContent = rotulo; }
+    });
+
+    // ======================================================================
+    // CANCELAR — mostra a penalidade EM NÚMEROS antes de confirmar
+    // A conta vem do banco (rpc previa_cancelamento), que usa exatamente a
+    // mesma régua da cancelar_reserva. O front não recalcula política nenhuma.
+    // ======================================================================
     async function cancelar(id, btn) {
-      if (!confirm("Cancelar esta reserva? Conforme a política: 7+ dias de antecedência devolvem 100% das horas; entre 7 dias e 48h, 50%; menos de 48h, sem devolução.")) return;
-      btn.disabled=true; btn.textContent="Cancelando…";
-      var r = await DB.client.rpc("cancelar_reserva", { p_reserva_id: id });
-      if (r.error) { alert("Não foi possível cancelar: " + r.error.message); btn.disabled=false; btn.textContent="Cancelar"; return; }
-      await Promise.all([carregarSaldo(), carregarReservas()]);
+      var previa = null;
+      try {
+        var p = await DB.client.rpc("previa_cancelamento", { p_reserva_id: id });
+        if (!p.error) previa = p.data;
+        else console.warn("previa_cancelamento:", p.error.message);
+      } catch (e) { console.warn("previa_cancelamento:", e); }
+
+      if (previa && previa.pode_cancelar === false) {
+        abrirModal("Não dá para cancelar",
+          '<p style="margin:0">' + esc(previa.motivo || "Fale com a gestão.") + "</p>",
+          "", "", null);
+        return;
+      }
+
+      abrirModal("Cancelar esta reserva?", textoPrevia(previa), "Sim, cancelar", "btn-perigo",
+        async function () {
+          var r = await DB.client.rpc("cancelar_reserva", { p_reserva_id: id });
+          if (r.error) { erroModal("Não foi possível cancelar: " + r.error.message); return; }
+          fecharModal();
+          await Promise.all([carregarSaldo(), carregarReservas()]);
+        });
+    }
+
+    // Monta o texto do que volta e do que se perde. Sem a prévia (RPC ainda não
+    // publicada, rede fora), cai no texto genérico da política — nunca mente.
+    function textoPrevia(p) {
+      if (!p) {
+        return '<p style="margin:0 0 8px">Não foi possível calcular agora quanto volta. ' +
+               'Pela política: <b>7 dias ou mais</b> de antecedência devolvem <b>100%</b> das horas; ' +
+               'entre <b>7 dias e 48 horas</b>, <b>50%</b>; ' +
+               '<b>menos de 48 horas</b>, sem devolução.</p>';
+      }
+      var h = [];
+
+      if (p.arrependimento_vale) {
+        h.push('<div class="aviso aviso-info" style="margin:0 0 12px">' +
+          '⏳ <b>Janela de arrependimento</b> — você tem ' + esc(p.arrependimento_min) +
+          ' minutos, contados de quando criou a reserva, para desfazer sem perder nada' +
+          (p.arrependimento_ate ? ' (vale até <b>' + hhmm(new Date(p.arrependimento_ate)) + '</b>)' : '') +
+          '. Cancelando agora, <b>volta tudo</b>.</div>');
+      }
+
+      h.push('<div class="linha-num"><span>Horas desta reserva</span><b>' +
+             fmtHoras(Number(p.horas_reserva) || 0) + "</b></div>");
+
+      if (Number(p.horas_em_jogo || 0) > 0) {
+        h.push('<div class="linha-num"><span>Volta para o seu saldo</span>' +
+               '<b class="num-volta">' + fmtHoras(Number(p.horas_devolvidas) || 0) +
+               " (" + (Number(p.percentual) || 0) + "%)</b></div>");
+        var perde = Number(p.horas_perdidas) || 0;
+        h.push('<div class="linha-num"><span>Você perde</span>' +
+               '<b class="' + (perde > 0 ? "num-perde" : "") + '">' + fmtHoras(perde) + "</b></div>");
+      } else {
+        h.push('<div class="linha-num"><span>Volta para o seu saldo</span>' +
+               '<b class="num-volta">nada foi debitado</b></div>');
+        h.push('<div class="linha-num"><span>Você perde</span><b>nenhuma hora</b></div>');
+      }
+
+      h.push('<p class="muted" style="font-size:.85rem;margin:12px 0 0">' + explicacaoFaixa(p) + "</p>");
+      h.push('<p class="muted" style="font-size:.85rem;margin:8px 0 0">' +
+             'Se você só quer <b>mudar de consultório</b> no mesmo horário, feche aqui e use ' +
+             '<b>Trocar de sala</b> — a troca não tem custo nenhum.</p>');
+      return h.join("");
+    }
+
+    // Os números das faixas vêm do banco (tabela config) — nunca escritos aqui.
+    function explicacaoFaixa(p) {
+      var d = p.faixa1_dias, hh = p.faixa2_horas;
+      switch (p.faixa) {
+        case "arrependimento":
+          return "Você está dentro da janela de arrependimento, por isso volta 100%.";
+        case "antecedencia":
+          return "Cancelamento com " + esc(d) + " dias ou mais de antecedência: volta 100% das horas.";
+        case "parcial":
+          return "Cancelamento entre " + esc(d) + " dias e " + esc(hh) +
+                 " horas do início: volta metade das horas.";
+        case "tardio":
+          return "Cancelamento com menos de " + esc(hh) + " horas do início: sem devolução — " +
+                 "o horário ficou bloqueado e outra pessoa deixou de usar.";
+        case "gestao":
+          return "Cancelamento feito pela gestão: volta 100%.";
+        case "nao_pago":
+          return "Esta reserva ainda não foi paga — nada foi debitado do seu saldo.";
+        default:
+          return "As horas que voltam ficam no seu saldo e valem 90 dias.";
+      }
+    }
+
+    // ======================================================================
+    // TROCAR DE SALA — mesmo dia, mesmo horário, SEM custo
+    // Era o que a Dra. Thaís realmente queria fazer em 30/07: ela clicou no
+    // consultório errado e, sem esta opção, o único caminho era cancelar —
+    // o que lhe custou 2 horas do banco de horas.
+    // ======================================================================
+    async function trocarSala(id) {
+      var x = RESERVAS[id];
+      if (!x) return;
+      var opcoes = SALAS.filter(function (s) { return s.id !== x.sala_id; });
+      if (!opcoes.length) {
+        abrirModal("Trocar de sala",
+          '<p style="margin:0">Não há outro consultório disponível para a troca.</p>', "", "", null);
+        return;
+      }
+      var ini = new Date(x.inicio), fim = new Date(x.fim);
+      var salaAtual = (x.salas && x.salas.nome) || "Consultório";
+
+      var html =
+        '<div class="aviso aviso-info" style="margin:0 0 12px">' +
+          '🔁 <b>Trocar de sala não tem custo.</b> Mesmo dia, mesmo horário, mesmas horas — ' +
+          'a reserva apenas muda de consultório. Nada é cancelado, nenhuma hora é descontada ' +
+          'de novo e nenhuma cobrança nova é gerada.' +
+        "</div>" +
+        '<div class="linha-num"><span>Data</span><b>' + dataLonga(ini) + "</b></div>" +
+        '<div class="linha-num"><span>Horário</span><b>' + hhmm(ini) + " – " + hhmm(fim) +
+          " (" + fmtHoras((fim - ini) / 3600000) + ")</b></div>" +
+        '<div class="linha-num"><span>Hoje está em</span><b>' + esc(salaAtual) + "</b></div>" +
+        '<div class="campo" style="margin-top:14px">' +
+          '<label for="troca-sala">Levar para</label>' +
+          '<select id="troca-sala">' +
+            opcoes.map(function (s) {
+              return '<option value="' + esc(s.id) + '">' + esc(s.nome) + "</option>";
+            }).join("") +
+          "</select>" +
+        "</div>";
+
+      abrirModal("Trocar de sala", html, "Trocar de sala", "btn-primario", async function () {
+        var sel = document.getElementById("troca-sala");
+        var destino = sel && sel.value;
+        if (!destino) { erroModal("Escolha o consultório de destino."); return; }
+        var r = await DB.client.rpc("trocar_sala_reserva", {
+          p_reserva_id: id, p_sala_id: destino
+        });
+        if (r.error) { erroModal("Não foi possível trocar: " + r.error.message); return; }
+        fecharModal();
+        await carregarReservas();
+      });
     }
 
     function erro(m){ var e=document.getElementById("erro"); e.textContent=m; e.style.display="block"; }
