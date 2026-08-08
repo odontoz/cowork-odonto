@@ -20,6 +20,24 @@
   </header>
 
   <main class="container" style="padding:24px 16px" id="app" hidden>
+    <!-- Contrato pendente de assinatura: sem o aceite não dá para reservar nem
+         comprar horas (decisão do dono, 07/08/2026). A 1ª hora grátis só é
+         mencionada para quem PAGOU a taxa de cadastro — quem entrou com cupom
+         de isenção não tem direito a ela e não pode ler essa promessa. -->
+    <div id="aviso-contrato" class="aviso aviso-atencao" style="display:none;margin-bottom:16px;border:1px solid #e8cf8a">
+      <strong style="display:block;font-size:1.05rem;margin-bottom:6px">✍️ Falta assinar o seu contrato</strong>
+      <span>Seu cadastro foi aprovado e o contrato já está pronto, esperando a sua
+      assinatura. É rápido — um clique dentro do aplicativo. Assinar é o que
+      <!-- variante padrão (segura): sem qualquer menção à hora grátis -->
+      <span id="ac-sem-gratis">libera as <strong>reservas de consultório</strong>
+      e a <strong>compra de horas</strong>.</span><!-- variante de quem pagou a taxa
+      --><span id="ac-com-gratis" style="display:none"><strong>libera a sua primeira
+      hora grátis</strong>, as reservas de consultório e a compra de horas.</span></span>
+      <div style="margin-top:12px">
+        <a class="btn btn-primario" href="contrato.html">Ler e assinar o contrato</a>
+      </div>
+    </div>
+
     <div class="row-between" style="margin-bottom:16px">
       <div>
         <h1 style="margin-bottom:2px" id="saudacao">Olá</h1>
@@ -135,6 +153,8 @@
       var profTxt = { odonto:"Odontologia", hof:"HOF", estetica:"Estética" }[perfil.profissao] || (perfil.profissao || "Profissional");
       document.getElementById("sub-perfil").textContent = profTxt + " · Águas Claras";
 
+      await avisarContratoPendente(perfil);
+
       // pode reservar quando aprovado ou ativo (pós-contrato); demais estados bloqueiam
       if (perfil.status !== "aprovado" && perfil.status !== "ativo") {
         var msg;
@@ -179,6 +199,40 @@
       renderRecados(res[3].data || []);
       renderCreditos(res[5].data || []);
       app.hidden = false;
+    }
+
+    // Existe contrato aguardando assinatura? Mostra o aviso do topo. Puramente
+    // informativo — nunca derruba a home se a consulta falhar.
+    async function avisarContratoPendente(perfil) {
+      try {
+        var r = await DB.client.from("contratos").select("id")
+          .eq("cliente_id", perfil.id).eq("status", "pendente_aceite").limit(1);
+        if (r.error || !r.data || !r.data.length) return;
+        await ajustarTextoHoraGratis();
+        document.getElementById("aviso-contrato").style.display = "block";
+      } catch (e) { console.warn("aviso de contrato pendente:", e); }
+    }
+
+    // A 1ª hora grátis é a contrapartida de quem PAGOU a taxa de cadastro. Quem
+    // entrou com cupom de isenção da taxa não pagou nada e não tem direito a ela
+    // — logo, não pode ler a promessa no banner.
+    // SINAL: pagamento QUITADO sem reserva e sem fatura = taxa de cadastro. É a
+    // mesma leitura que a Edge asaas-webhook usa para dar baixa na taxa e que o
+    // relatório do financeiro usa para rotular a linha. A RLS de `pagamentos` já
+    // restringe ao próprio cliente.
+    // Na dúvida (erro, offline, nada encontrado) fica o texto SEM a hora grátis.
+    async function temDireitoHoraGratis() {
+      try {
+        var r = await DB.client.from("pagamentos").select("id")
+          .eq("status", "pago").is("reserva_id", null).is("fatura_id", null).limit(1);
+        return !r.error && !!(r.data && r.data.length);
+      } catch (e) { return false; }
+    }
+
+    async function ajustarTextoHoraGratis() {
+      if (!(await temDireitoHoraGratis())) return;   // padrão do HTML já é o texto sem hora grátis
+      document.getElementById("ac-sem-gratis").style.display = "none";
+      document.getElementById("ac-com-gratis").style.display = "inline";
     }
 
     function bloquearReserva(msg) {

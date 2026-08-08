@@ -39,6 +39,25 @@
     <h1 style="margin-bottom:4px">Pagar no cartão</h1>
     <p class="muted" style="margin-top:0">Parcelamento em até <strong>6x</strong>. O cartão é digitado no ambiente seguro do gateway — seus dados nunca passam pelo nosso sistema.</p>
 
+    <!-- Contrato pendente de assinatura: trava dura da COMPRA até o aceite
+         (decisão do dono, 07/08/2026). Esta tela é SEMPRE plano/pacote — a taxa
+         de cadastro se paga em pagamento-cadastro.html e nunca é bloqueada.
+         A 1ª hora grátis só aparece para quem PAGOU a taxa de cadastro. -->
+    <div id="aviso-contrato" class="aviso aviso-atencao" style="display:none;margin-bottom:16px;border:1px solid #e8cf8a">
+      <strong style="display:block;font-size:1.05rem;margin-bottom:6px">✍️ Assine o contrato para concluir a compra</strong>
+      <span>Seu cadastro foi aprovado e o contrato já está pronto, esperando a sua
+      assinatura. Enquanto ele não for assinado, a contratação de plano fica
+      bloqueada. Assinar é rápido e é o que
+      <!-- variante padrão (segura): sem qualquer menção à hora grátis -->
+      <span id="ac-sem-gratis">libera as <strong>reservas de consultório</strong>
+      e a <strong>compra de horas</strong>.</span><!-- variante de quem pagou a taxa
+      --><span id="ac-com-gratis" style="display:none"><strong>libera a sua primeira
+      hora grátis</strong>, as reservas de consultório e a compra de horas.</span></span>
+      <div style="margin-top:12px">
+        <a class="btn btn-primario" href="contrato.html">Ler e assinar o contrato</a>
+      </div>
+    </div>
+
     <div id="erro" class="aviso aviso-atencao" style="display:none;margin-bottom:16px"></div>
 
     <div id="conteudo" style="display:none">
@@ -69,6 +88,8 @@
     var DB = window.EnjoyDB;
     var app = document.getElementById("app");
     var PRODUTO = null, SEL = 5; // 6x pré-selecionado
+    var CONTRATO_PENDENTE = false;   // contrato gerado e ainda não assinado → não compra
+    var HORA_GRATIS = false;         // só quem PAGOU a taxa de cadastro tem a 1ª hora grátis
 
     function brl(n){ return "R$ " + Number(n||0).toFixed(2).replace(".",","); }
     function param(k){ return new URLSearchParams(location.search).get(k); }
@@ -93,11 +114,48 @@
       return L;
     }
 
+    // A 1ª hora grátis é a contrapartida de quem PAGOU a taxa de cadastro. Quem
+    // entrou com cupom de isenção da taxa não pagou nada e não tem direito a ela
+    // — logo, não pode ler a promessa no banner.
+    // SINAL: pagamento QUITADO sem reserva e sem fatura = taxa de cadastro. É a
+    // mesma leitura que a Edge asaas-webhook usa para dar baixa na taxa e que o
+    // relatório do financeiro usa para rotular a linha. A RLS de `pagamentos` já
+    // restringe ao próprio cliente.
+    // Na dúvida (erro, offline, nada encontrado) assume que NÃO tem direito.
+    async function temDireitoHoraGratis() {
+      try {
+        var r = await DB.client.from("pagamentos").select("id")
+          .eq("status", "pago").is("reserva_id", null).is("fatura_id", null).limit(1);
+        return !r.error && !!(r.data && r.data.length);
+      } catch (e) { return false; }
+    }
+
+    // Contrato aguardando assinatura → banner no topo + botão bloqueado.
+    // Nunca derruba a tela: se a consulta falhar, segue sem bloquear.
+    async function checarContrato(perfil) {
+      if (!perfil) return;
+      try {
+        var ct = await DB.client.from("contratos").select("id")
+          .eq("cliente_id", perfil.id).eq("status", "pendente_aceite").limit(1);
+        CONTRATO_PENDENTE = !ct.error && !!(ct.data && ct.data.length);
+        if (!CONTRATO_PENDENTE) return;
+        HORA_GRATIS = await temDireitoHoraGratis();
+        if (HORA_GRATIS) {
+          document.getElementById("ac-sem-gratis").style.display = "none";
+          document.getElementById("ac-com-gratis").style.display = "inline";
+        }
+        document.getElementById("aviso-contrato").style.display = "block";
+        var b = document.getElementById("btn-pagar");
+        b.disabled = true; b.title = "Assine o contrato para liberar a compra.";
+      } catch (e) { console.warn("aviso de contrato pendente:", e); }
+    }
+
     async function iniciar() {
       if (!(DB && DB.pronto)) { erro("Pagamento indisponível no modo demonstração."); app.hidden=false; return; }
       var perfil = await DB.exigirLogin();
       if (!perfil) return;
       app.hidden = false;
+      await checarContrato(perfil);
       var id = param("produto");
       if (!id) { erro("Plano não informado."); return; }
       var r = await DB.client.from("produtos_preco").select("id,nome,valor,regras,tipo").eq("id", id).eq("ativo", true).maybeSingle();
@@ -130,6 +188,15 @@
     }
 
     document.getElementById("btn-pagar").addEventListener("click", async function () {
+      // trava dura: sem contrato assinado não compra (07/08/2026)
+      if (CONTRATO_PENDENTE) {
+        var eb = document.getElementById("erro");
+        eb.innerHTML = "Assine o contrato para liberar a compra" +
+          (HORA_GRATIS ? " e a sua primeira hora grátis" : "") + ". " +
+          '<a href="contrato.html">Ler e assinar agora</a>.';
+        eb.style.display = "block";
+        return;
+      }
       var b = this; b.disabled = true; b.textContent = "Abrindo pagamento seguro…";
       var parcelas = SEL + 1; // índice 0 = 1x
       var resp = await edge("cobranca", { acao: "cartao_parcelado", produto_id: PRODUTO.id, parcelas: parcelas });

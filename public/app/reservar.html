@@ -34,6 +34,25 @@
   <main class="container" style="padding:24px 16px" id="app" hidden>
     <h1>Reservar consultório</h1>
 
+    <!-- Contrato pendente de assinatura: trava dura de reserva até o aceite
+         (decisão do dono, 07/08/2026) — sem assinar não há reserva nem compra.
+         A 1ª hora grátis só aparece para quem PAGOU a taxa de cadastro; quem
+         entrou com cupom de isenção não tem direito a ela. -->
+    <div id="aviso-contrato" class="aviso aviso-atencao" style="display:none;margin-bottom:16px;border:1px solid #e8cf8a">
+      <strong style="display:block;font-size:1.05rem;margin-bottom:6px">✍️ Assine o contrato para liberar as reservas</strong>
+      <span>Seu cadastro foi aprovado e o contrato já está pronto, esperando a sua
+      assinatura. Enquanto ele não for assinado, a reserva fica bloqueada. Assinar é
+      rápido e é o que
+      <!-- variante padrão (segura): sem qualquer menção à hora grátis -->
+      <span id="ac-sem-gratis">libera as <strong>reservas de consultório</strong>
+      e a <strong>compra de horas</strong>.</span><!-- variante de quem pagou a taxa
+      --><span id="ac-com-gratis" style="display:none"><strong>libera a sua primeira
+      hora grátis</strong>, as reservas de consultório e a compra de horas.</span></span>
+      <div style="margin-top:12px">
+        <a class="btn btn-primario" href="contrato.html">Ler e assinar o contrato</a>
+      </div>
+    </div>
+
     <div id="aviso-status" class="aviso aviso-atencao" style="display:none;margin-bottom:16px"></div>
     <div id="aviso-demo" class="aviso aviso-info" style="display:none;margin-bottom:16px">
       Modo demonstração com dados de exemplo — o banco real ainda não foi conectado.
@@ -102,6 +121,12 @@
       <div id="r-erro" class="aviso aviso-atencao" style="display:none"></div>
       <div id="r-ok" class="aviso aviso-info" style="display:none"></div>
       <p id="r-credito" class="aviso aviso-info" style="display:none;font-size:.9rem;margin:0"></p>
+
+      <!-- Prazo de pagamento — regra que era INVISÍVEL para o cliente e já
+           prejudicou duas dentistas (07/08/2026). O número de minutos NUNCA é
+           escrito fixo: vem de config.reserva_pagamento_timeout_min. -->
+      <div id="aviso-prazo" class="aviso aviso-atencao" style="display:none;font-size:.88rem;margin:0"></div>
+
       <label style="display:flex;gap:10px;align-items:flex-start;font-size:.82rem;margin:6px 0;color:var(--cinza);cursor:pointer">
         <input type="checkbox" id="aceite-cancel" style="width:20px;height:20px;min-width:20px;flex:0 0 20px;margin:1px 0 0;padding:0;border-radius:5px;accent-color:var(--azul)">
         <span>Li e aceito a <strong>política de cancelamento</strong>: 7+ dias de antecedência = 100% em horas de crédito ·
@@ -116,8 +141,14 @@
         <div style="text-align:center">
           <img id="qr-img" alt="QR Code Pix" style="width:220px;max-width:100%;border:1px solid var(--linha);border-radius:8px;padding:8px;background:#fff">
           <p id="qr-credito" class="aviso aviso-info" style="display:none;text-align:left;font-size:.85rem"></p>
-          <p class="muted" style="font-size:.85rem">Escaneie com o app do seu banco ou use o copia-e-cola.<br>
-            O horário fica reservado por <span id="qr-timeout">15</span> min.</p>
+          <p class="muted" style="font-size:.85rem">Escaneie com o app do seu banco ou use o copia-e-cola.</p>
+          <!-- Contador do prazo: o texto é remontado pelo JS a cada reserva com
+               o valor vigente de config.reserva_pagamento_timeout_min. -->
+          <div id="qr-prazo" class="aviso aviso-atencao" style="text-align:left;font-size:.88rem">
+            <strong>⏳ O pagamento tem prazo.</strong> Se ele não for feito a tempo, a reserva é
+            cancelada automaticamente, o horário volta a ficar livre para outras pessoas e a
+            cobrança é cancelada — você não fica devendo nada.
+          </div>
         </div>
         <div style="display:flex;gap:8px;margin-top:8px">
           <input id="qr-payload" type="text" readonly onclick="this.select()" style="flex:1;font-size:.8rem;color:var(--cinza)">
@@ -151,6 +182,13 @@
     // estado da tela
     var MEU_ID = "prof-eu";
     var APROVADO = true;
+    var CONTRATO_PENDENTE = false;   // contrato gerado e ainda não assinado → não reserva
+    var HORA_GRATIS = false;         // só quem PAGOU a taxa de cadastro tem a 1ª hora grátis
+    // Prazo para pagar a reserva. NUNCA fixo no código: vem de
+    // config.reserva_pagamento_timeout_min (a mesma chave que a RPC
+    // expirar_reservas_pendentes lê para derrubar a reserva). 15 é só o
+    // fallback do modo demonstração / config ausente.
+    var TIMEOUT_MIN = 15;
     var SALAS = [];
     var PRODUTOS = [{ tipo: "hora", valor: 75 }];
     var PRODUTO_HORA_ID = null;
@@ -282,11 +320,30 @@
         msg.className = "aviso aviso-info"; msg.textContent = (row.descricao || CUPOM_OK) + ": " + brl2(PRECO_FINAL);
       }
       document.getElementById("r-preco").textContent = brl2(PRECO_FINAL);
+      // cupom que zera o valor → não vai existir Pix, logo não existe prazo
+      if (PRECO_FINAL <= 0) document.getElementById("aviso-prazo").style.display = "none";
     });
 
     // ============ CARGA DE DADOS ============
     var SALDO_CREDITOS = 0, SALDO_HORAS = 0;
     function fmtHoras(h) { h = Math.round(h*100)/100; return ((h % 1 === 0) ? String(h) : h.toFixed(1).replace(".",",")) + "h"; }
+
+    // A 1ª hora grátis é a contrapartida de quem PAGOU a taxa de cadastro. Quem
+    // entrou com cupom de isenção da taxa não pagou nada e não tem direito a ela
+    // — logo, não pode ler a promessa no banner nem na mensagem de bloqueio.
+    // SINAL: pagamento QUITADO sem reserva e sem fatura = taxa de cadastro. É a
+    // mesma leitura que a Edge asaas-webhook usa para dar baixa na taxa e que o
+    // relatório do financeiro usa para rotular a linha. A RLS de `pagamentos` já
+    // restringe ao próprio cliente.
+    // Na dúvida (erro, offline, nada encontrado) assume que NÃO tem direito.
+    async function temDireitoHoraGratis() {
+      try {
+        var r = await DB.client.from("pagamentos").select("id")
+          .eq("status", "pago").is("reserva_id", null).is("fatura_id", null).limit(1);
+        return !r.error && !!(r.data && r.data.length);
+      } catch (e) { return false; }
+    }
+
     async function carregarReais(perfil) {
       MEU_ID = perfil ? perfil.id : "prof-eu";
       APROVADO = !!perfil && (perfil.status === "aprovado" || perfil.status === "ativo");
@@ -297,6 +354,22 @@
         SALDO_CREDITOS = (cr.data || []).reduce(function (s, c) { return s + Number(c.valor_restante || 0); }, 0);
         SALDO_HORAS = (cr.data || []).reduce(function (s, c) { return s + (Number(c.valor_restante || 0) / (Number(c.valor_hora) || 75)); }, 0);
       } catch (e) { SALDO_CREDITOS = 0; SALDO_HORAS = 0; }
+      // contrato aguardando assinatura → aviso no topo + botão Confirmar bloqueado
+      try {
+        if (perfil) {
+          var ct = await DB.client.from("contratos").select("id")
+            .eq("cliente_id", perfil.id).eq("status", "pendente_aceite").limit(1);
+          CONTRATO_PENDENTE = !ct.error && !!(ct.data && ct.data.length);
+          if (CONTRATO_PENDENTE) {
+            HORA_GRATIS = await temDireitoHoraGratis();
+            if (HORA_GRATIS) {
+              document.getElementById("ac-sem-gratis").style.display = "none";
+              document.getElementById("ac-com-gratis").style.display = "inline";
+            }
+            document.getElementById("aviso-contrato").style.display = "block";
+          }
+        }
+      } catch (e) { console.warn("aviso de contrato pendente:", e); }
       if (!APROVADO) {
         var a = document.getElementById("aviso-status");
         a.textContent = perfil && perfil.status === "em_aprovacao"
@@ -318,6 +391,7 @@
         if (c.chave === "horario_funcionamento") HORARIO = c.valor;
         if (c.chave === "buffer_min") CFG.bufferMin = Number(c.valor) || 30;
         if (c.chave === "duracao_minima_min") CFG.duracaoMinimaMin = Number(c.valor) || 60;
+        if (c.chave === "reserva_pagamento_timeout_min") TIMEOUT_MIN = Number(c.valor) || 15;
       });
       // mapa de TODOS os produtos ativos, por tipo (hora, periodo, diaria, etc.)
       (r[2].data || []).forEach(function (p) { PRODUTOS_MAP[p.tipo] = { id: p.id, valor: Number(p.valor), nome: p.nome }; });
@@ -524,6 +598,19 @@
         rc.style.display = "block";
       } else { rc.style.display = "none"; }
 
+      // AVISO DO PRAZO (antes de confirmar). Só aparece quando ainda vai sair
+      // Pix: se o saldo de horas cobre tudo, a reserva confirma na hora e não
+      // existe prazo nenhum correndo contra a pessoa.
+      var ap = document.getElementById("aviso-prazo");
+      var cobertoPeloSaldo = horasReserva > 0 && SALDO_HORAS >= horasReserva - 0.001;
+      if (!cobertoPeloSaldo && PRECO_FINAL > 0) {
+        ap.innerHTML = "<strong>⏳ O pagamento tem prazo de " + fmtPrazo() + ".</strong> " +
+          "Depois de confirmar, o Pix precisa ser pago dentro desse prazo. Se não for pago, a " +
+          "reserva é cancelada automaticamente, o horário volta a ficar livre para outras pessoas " +
+          "e a cobrança é cancelada — você não fica devendo nada.";
+        ap.style.display = "block";
+      } else { ap.style.display = "none"; }
+
       var oc = window.__oc || { reservas: [], bloqueios: [] };
       var v = M.podeReservar(oc.reservas, oc.bloqueios, HORARIO,
         { inicio: sel.inicio, fim: sel.fim, profissionalId: MEU_ID }, CFG);
@@ -533,21 +620,66 @@
       sincronizarBotao();   // habilita só se v.ok E checkbox marcado
     }
 
-    // botão Confirmar só fica clicável com a política aceita E a reserva válida
+    // botão Confirmar só fica clicável com a política aceita, a reserva válida
+    // E o contrato já assinado (sem assinatura não reserva — decisão 07/08/2026)
     function sincronizarBotao() {
       var btn = document.getElementById("btn-confirmar");
       var aceito = document.getElementById("aceite-cancel").checked;
       var semErro = document.getElementById("r-erro").style.display === "none";
-      btn.disabled = !(aceito && semErro && sel.inicio && sel.fim);
+      btn.disabled = CONTRATO_PENDENTE || !(aceito && semErro && sel.inicio && sel.fim);
+      btn.title = CONTRATO_PENDENTE
+        ? "Assine o contrato para liberar as reservas."
+        : "";
     }
     document.getElementById("aceite-cancel").addEventListener("change", sincronizarBotao);
+
+    // -------- prazo de pagamento: aviso + contador regressivo --------
+    // O prazo é sempre o de config (TIMEOUT_MIN) e o relógio começa no
+    // `criado_em` da reserva — é essa a data que a RPC expirar_reservas_pendentes
+    // compara. Contar a partir da tela mostraria mais tempo do que existe.
+    var contadorPrazo = null;
+    function fmtPrazo(min) {
+      var m = Number(min || TIMEOUT_MIN);
+      return m === 1 ? "1 minuto" : m + " minutos";
+    }
+    function pararContadorPrazo() {
+      if (contadorPrazo) { clearInterval(contadorPrazo); contadorPrazo = null; }
+    }
+    function iniciarContadorPrazo(criadoEm, minutos) {
+      pararContadorPrazo();
+      var box = document.getElementById("qr-prazo");
+      if (!box) return;
+      var base = criadoEm ? new Date(criadoEm) : new Date();
+      if (isNaN(base.getTime())) base = new Date();
+      var limite = base.getTime() + Number(minutos || TIMEOUT_MIN) * 60000;
+      box.innerHTML = "<strong>⏳ Pague em até " + fmtPrazo(minutos) + "</strong> — restam " +
+        '<strong id="qr-contador">--:--</strong>.<br>' +
+        "Passado esse prazo, a reserva é cancelada automaticamente, o horário volta a ficar " +
+        "livre para outras pessoas e a cobrança é cancelada — você não fica devendo nada.";
+      var el = document.getElementById("qr-contador");
+      function tique() {
+        var falta = limite - Date.now();
+        if (falta <= 0) {
+          pararContadorPrazo();
+          box.innerHTML = "<strong>⏳ O prazo para pagar terminou.</strong> Se o seu Pix não tiver " +
+            "sido identificado, a reserva é cancelada e o horário volta a ficar livre. " +
+            "É só escolher um horário de novo — a cobrança é cancelada e você não fica devendo nada.";
+          return;
+        }
+        var s = Math.floor(falta / 1000);
+        el.textContent = String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
+      }
+      tique();
+      contadorPrazo = setInterval(tique, 1000);
+    }
 
     // -------- pagamento (paga-e-usa): 1º paga, depois usa --------
     function resetarPagamento() {
       pararPollReserva();
+      pararContadorPrazo();
       document.getElementById("box-qr").style.display = "none";
       var btn = document.getElementById("btn-confirmar");
-      btn.style.display = ""; btn.disabled = false; btn.textContent = "Confirmar reserva";
+      btn.style.display = ""; btn.disabled = CONTRATO_PENDENTE; btn.textContent = "Confirmar reserva";
       var eb = document.getElementById("r-erro");
       eb.className = "aviso aviso-atencao"; eb.style.display = "none";
     }
@@ -559,6 +691,7 @@
         if (!q.data) return;
         if (q.data.status === "confirmada") {
           pararPollReserva();
+          pararContadorPrazo();
           document.getElementById("box-qr").style.display = "none";
           var ok = document.getElementById("r-ok");
           ok.textContent = "Pagamento confirmado! Reserva garantida: " + nomeSala() + " · " +
@@ -568,10 +701,13 @@
           document.getElementById("btn-confirmar").style.display = "none";
         } else if (["expirada", "cancelada"].indexOf(q.data.status) !== -1) {
           pararPollReserva();
+          pararContadorPrazo();
           document.getElementById("box-qr").style.display = "none";
           var eb = document.getElementById("r-erro");
           eb.className = "aviso aviso-atencao";
-          eb.textContent = "O tempo para pagar expirou e o horário foi liberado. Selecione um horário novamente.";
+          eb.textContent = "O prazo de " + fmtPrazo() + " para pagar terminou, a reserva foi cancelada e o " +
+            "horário voltou a ficar livre. A cobrança foi cancelada — você não ficou devendo nada. " +
+            "Selecione um horário novamente para reservar.";
           eb.style.display = "block";
           var btn = document.getElementById("btn-confirmar");
           btn.style.display = ""; btn.disabled = false; btn.textContent = "Confirmar reserva";
@@ -594,6 +730,16 @@
       var eb = document.getElementById("r-erro");
       eb.className = "aviso aviso-atencao"; eb.style.display = "none";
 
+      // trava dura: sem contrato assinado não reserva (07/08/2026)
+      if (CONTRATO_PENDENTE) {
+        eb.innerHTML = (HORA_GRATIS
+            ? "Assine o contrato para liberar as reservas e a sua primeira hora grátis. "
+            : "Assine o contrato para liberar as reservas e a compra de horas. ") +
+          '<a href="contrato.html">Ler e assinar agora</a>.';
+        eb.style.display = "block";
+        return;
+      }
+
       // aceite expresso da política de cancelamento (obrigatório)
       if (!document.getElementById("aceite-cancel").checked) {
         eb.textContent = "Marque que leu e aceita a política de cancelamento para confirmar.";
@@ -606,7 +752,8 @@
         var ok = document.getElementById("r-ok");
         ok.textContent = "Modo demonstração: aqui abriria o pagamento via Pix de R$ " +
           preco.toFixed(2).replace(".", ",") + " para confirmar " + nomeSala() + " · " +
-          hhmm(sel.inicio) + "–" + hhmm(sel.fim) + ". A reserva só é confirmada após o pagamento.";
+          hhmm(sel.inicio) + "–" + hhmm(sel.fim) + ". A reserva só é confirmada após o pagamento, " +
+          "que precisa ser feito em até " + fmtPrazo() + " — passado o prazo, o horário é liberado.";
         ok.style.display = "block";
         return;
       }
@@ -668,7 +815,10 @@
       // 3) mostra o QR e aguarda o webhook confirmar (polling)
       document.getElementById("qr-img").src = "data:image/png;base64," + pg.body.qr.encodedImage;
       document.getElementById("qr-payload").value = pg.body.qr.payload;
-      if (pg.body.expira_em_min) document.getElementById("qr-timeout").textContent = pg.body.expira_em_min;
+      // prazo real: o que a Edge devolveu (lido de config no servidor) e o
+      // relógio começando no criado_em da reserva — não no momento da tela.
+      if (pg.body.expira_em_min) TIMEOUT_MIN = Number(pg.body.expira_em_min) || TIMEOUT_MIN;
+      iniciarContadorPrazo(RESERVA_ATUAL && RESERVA_ATUAL.criado_em, TIMEOUT_MIN);
       var credNota = document.getElementById("qr-credito");
       if (Number(pg.body.credito_usado) > 0) {
         credNota.textContent = "R$ " + Number(pg.body.credito_usado).toFixed(2).replace(".", ",") +

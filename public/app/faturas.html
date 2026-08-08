@@ -33,6 +33,25 @@
   </header>
 
   <main class="container" style="padding:24px 16px" id="app" hidden>
+    <!-- Contrato pendente de assinatura: trava dura da COMPRA de plano/horas até
+         o aceite (decisão do dono, 07/08/2026). Não bloqueia o pagamento das
+         faturas já emitidas — dívida existente tem de poder ser quitada.
+         A 1ª hora grátis só aparece para quem PAGOU a taxa de cadastro. -->
+    <div id="aviso-contrato" class="aviso aviso-atencao" style="display:none;margin-bottom:16px;border:1px solid #e8cf8a">
+      <strong style="display:block;font-size:1.05rem;margin-bottom:6px">✍️ Assine o contrato para liberar a compra</strong>
+      <span>Seu cadastro foi aprovado e o contrato já está pronto, esperando a sua
+      assinatura. Enquanto ele não for assinado, a contratação de plano fica
+      bloqueada. Assinar é rápido e é o que
+      <!-- variante padrão (segura): sem qualquer menção à hora grátis -->
+      <span id="ac-sem-gratis">libera as <strong>reservas de consultório</strong>
+      e a <strong>compra de horas</strong>.</span><!-- variante de quem pagou a taxa
+      --><span id="ac-com-gratis" style="display:none"><strong>libera a sua primeira
+      hora grátis</strong>, as reservas de consultório e a compra de horas.</span></span>
+      <div style="margin-top:12px">
+        <a class="btn btn-primario" href="contrato.html">Ler e assinar o contrato</a>
+      </div>
+    </div>
+
     <div class="row-between" style="margin-bottom:16px">
       <div>
         <h1 style="margin:0">Faturas e extrato</h1>
@@ -140,6 +159,42 @@
     var PLANO = { horas: 0, valor: 0, nome: "Avulso" };
     var VALOR_HORA = 75;
     var FATURAS = [];
+    var CONTRATO_PENDENTE = false;   // contrato gerado e ainda não assinado → não compra
+    var HORA_GRATIS = false;         // só quem PAGOU a taxa de cadastro tem a 1ª hora grátis
+
+    // A 1ª hora grátis é a contrapartida de quem PAGOU a taxa de cadastro. Quem
+    // entrou com cupom de isenção da taxa não pagou nada e não tem direito a ela
+    // — logo, não pode ler a promessa no banner.
+    // SINAL: pagamento QUITADO sem reserva e sem fatura = taxa de cadastro. É a
+    // mesma leitura que a Edge asaas-webhook usa para dar baixa na taxa e que o
+    // relatório do financeiro usa para rotular a linha. A RLS de `pagamentos` já
+    // restringe ao próprio cliente.
+    // Na dúvida (erro, offline, nada encontrado) assume que NÃO tem direito.
+    async function temDireitoHoraGratis() {
+      try {
+        var r = await DB.client.from("pagamentos").select("id")
+          .eq("status", "pago").is("reserva_id", null).is("fatura_id", null).limit(1);
+        return !r.error && !!(r.data && r.data.length);
+      } catch (e) { return false; }
+    }
+
+    // Contrato aguardando assinatura → banner no topo + compra bloqueada.
+    // Nunca derruba a tela: se a consulta falhar, segue sem bloquear.
+    async function checarContrato(perfil) {
+      if (!perfil) return;
+      try {
+        var ct = await DB.client.from("contratos").select("id")
+          .eq("cliente_id", perfil.id).eq("status", "pendente_aceite").limit(1);
+        CONTRATO_PENDENTE = !ct.error && !!(ct.data && ct.data.length);
+        if (!CONTRATO_PENDENTE) return;
+        HORA_GRATIS = await temDireitoHoraGratis();
+        if (HORA_GRATIS) {
+          document.getElementById("ac-sem-gratis").style.display = "none";
+          document.getElementById("ac-com-gratis").style.display = "inline";
+        }
+        document.getElementById("aviso-contrato").style.display = "block";
+      } catch (e) { console.warn("aviso de contrato pendente:", e); }
+    }
 
     // ============ MOCK ============
     function renderMock() {
@@ -318,14 +373,36 @@
     // ============ ASSINATURA DE PLANO (checkout do gateway) ============
     async function renderPlanos() {
       if (!(DB && DB.pronto)) return;
-      if (PLANO.horas) return; // já tem plano ativo → não oferece
+      // MODELO = PACOTE PRÉ-PAGO, não assinatura recorrente (decisão 07/08/2026).
+      // A COMPRA FICA SEMPRE DISPONÍVEL. Antes esta linha era `if (PLANO.horas) return`,
+      // escondendo a compra de quem tivesse assinatura marcada como 'ativa' — foi o que
+      // travou a Dra. Thaís: ela zerou as 20h, quis recomprar e a tela não oferecia nada.
+      // Regra do Vinicius: quem quiser comprar mais horas compra a qualquer momento; as
+      // horas novas SOMAM ao saldo que já existe. Aqui o saldo é só informativo.
+      // Lido de `creditos` (mesma consulta de reservar.html) — a RPC saldo_creditos_hora
+      // lê de `creditos_hora`, que ficou vazia na migração 0016.
+      var saldoHoras = 0;
+      try {
+        var hojeISO = new Date().toISOString().slice(0, 10);
+        var cr = await DB.client.from("creditos")
+          .select("valor_restante,valor_hora").gt("valor_restante", 0).gte("validade", hojeISO);
+        saldoHoras = (cr.data || []).reduce(function (s, c) {
+          return s + (Number(c.valor_restante || 0) / (Number(c.valor_hora) || 75));
+        }, 0);
+      } catch (e) { saldoHoras = 0; }
       var r = await DB.client.from("produtos_preco")
         .select("id,nome,valor,regras").eq("tipo", "plano_mensal").eq("ativo", true).order("valor");
       var planos = r.data || [];
       if (!planos.length) return;
       var sec = document.getElementById("sec-planos");
       var box = document.getElementById("lista-planos");
-      box.innerHTML = planos.map(function (p, i) {
+      // Quem já tem saldo vê quanto tem — as horas compradas SOMAM a esse total.
+      var cabecalhoSaldo = saldoHoras > 0.01
+        ? '<p class="muted" style="margin:0 0 12px">Você tem <strong>' +
+          (Math.round(saldoHoras * 10) / 10).toString().replace(".", ",") +
+          " h</strong> de saldo. As horas que comprar agora somam a esse total.</p>"
+        : "";
+      box.innerHTML = cabecalhoSaldo + planos.map(function (p, i) {
         var horas = p.regras && p.regras.horas_mes ? p.regras.horas_mes + " h/mês" : "";
         return '<div style="border:1px solid var(--linha);border-radius:12px;padding:14px">' +
           '<div class="row-between" style="margin-bottom:10px"><div><strong>' + esc(p.nome) + "</strong><br>" +
@@ -337,11 +414,29 @@
           "</div></div>";
       }).join("");
       var av = document.getElementById("aviso-planos");
-      function avisar(msg) { av.textContent = msg; av.style.display = "block"; }
+      function avisar(msg) { av.className = "aviso aviso-info"; av.textContent = msg; av.style.display = "block"; }
+
+      // trava dura: sem contrato assinado não compra (07/08/2026)
+      function barradoPeloContrato() {
+        if (!CONTRATO_PENDENTE) return false;
+        av.className = "aviso aviso-atencao";
+        av.innerHTML = "Assine o contrato para liberar a contratação de plano" +
+          (HORA_GRATIS ? " e a sua primeira hora grátis" : "") + ". " +
+          '<a href="contrato.html">Ler e assinar agora</a>.';
+        av.style.display = "block";
+        return true;
+      }
+      if (CONTRATO_PENDENTE) {
+        Array.prototype.forEach.call(
+          box.querySelectorAll(".btn-plano-pix,.btn-plano-cartao,.btn-plano-recorrente"),
+          function (b) { b.disabled = true; b.title = "Assine o contrato para liberar a compra."; }
+        );
+      }
 
       // Pix: gera QR e ativa o plano quando o pagamento cai
       Array.prototype.forEach.call(box.querySelectorAll(".btn-plano-pix"), function (b) {
         b.addEventListener("click", async function () {
+          if (barradoPeloContrato()) return;
           av.style.display = "none";
           b.disabled = true; b.textContent = "Gerando Pix…";
           var plano = planos[+b.dataset.i];
@@ -356,6 +451,7 @@
       // Cartão até 6x: abre a tela branded de pagamento
       Array.prototype.forEach.call(box.querySelectorAll(".btn-plano-cartao"), function (b) {
         b.addEventListener("click", function () {
+          if (barradoPeloContrato()) return;
           location.href = "pagamento-cartao.html?produto=" + encodeURIComponent(planos[+b.dataset.i].id);
         });
       });
@@ -363,6 +459,7 @@
       // Cartão recorrente: assinatura mensal automática (fluxo antigo)
       Array.prototype.forEach.call(box.querySelectorAll(".btn-plano-recorrente"), function (b) {
         b.addEventListener("click", async function () {
+          if (barradoPeloContrato()) return;
           av.style.display = "none";
           b.disabled = true; b.textContent = "Abrindo…";
           var resp = await edge("cobranca", { acao: "assinatura", produto_id: planos[+b.dataset.i].id });
@@ -441,6 +538,7 @@
       }
       var perfil = await DB.exigirLogin();
       await carregar(perfil);
+      await checarContrato(perfil);   // ANTES de renderPlanos: a compra nasce travada
       renderFaturas();
       await renderPlanos();
       await renderCreditos();
