@@ -93,15 +93,23 @@
       return { status: r.status, body: j };
     }
 
+    // ⚠️ SÓ contrato VIGENTE (aceito ou aguardando assinatura). Contrato
+    // 'cancelado'/'expirado' é histórico e NÃO pode ser carregado aqui.
+    // Incidente 11/08/2026: a Dra. Mariana abriu esta tela, viu um contrato
+    // que havia sido cancelado (para ser regerado com a tabela de preços nova),
+    // clicou em assinar e levou "Contrato já está 'cancelado'". A consulta pegava
+    // o MAIS RECENTE sem olhar o status, e a geração automática só acontecia se
+    // não houvesse contrato NENHUM — com o cancelado ali, ela nunca disparava.
     async function carregarContrato(perfil) {
       var r = await DB.client.from("contratos")
         .select("id,status,html,html_hash,aceite_em,valido_ate")
         .eq("cliente_id", perfil.id)
+        .in("status", ["aceito", "pendente_aceite"])
         .order("criado_em", { ascending: false }).limit(1);
       var c = r.data && r.data[0];
 
-      if (!c && perfil.status === "aprovado") {
-        // aprovado sem contrato ainda → pede a geração (o dono pode)
+      // Sem contrato vigente (nunca teve, ou o que existia foi cancelado) → gera um novo.
+      if (!c && ["aprovado", "contrato_assinado"].indexOf(perfil.status) >= 0) {
         var g = await edge("gerar-contrato", { acao: "gerar", perfil_id: perfil.id });
         if (g.status === 200) {
           return carregarContrato(perfil);
@@ -117,6 +125,15 @@
       var badge = document.getElementById("badge-status");
       document.getElementById("doc").srcdoc = c.html;
       document.getElementById("hash").textContent = c.html_hash;
+      // Rede de segurança: se por qualquer caminho chegar aqui um contrato que
+      // não é assinável, mostra o motivo em vez de oferecer um botão que falha.
+      if (["aceito", "pendente_aceite"].indexOf(c.status) < 0) {
+        badge.textContent = c.status; badge.className = "badge badge-cinza";
+        document.getElementById("box-aceite").style.display = "none";
+        aviso("Este contrato não está mais válido. Recarregue a página que geramos " +
+              "um novo para você — se continuar aparecendo, é só nos chamar.");
+        return;
+      }
       if (c.status === "aceito") {
         badge.textContent = "assinado"; badge.className = "badge badge-verde";
         document.getElementById("assinado-em").textContent = dataBR(c.aceite_em);
