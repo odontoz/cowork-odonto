@@ -10,9 +10,13 @@
   (function () {
     try {
       var h = location.hash || "";
-      if (h.indexOf("access_token") === -1) return;
-      if (!/type=(recovery|invite|signup|magiclink)/.test(h)) return;
-      location.replace(location.origin + "/public/app/definir-senha.html" + h);
+      var temToken = h.indexOf("access_token") > -1 &&
+                     /type=(recovery|invite|signup|magiclink)/.test(h);
+      // link expirado/ja usado volta SEM token, so com error_description —
+      // sem isto a pessoa caia na home sem entender nada (caso do Thiago, 26/08)
+      var temErro = h.indexOf("error") > -1 || (location.search || "").indexOf("error") > -1;
+      if (!temToken && !temErro) return;
+      location.replace(location.origin + "/public/app/definir-senha.html" + (h || "#erro=link"));
     } catch (e) {}
   })();
   </script>

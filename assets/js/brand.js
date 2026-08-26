@@ -249,9 +249,13 @@
 (function () {
   try {
     var h = location.hash || "";
-    if (h.indexOf("access_token") === -1) return;
-    if (!/type=(recovery|invite|signup|magiclink)/.test(h)) return;
+    var temToken = h.indexOf("access_token") > -1 &&
+                   /type=(recovery|invite|signup|magiclink)/.test(h);
+    // link expirado/ja usado volta SEM token, so com error_description — sem isto
+    // a pessoa cai na home sem entender nada (caso do Thiago em 26/08/2026)
+    var temErro = h.indexOf("error") > -1 || (location.search || "").indexOf("error") > -1;
+    if (!temToken && !temErro) return;
     if (/definir-senha\.html/.test(location.pathname)) return;   // ja esta no lugar certo
-    location.replace(location.origin + "/public/app/definir-senha.html" + h);
+    location.replace(location.origin + "/public/app/definir-senha.html" + (h || "#erro=link"));
   } catch (e) { /* nunca quebrar a pagina por causa disto */ }
 })();

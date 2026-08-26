@@ -64,6 +64,18 @@
       // O supabase-js (detectSessionInUrl:true) troca isso por uma sessão de forma
       // ASSÍNCRONA — por isso esperamos o evento antes de renderizar o formulário.
       // Padrão do projeto: auth ANTES de render.
+      // Link expirado/ja usado chega com erro no fragmento. Avisar NA HORA, com
+      // instrucao clara — antes ficava 2,5s "carregando" e so entao dizia algo.
+      (function () {
+        var h = (location.hash || "") + (location.search || "");
+        if (h.indexOf("error") === -1) return;
+        var expirou = /expired|invalid/i.test(decodeURIComponent(h));
+        mostrar(expirou
+          ? "Este link já foi usado ou passou da validade. Peça um link novo para quem te enviou — leva menos de um minuto para gerar outro."
+          : "Não foi possível validar este link. Peça um link novo para quem te enviou.");
+        try { history.replaceState(null, "", location.pathname); } catch (e) {}
+      })();
+
       var pronto = false;
       function liberar() {
         if (pronto) return;
