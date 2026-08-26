@@ -186,7 +186,7 @@
       var fatP = DB.client.from("faturas")
         .select("competencia,valor_total,status").order("competencia", { ascending: false }).limit(3);
       var recP = DB.client.from("recados")
-        .select("id,texto,lido,criado_em").order("criado_em", { ascending: false }).limit(5);
+        .select("id,texto,lido,criado_em,exige_aceite").order("criado_em", { ascending: false }).limit(5);
       var assP = DB.client.from("assinaturas")
         .select("status,produto_id,produtos_preco(nome,regras)").eq("status","ativa").limit(1);
       var hojeISO = new Date().getFullYear() + "-" + String(new Date().getMonth()+1).padStart(2,"0") + "-" + String(new Date().getDate()).padStart(2,"0");
@@ -309,9 +309,39 @@
       var box = document.getElementById("lista-recados");
       if (!lista.length) { box.innerHTML = '<p class="muted">Nenhum aviso no momento.</p>'; return; }
       box.innerHTML = lista.map(function (r) {
+        // Aviso que EXIGE ACEITE: texto inteiro na tela + botao "Entendi".
+        // O aceite carimba quem/quando/IP/navegador (RPC aceitar_recado) — vale como prova.
+        if (r.exige_aceite && !r.lido) {
+          return '<div class="card" style="border-left:4px solid #FFC72C" data-recado="' + esc(r.id) + '">' +
+                 '<div style="white-space:pre-wrap;line-height:1.55">' + esc(r.texto) + '</div>' +
+                 '<div style="margin-top:14px"><button class="btn btn-primario" data-aceitar="' + esc(r.id) + '">Entendi</button></div>' +
+                 '</div>';
+        }
         return '<div class="row-between"><span>' + esc(r.texto) + "</span>" +
                (r.lido ? "" : '<span class="badge badge-amarelo">novo</span>') + "</div>";
       }).join("");
+
+      box.querySelectorAll("[data-aceitar]").forEach(function (btn) {
+        btn.addEventListener("click", async function () {
+          var id = btn.getAttribute("data-aceitar");
+          btn.disabled = true; btn.textContent = "Registrando…";
+          try {
+            var r = await DB.client.rpc("aceitar_recado", {
+              p_recado: id, p_user_agent: navigator.userAgent
+            });
+            if (r.error) throw r.error;
+            var cartao = box.querySelector('[data-recado="' + id + '"]');
+            if (cartao) {
+              cartao.style.borderLeftColor = "#2e7d32";
+              cartao.querySelector("[data-aceitar]").outerHTML =
+                '<p class="muted" style="margin:0">✓ Confirmado por você. Registrado no sistema.</p>';
+            }
+          } catch (e) {
+            btn.disabled = false; btn.textContent = "Entendi";
+            alert("Não foi possível registrar agora. Tente novamente em instantes.");
+          }
+        });
+      });
     }
 
     // -------- boot (auth ANTES de renderizar) --------
