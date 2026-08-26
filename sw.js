@@ -8,7 +8,7 @@
  * sem editar nada. O registro (assets/js/db.js e public/index.html) também usa
  * caminho relativo, e a fallback offline resolve pela BASE do sw.
  * ==========================================================================*/
-var CACHE = "enjoy-v34";
+var CACHE = "enjoy-v35";
 // BASE = diretório do sw.js (termina em "/"). new Request() abaixo resolve os
 // relativos contra a URL do sw, mas guardamos a base p/ a fallback de navegação.
 var BASE = self.location.href.replace(/sw\.js.*$/, "");
@@ -76,15 +76,19 @@ self.addEventListener("fetch", function (e) {
     return;
   }
 
+  // stale-while-revalidate: entrega o cache (rapido) MAS sempre busca a versao nova
+  // em segundo plano. Antes era cache-first cego — um brand.js corrigido podia nunca
+  // chegar no navegador de quem ja tinha o antigo (aconteceu 2x: logo do rodape e o
+  // link de definir senha em 25/08/2026).
   e.respondWith(
     caches.match(req).then(function (hit) {
-      if (hit) return hit;
-      return fetch(req).then(function (res) {
+      var rede = fetch(req).then(function (res) {
         if (res.ok && req.url.startsWith(self.location.origin)) {
           var clone = res.clone(); caches.open(CACHE).then(function (c) { c.put(req, clone); });
         }
         return res;
-      });
+      }).catch(function () { return hit; });
+      return hit || rede;
     })
   );
 });

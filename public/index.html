@@ -2,6 +2,20 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
+  <script>
+  /* Link de definir senha — INLINE de proposito: o e-mail do Supabase cai aqui na home
+     com o token no fragmento, e este arquivo (HTML) e servido network-first, enquanto o
+     brand.js e cache-first e pode estar velho no navegador da pessoa. Sem isto, o usuario
+     via a tela de login sem opcao de criar senha. */
+  (function () {
+    try {
+      var h = location.hash || "";
+      if (h.indexOf("access_token") === -1) return;
+      if (!/type=(recovery|invite|signup|magiclink)/.test(h)) return;
+      location.replace(location.origin + "/public/app/definir-senha.html" + h);
+    } catch (e) {}
+  })();
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ClinicShare — Coworking Odontológico em Águas Claras, Brasília | Consultório por hora</title>
   <meta name="description" content="Seu consultório odontológico pronto em Águas Claras — pague só pelo uso. Consultórios equipados por hora, período ou plano mensal, com biossegurança e reserva pelo app. Em frente ao metrô.">
