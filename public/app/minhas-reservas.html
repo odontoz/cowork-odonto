@@ -329,6 +329,10 @@
 
     // Os números das faixas vêm do banco (tabela config) — nunca escritos aqui.
     function explicacaoFaixa(p) {
+      // O banco passou a devolver o texto pronto em p.explicacao (regra de 25/08/2026).
+      // Usar ele mantem a REGRA em um lugar so: mudou a politica no banco, a tela acompanha
+      // sozinha. O switch abaixo fica como reserva para respostas antigas sem essa chave.
+      if (p && p.explicacao) return esc(p.explicacao);
       var d = p.faixa1_dias, hh = p.faixa2_horas;
       switch (p.faixa) {
         case "arrependimento":
