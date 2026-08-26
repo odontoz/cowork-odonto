@@ -152,16 +152,29 @@
     var form = document.getElementById("form-lead");
     var aviso = document.getElementById("aviso");
     function mostrar(m) { aviso.textContent = m; aviso.style.display = "block"; }
-    function sucesso() {
+    function sucesso(gravou) {
       document.getElementById("form-lead").style.display = "none";
       document.getElementById("form-ok").style.display = "block";
-      // TODO(tracking): disparar conversão aqui (fbq('track','Lead') / gtag Ads).
+      // 🔴 Conversão SÓ quando o lead entrou mesmo no banco (gravou === true).
+      // O fallback de WhatsApp também chama esta função e NÃO grava lead nenhum:
+      // disparar conversão ali faria o Maximizar Cliques otimizar em cima de lead falso.
+      if (gravou !== true) return;
+      try {
+        if (typeof gtag === "function") {
+          gtag("event", "conversion", { send_to: "AW-PLACEHOLDER/LABEL_VISITA" });
+        }
+        if (typeof fbq === "function") { fbq("track", "Lead"); }
+      } catch (e) { /* tag ausente: não quebra o formulário */ }
     }
 
     // captura UTM/origem pra atribuição de mídia
     function utm() {
+      // usa a atribuição persistida pelo brand.js (sobrevive a home -> /visita);
+      // cai para a URL da própria página se o brand.js não tiver carregado.
+      if (typeof window.ENJOY_ATRIB === "function") { return window.ENJOY_ATRIB(); }
       var p = new URLSearchParams(location.search), o = {};
-      ["utm_source","utm_medium","utm_campaign","utm_content","utm_term","gclid","fbclid"].forEach(function (k) {
+      ["utm_source","utm_medium","utm_campaign","utm_content","utm_term",
+       "gclid","gbraid","wbraid","fbclid","msclkid"].forEach(function (k) {
         if (p.get(k)) o[k] = p.get(k);
       });
       return o;
@@ -188,7 +201,7 @@
             p_utm: utm()
           });
           if (r.error) throw r.error;
-          sucesso(); return;
+          sucesso(true); return;
         } catch (err) {
           console.warn("registrar_lead falhou, caindo pro WhatsApp:", err);
           // segue pro fallback abaixo
@@ -202,7 +215,7 @@
                 (momento ? "\nMomento: " + momento : "");
       window.open(window.ENJOY_BRAND.waLink(msg), "_blank");
       btn.disabled = false; btn.textContent = "Agendar visita";
-      sucesso();
+      sucesso(false);
     });
   })();
   </script>

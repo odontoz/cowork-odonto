@@ -45,13 +45,13 @@
     },
 
     // Contato — telefone oficial (06/07); e-mail/instagram a criar no domínio novo
-    telefone:  "556135462675",    // (61) 3546-2675
-    whatsapp:  "556135462675",    // confirmar se o fixo tem WhatsApp Business
+    telefone:  "5561982565189",   // (61) 98256-5189 — oficial ClinicShare (23/08/2026)
+    whatsapp:  "5561982565189",   // celular oficial = WhatsApp da ClinicShare
     email:     "contato@clinicshare.net.br",       // caixa ATIVA via ImprovMX → Gmail (22/07)
     instagram: "clinicshareoficial",            // handle oficial (definido 17/07)
 
     // Registro — placeholder até abrir/definir o CNPJ da Enjoy
-    cnpj: "00.000.000/0001-00",
+    cnpj: "",   // vazio ate definir o CNPJ; rodape nao exibe mais (removido do HTML)
 
     endereco: {
       logradouro:  "Ed. E-Business — Av. Pau Brasil, Lote 06",
@@ -59,7 +59,7 @@
       bairro:      "Águas Claras",
       cidade:      "Brasília",
       uf:          "DF",
-      cep:         "71900-000",                 // placeholder
+      cep:         "71916-500",                 // confirmado ViaCEP 23/08/2026
       lat:         -15.8340,                     // geo aproximada de Águas Claras
       lng:         -48.0270
     },
@@ -207,3 +207,34 @@
     init();
   }
 })(typeof window !== "undefined" ? window : this);
+
+/* ---------------------------------------------------------------------------
+ * Atribuição de mídia (23/08/2026) — preserva o clique pago entre páginas.
+ * O anúncio pode cair na home e o lead ser preenchido na /visita: sem isto,
+ * o gclid se perde na navegação e o lead é gravado como orgânico.
+ * gbraid/wbraid = equivalentes do gclid em iOS com ATT.
+ * ------------------------------------------------------------------------- */
+(function () {
+  var CHAVES = ["utm_source","utm_medium","utm_campaign","utm_content","utm_term",
+                "gclid","gbraid","wbraid","fbclid","msclkid"];
+  try {
+    var p = new URLSearchParams(location.search), achou = {};
+    CHAVES.forEach(function (k) { if (p.get(k)) achou[k] = p.get(k); });
+    if (Object.keys(achou).length) {
+      sessionStorage.setItem("cs_atrib", JSON.stringify(achou));
+    }
+  } catch (e) { /* sessionStorage bloqueado: segue sem atribuição */ }
+
+  window.ENJOY_ATRIB = function () {
+    var out = {};
+    try {
+      var salvo = JSON.parse(sessionStorage.getItem("cs_atrib") || "{}");
+      Object.keys(salvo).forEach(function (k) { out[k] = salvo[k]; });
+    } catch (e) {}
+    try {
+      var p = new URLSearchParams(location.search);
+      CHAVES.forEach(function (k) { if (p.get(k)) out[k] = p.get(k); });  // URL vence
+    } catch (e) {}
+    return out;
+  };
+})();
