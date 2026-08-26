@@ -238,3 +238,20 @@
     return out;
   };
 })();
+
+/* ---------------------------------------------------------------------------
+ * Link de definir senha (25/08/2026) — o e-mail do Supabase cai na HOME, nao na
+ * tela de senha: o token vem no fragmento (#access_token=...&type=recovery) e a
+ * home nao sabe o que fazer com ele, entao a pessoa via a tela de login e travava.
+ * Aqui, qualquer pagina que receba esse token encaminha para definir-senha.html
+ * PRESERVANDO o fragmento. Uma correcao so, vale para o site inteiro.
+ * ------------------------------------------------------------------------- */
+(function () {
+  try {
+    var h = location.hash || "";
+    if (h.indexOf("access_token") === -1) return;
+    if (!/type=(recovery|invite|signup|magiclink)/.test(h)) return;
+    if (/definir-senha\.html/.test(location.pathname)) return;   // ja esta no lugar certo
+    location.replace(location.origin + "/public/app/definir-senha.html" + h);
+  } catch (e) { /* nunca quebrar a pagina por causa disto */ }
+})();

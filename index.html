@@ -3,7 +3,15 @@
 <head>
 <meta charset="utf-8">
 <title>Coworking Odontológico</title>
-<meta http-equiv="refresh" content="0; url=public/index.html">
+<script>
+  /* Preserva ?query e #fragmento ao entrar pela raiz — o link de definir senha
+     chega com o token no fragmento e o meta-refresh abaixo o descartaria. */
+  (function () {
+    try { location.replace("public/index.html" + location.search + location.hash); }
+    catch (e) {}
+  })();
+</script>
+<meta http-equiv="refresh" content="1; url=public/index.html">
 <link rel="canonical" href="public/index.html">
 </head>
 <body>
