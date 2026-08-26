@@ -17,7 +17,7 @@
     .kpi .valor { font-size: 1.4rem; font-weight: 800; letter-spacing: -.02em; margin: 0; }
     .kpi .valor.pos { color: var(--verde); }
     .kpi .valor.pend { color: var(--amarelo); }
-    @media (min-width: 720px) { .kpis { grid-template-columns: repeat(4, 1fr); } }
+    @media (min-width: 720px) { .kpis { grid-template-columns: repeat(5, 1fr); } }
     .fin-tab { width: 100%; border-collapse: collapse; font-size: .9rem; }
     .fin-tab th, .fin-tab td { border-bottom: 1px solid var(--linha); padding: 10px 8px; text-align: left; }
     .fin-tab th { background: var(--fundo); font-size: .8rem; color: var(--cinza); text-transform: uppercase; letter-spacing: .03em; }
@@ -108,6 +108,15 @@
       <div class="kpi"><p class="rotulo">Horas vendidas no mês</p><p class="valor" id="kpi-horas-vend">—</p></div>
       <div class="kpi"><p class="rotulo">Saldo de horas em uso (passivo)</p><p class="valor" id="kpi-saldo-h">—</p></div>
       <div class="kpi"><p class="rotulo">Reservas no mês</p><p class="valor" id="kpi-res">—</p></div>
+      <div class="kpi" id="card-asaas" style="border-left:3px solid var(--amarelo,#FFC72C)">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+          <p class="rotulo" style="margin:0">💳 Saldo em conta<br>Asaas · Odonto&nbsp;Z</p>
+          <button type="button" id="btn-asaas"
+                  style="font:inherit;font-size:.72rem;font-weight:700;background:var(--navy,#0E2A47);color:#fff;border:0;border-radius:6px;padding:5px 9px;cursor:pointer;white-space:nowrap">Atualizar</button>
+        </div>
+        <p class="valor" id="kpi-asaas" style="margin:6px 0 0">—</p>
+        <p class="rotulo" id="asaas-detalhe" style="margin:4px 0 0;font-size:.72rem">clique para consultar</p>
+      </div>
     </div>
     <p class="muted" style="font-size:.8rem;margin:0 0 16px">
       "Recebido" = dinheiro que entrou de verdade (Pix/cartão pela compra de horas/planos). As reservas <b>não</b> são receita — são consumo das horas já pagas.
@@ -655,6 +664,38 @@
       await recarregarResumo();
       await CAIXA.boot(perfil ? perfil.id : null);
     })();
+  })();
+  </script>
+
+  <script>
+  // Saldo do gateway — só busca quando a gestão clica (não bate na API do Asaas
+  // a cada abertura da tela). A chave fica na Edge Function; aqui só chega o número.
+  (function () {
+    var btn = document.getElementById("btn-asaas");
+    if (!btn || !window.DB) return;
+    var vlr = document.getElementById("kpi-asaas");
+    var det = document.getElementById("asaas-detalhe");
+    function brl(n) {
+      return (Number(n) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+    }
+    btn.addEventListener("click", async function () {
+      btn.disabled = true; btn.textContent = "Consultando…";
+      det.textContent = "falando com o Asaas";
+      try {
+        var r = await DB.client.functions.invoke("saldo-asaas", { method: "GET" });
+        if (r.error) throw r.error;
+        var d = r.data || {};
+        vlr.textContent = brl(d.disponivel);
+        var hora = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+        det.innerHTML = (d.a_receber != null
+            ? "a receber: " + brl(d.a_receber) + "<br>" : "")
+          + "atualizado às " + hora;
+      } catch (e) {
+        vlr.textContent = "—";
+        det.textContent = "não deu para consultar agora";
+      }
+      btn.disabled = false; btn.textContent = "Atualizar";
+    });
   })();
   </script>
 </body>
