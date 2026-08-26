@@ -17,6 +17,11 @@
     .kpi .valor { font-size: 1.4rem; font-weight: 800; letter-spacing: -.02em; margin: 0; }
     .kpi .valor.pos { color: var(--verde); }
     .kpi .valor.pend { color: var(--amarelo); }
+    .btn-asaas { margin-top: 10px; font: inherit; font-size: .75rem; font-weight: 700;
+      background: transparent; color: var(--navy, #0E2A47); border: 1px solid var(--linha);
+      border-radius: 7px; padding: 5px 10px; cursor: pointer; }
+    .btn-asaas:hover { background: #f2f5f9; }
+    .btn-asaas[disabled] { opacity: .55; cursor: default; }
     @media (min-width: 720px) { .kpis { grid-template-columns: repeat(5, 1fr); } }
     .fin-tab { width: 100%; border-collapse: collapse; font-size: .9rem; }
     .fin-tab th, .fin-tab td { border-bottom: 1px solid var(--linha); padding: 10px 8px; text-align: left; }
@@ -108,16 +113,12 @@
       <div class="kpi"><p class="rotulo">Horas vendidas no mês</p><p class="valor" id="kpi-horas-vend">—</p></div>
       <div class="kpi"><p class="rotulo">Saldo de horas em uso (passivo)</p><p class="valor" id="kpi-saldo-h">—</p></div>
       <div class="kpi"><p class="rotulo">Reservas no mês</p><p class="valor" id="kpi-res">—</p></div>
-      <div class="kpi" id="card-asaas" style="border-left:3px solid var(--amarelo,#FFC72C)">
-        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
-          <p class="rotulo" style="margin:0">💳 Saldo em conta<br>Asaas · Odonto&nbsp;Z</p>
-          <button type="button" id="btn-asaas"
-                  style="font:inherit;font-size:.72rem;font-weight:700;background:var(--navy,#0E2A47);color:#fff;border:0;border-radius:6px;padding:5px 9px;cursor:pointer;white-space:nowrap">Atualizar</button>
-        </div>
-        <p class="valor" id="kpi-asaas" style="margin:6px 0 0">—</p>
-        <p class="rotulo" id="asaas-detalhe" style="margin:4px 0 0;font-size:.72rem">clique para consultar</p>
+      <div class="kpi">
+        <p class="rotulo">Saldo em conta · Asaas (Odonto Z)</p>
+        <p class="valor" id="kpi-asaas">—</p>
+        <p class="rotulo" id="asaas-detalhe" style="margin:6px 0 0;font-size:.72rem">não consultado</p>
+        <button type="button" id="btn-asaas" class="btn-asaas">Atualizar</button>
       </div>
-    </div>
     <p class="muted" style="font-size:.8rem;margin:0 0 16px">
       "Recebido" = dinheiro que entrou de verdade (Pix/cartão pela compra de horas/planos). As reservas <b>não</b> são receita — são consumo das horas já pagas.
     </p>
@@ -298,9 +299,10 @@
         .gte("inicio", r.ini.toISOString()).lt("inicio", r.fim.toISOString())
         .in("status",["pendente","pendente_pagamento","confirmada","concluida"]);
       // saldo de horas circulante por cliente
+      // TODOS os creditos: o filtro de saldo>0 escondia quem ja consumiu tudo — e com
+      // isso "Horas vendidas no mes" dava 0h e o cliente sumia da tabela de saldo.
       var credP = DB.client.from("creditos")
-        .select("cliente_id,origem,valor,valor_restante,valor_hora,criado_em,perfis:cliente_id(nome)")
-        .gt("valor_restante",0).gte("validade",hojeISO);
+        .select("cliente_id,origem,valor,valor_restante,valor_hora,validade,horas,criado_em,perfis:cliente_id(nome)");
       var res = await Promise.all([pagP, resP, credP]);
       var pagos = (res[0].data||[]).filter(function(p){ return !ehTeste(p.perfis&&p.perfis.nome); });
       var reservas = (res[1].data||[]).filter(function(x){ return !ehTeste(x.perfis&&x.perfis.nome); });
@@ -319,17 +321,21 @@
       // saldo de horas por cliente, separado por natureza
       var saldoTotalH = 0, horasVendidasReais = 0;
       creds.forEach(function (c) {
-        var h = horasDe(c); saldoTotalH += h;
         var cn = c.perfis ? c.perfis.nome : "—";
         porCliente[c.cliente_id] = porCliente[c.cliente_id] || { nome:cn, recebido:0, compradas:0, cortesia:0, devolucao:0 };
-        if (["plano","compra"].indexOf(c.origem)!==-1) porCliente[c.cliente_id].compradas += h;
-        else if (c.origem==="boas_vindas") porCliente[c.cliente_id].cortesia += h;
-        else porCliente[c.cliente_id].devolucao += h;
-      });
-      // horas vendidas no mês = horas compradas (plano/compra) criadas no mês
-      creds.forEach(function (c) {
+        // saldo = só o que ainda VALE (sobrou e nao venceu)
+        var vivo = Number(c.valor_restante||0) > 0 && String(c.validade||"9999-12-31") >= hojeISO;
+        if (vivo) {
+          var h = horasDe(c); saldoTotalH += h;
+          if (["plano","compra"].indexOf(c.origem)!==-1) porCliente[c.cliente_id].compradas += h;
+          else if (c.origem==="boas_vindas") porCliente[c.cliente_id].cortesia += h;
+          else porCliente[c.cliente_id].devolucao += h;
+        }
+        // vendido no mes = horas contratadas, tenha sobrado saldo ou nao
         var dc = new Date(c.criado_em);
-        if ((c.origem==="plano"||c.origem==="compra") && dc>=r.ini && dc<r.fim) horasVendidasReais += Number(c.horas||0);
+        if ((c.origem==="plano"||c.origem==="compra") && dc>=r.ini && dc<r.fim) {
+          horasVendidasReais += Number(c.horas||0);
+        }
       });
 
       DADOS = {
@@ -374,7 +380,13 @@
 
       // saldo de horas por cliente (separado por natureza)
       var ts = document.querySelector("#tab-saldo-cliente tbody");
-      var comSaldo = d.clientes.filter(function(c){ return (c.compradas||0)+(c.cortesia||0)+(c.devolucao||0) > 0.001; });
+      // mostra TODOS os clientes — quem esta zerado tambem precisa aparecer,
+      // senao a gestao nao sabe quem esta sem hora nenhuma (pedido do Vinicius 26/08)
+      var comSaldo = d.clientes.slice().sort(function(x,y){
+        var sx=(x.compradas||0)+(x.cortesia||0)+(x.devolucao||0);
+        var sy=(y.compradas||0)+(y.cortesia||0)+(y.devolucao||0);
+        return sy-sx || String(x.nome).localeCompare(String(y.nome));
+      });
       ts.innerHTML = comSaldo.length ? comSaldo.map(function (c) {
         var tot=(c.compradas||0)+(c.cortesia||0)+(c.devolucao||0);
         return "<tr><td><strong>"+esc(c.nome)+"</strong></td>"+
@@ -382,7 +394,7 @@
           '<td class="num">'+fmtH(c.cortesia||0)+'</td>'+
           '<td class="num">'+fmtH(c.devolucao||0)+'</td>'+
           '<td class="num"><strong>'+fmtH(tot)+"</strong></td></tr>";
-      }).join("") : '<tr><td colspan="5" class="muted" style="text-align:center;padding:12px">Nenhum cliente com saldo de horas.</td></tr>';
+      }).join("") : '<tr><td colspan="5" class="muted" style="text-align:center;padding:12px">Nenhum cliente cadastrado.</td></tr>';
       document.querySelector("#tab-saldo-cliente tfoot").innerHTML =
         '<tr><td>Total</td><td class="num"></td><td class="num"></td><td class="num"></td><td class="num"><strong>'+fmtH(d.saldoH||0)+"</strong></td></tr>";
 
@@ -680,11 +692,19 @@
     }
     btn.addEventListener("click", async function () {
       btn.disabled = true; btn.textContent = "Consultando…";
-      det.textContent = "falando com o Asaas";
+      det.textContent = "consultando…";
       try {
-        var r = await DB.client.functions.invoke("saldo-asaas", { method: "GET" });
-        if (r.error) throw r.error;
-        var d = r.data || {};
+        // fetch direto: o supabase.js local e um build reduzido e o modulo
+        // functions nao funciona nele — por isso o botao nao respondia.
+        var ses = await DB.client.auth.getSession();
+        var tok = ses && ses.data && ses.data.session && ses.data.session.access_token;
+        if (!tok) throw new Error("sem sessao");
+        var cfg = window.ENJOY_CONFIG || {};
+        var resp = await fetch(cfg.SUPABASE_URL + "/functions/v1/saldo-asaas", {
+          headers: { Authorization: "Bearer " + tok, apikey: cfg.SUPABASE_ANON_KEY }
+        });
+        var d = await resp.json();
+        if (!resp.ok) throw new Error(d && d.erro ? d.erro : "falhou");
         vlr.textContent = brl(d.disponivel);
         var hora = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
         det.innerHTML = (d.a_receber != null
@@ -692,7 +712,7 @@
           + "atualizado às " + hora;
       } catch (e) {
         vlr.textContent = "—";
-        det.textContent = "não deu para consultar agora";
+        det.textContent = (e && e.message === "sem sessao") ? "faça login novamente" : "não deu para consultar agora";
       }
       btn.disabled = false; btn.textContent = "Atualizar";
     });

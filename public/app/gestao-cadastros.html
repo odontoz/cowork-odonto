@@ -200,7 +200,7 @@
       // consultas paralelas do histórico
       var res = await Promise.all([
         DB.client.from("contratos").select("versao_template,status,aceite_em,valido_ate,criado_em").eq("cliente_id", id).order("criado_em",{ascending:false}),
-        DB.client.from("pagamentos").select("metodo,status,valor,gateway,pago_em,criado_em").eq("cliente_id", id).order("criado_em",{ascending:false}).limit(20),
+        DB.client.from("pagamentos").select("metodo,status,valor,gateway,pago_em,criado_em,reserva_id,fatura_id").eq("cliente_id", id).order("criado_em",{ascending:false}).limit(20),
         DB.client.from("reservas").select("inicio,fim,status,valor,criado_em").eq("cliente_id", id).order("inicio",{ascending:false}).limit(20),
         DB.client.from("verificacoes").select("fonte,resultado,score,criado_em").eq("cliente_id", id).order("criado_em",{ascending:false}).limit(20)
       ]);
@@ -235,16 +235,42 @@
           "<span class='k'>Válido até</span><span>"+dia(c.valido_ate)+"</span></div>";
       } else h += '<p class="vazio">Sem contrato gerado.</p>';
 
+      function fH(n){ n = Math.round((Number(n)||0)*100)/100;
+        return (n % 1 === 0 ? String(n) : n.toFixed(1).replace(".", ",")) + "h"; }
+
       // pagamentos
       h += "<h3>Pagamentos</h3>";
-      if (pagamentos.length) { h += "<table class='mini'><tr><th>Data</th><th>Método</th><th>Valor</th><th>Status</th></tr>"+
-        pagamentos.map(function(x){ return "<tr><td>"+dia(x.pago_em||x.criado_em)+"</td><td>"+esc(x.metodo||x.gateway||"—")+"</td><td>"+fBRL(x.valor)+"</td><td>"+esc(x.status||"—")+"</td></tr>"; }).join("")+"</table>";
+      if (pagamentos.length) {
+        var totPago = 0, totHoras = 0;
+        h += "<table class='mini'><tr><th>Data</th><th>Método</th><th>Refere-se a</th><th>Horas</th><th>Valor</th><th>Status</th></tr>"+
+        pagamentos.map(function(x){
+          var real = x.gateway !== "creditos";           // consumo de saldo nao e dinheiro novo
+          var pago = x.status === "pago";
+          // horas equivalentes: o que foi pago dividido pela hora avulsa
+          var hs = (pago && x.reserva_id) ? (Number(x.valor)||0)/75 : 0;
+          var ref = x.fatura_id ? "plano" : (x.reserva_id ? "reserva" : "taxa / outro");
+          if (pago && real) totPago += Number(x.valor)||0;
+          if (pago) totHoras += hs;
+          return "<tr><td>"+dia(x.pago_em||x.criado_em)+"</td><td>"+esc(x.metodo||x.gateway||"—")+
+                 "</td><td>"+ref+"</td><td>"+(hs?fH(hs):"—")+"</td><td>"+fBRL(x.valor)+
+                 "</td><td>"+esc(x.status||"—")+"</td></tr>"; }).join("")+
+        "<tr><td colspan='3'><strong>Total (dinheiro real)</strong></td><td><strong>"+fH(totHoras)+
+        "</strong></td><td><strong>"+fBRL(totPago)+"</strong></td><td></td></tr></table>";
       } else h += '<p class="vazio">Nenhum pagamento.</p>';
 
       // reservas
       h += "<h3>Reservas</h3>";
-      if (reservas.length) { h += "<table class='mini'><tr><th>Início</th><th>Fim</th><th>Valor</th><th>Status</th></tr>"+
-        reservas.map(function(x){ return "<tr><td>"+dt(x.inicio)+"</td><td>"+(x.fim?new Date(x.fim).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}):"—")+"</td><td>"+fBRL(x.valor)+"</td><td>"+esc(x.status||"—")+"</td></tr>"; }).join("")+"</table>";
+      if (reservas.length) {
+        var VALE = ["confirmada","concluida"];   // canceladas/expiradas nao entram no total
+        var totH = 0, totV = 0;
+        h += "<table class='mini'><tr><th>Início</th><th>Fim</th><th>Horas</th><th>Valor</th><th>Status</th></tr>"+
+        reservas.map(function(x){
+          var hs = (x.inicio && x.fim) ? (new Date(x.fim)-new Date(x.inicio))/3600000 : 0;
+          if (VALE.indexOf(x.status)!==-1) { totH += hs; totV += Number(x.valor)||0; }
+          return "<tr><td>"+dt(x.inicio)+"</td><td>"+(x.fim?new Date(x.fim).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}):"—")+
+                 "</td><td>"+fH(hs)+"</td><td>"+fBRL(x.valor)+"</td><td>"+esc(x.status||"—")+"</td></tr>"; }).join("")+
+        "<tr><td colspan='2'><strong>Total reservado</strong></td><td><strong>"+fH(totH)+
+        "</strong></td><td><strong>"+fBRL(totV)+"</strong></td><td></td></tr></table>";
       } else h += '<p class="vazio">Nenhuma reserva.</p>';
 
       // histórico de verificações
