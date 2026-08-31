@@ -11,6 +11,8 @@
   <link rel="stylesheet" href="../../assets/css/base.css">
   <script src="../../assets/js/brand.js" defer></script>
   <style>
+    .slot.meu-slot { background: #dbeafe !important; color: #14375e !important; }
+
     /* topo do formulário: campos de largura igual, sem estourar por texto longo do select */
     #form-reserva .row { align-items: flex-end; }
     #form-reserva .row > .campo { flex: 1 1 0; min-width: 0; }
@@ -81,6 +83,7 @@
           <div class="legenda">
             <span><i style="background:#fff"></i>livre</span>
             <span><i style="background:#f0f2f5"></i>ocupado</span>
+            <span><i style="background:#dbeafe"></i>sua reserva</span>
             <span><i style="background:#eef2f6"></i>higienização</span>
             <span><i style="background:#fbe4e4"></i>bloqueado</span>
           </div>
@@ -154,7 +157,7 @@
           <input id="qr-payload" type="text" readonly onclick="this.select()" style="flex:1;font-size:.8rem;color:var(--cinza)">
           <button type="button" class="btn btn-neutro" id="btn-copiar">Copiar</button>
         </div>
-        <p class="muted" style="text-align:center;margin:12px 0 0;font-size:.9rem">
+        <p class="muted" id="qr-aguardando" style="text-align:center;margin:12px 0 0;font-size:.9rem">
           <span class="pulso"></span>Aguardando o pagamento… a reserva confirma sozinha.
         </p>
       </div>
@@ -491,7 +494,16 @@
         div.dataset.ini = s.inicio.toISOString();
         div.dataset.fim = s.fim.toISOString();
         // rótulo mostra o intervalo da hora (13:00–14:00) pra não parecer meia-hora
-        div.innerHTML = hhmm(s.inicio) + "–" + hhmm(s.fim) + "<small>" + (passado ? "passou" : s.status) + "</small>";
+        // Se o horario esta travado por uma reserva DELA MESMA, dizer isso — antes
+        // aparecia so "ocupado" e a profissional achava que outra pessoa tinha pegado
+        // o horario, quando na verdade era a propria reserva dela aguardando pagamento.
+        var meu = !passado && s.status !== "livre" && (oc.reservas || []).some(function (rr) {
+          return rr.profissionalId === MEU_ID && s.inicio < rr.fim && s.fim > rr.inicio;
+        });
+        if (meu) div.classList.add("meu-slot");
+        var rotulo = passado ? "passou" : (meu ? "sua reserva" : s.status);
+        div.innerHTML = hhmm(s.inicio) + "–" + hhmm(s.fim) + "<small>" + rotulo + "</small>";
+        if (meu) div.title = "Reserva sua. Se ainda não pagou, ela cai sozinha quando o prazo terminar.";
         if (s.status === "livre" && !passado && APROVADO) div.addEventListener("click", function () { escolher(s); });
         tl.appendChild(div);
       });
@@ -679,9 +691,27 @@
         var falta = limite - Date.now();
         if (falta <= 0) {
           pararContadorPrazo();
-          box.innerHTML = "<strong>⏳ O prazo para pagar terminou.</strong> Se o seu Pix não tiver " +
-            "sido identificado, a reserva é cancelada e o horário volta a ficar livre. " +
-            "É só escolher um horário de novo — a cobrança é cancelada e você não fica devendo nada.";
+          // 🔴 O QR PRECISA SUMIR. Antes ele continuava na tela depois de vencer e a
+          // pessoa tentava pagar uma cobranca que o sistema ja tinha cancelado no Asaas —
+          // o banco recusava com "indisponibilidade temporaria" e ela nao entendia o motivo.
+          // (caso real: Dra. Mariana, 31/08/2026)
+          var img = document.getElementById("qr-img");
+          if (img) { img.style.display = "none"; img.removeAttribute("src"); }
+          var linhaCopia = document.getElementById("qr-payload");
+          if (linhaCopia) {
+            linhaCopia.value = "";
+            if (linhaCopia.parentNode) linhaCopia.parentNode.style.display = "none";
+          }
+          var aguardando = document.getElementById("qr-aguardando");
+          if (aguardando) aguardando.style.display = "none";
+          pararPollReserva();
+
+          box.innerHTML = "<strong>⏳ O prazo para pagar terminou e este código Pix não vale mais.</strong><br>" +
+            "Não tente pagar o código antigo — a cobrança foi cancelada e o pagamento seria recusado " +
+            "pelo seu banco. Você não ficou devendo nada e o horário voltou a ficar livre.<br>" +
+            '<button type="button" class="btn btn-primario" id="btn-novo-pix" style="margin-top:10px">Escolher horário de novo</button>';
+          var bn = document.getElementById("btn-novo-pix");
+          if (bn) bn.addEventListener("click", function () { renderTimeline(); });
           return;
         }
         var s = Math.floor(falta / 1000);
@@ -831,6 +861,13 @@
         return;
       }
       // 3) mostra o QR e aguarda o webhook confirmar (polling)
+      // reexibe o que a expiracao anterior escondeu
+      var _img = document.getElementById("qr-img");
+      _img.style.display = "";
+      var _cp = document.getElementById("qr-payload");
+      if (_cp && _cp.parentNode) _cp.parentNode.style.display = "";
+      var _ag = document.getElementById("qr-aguardando");
+      if (_ag) _ag.style.display = "";
       document.getElementById("qr-img").src = "data:image/png;base64," + pg.body.qr.encodedImage;
       document.getElementById("qr-payload").value = pg.body.qr.payload;
       // prazo real: o que a Edge devolveu (lido de config no servidor) e o
