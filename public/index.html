@@ -26,7 +26,7 @@
   <meta name="theme-color" content="#0E2A47">
   <link rel="icon" type="image/png" sizes="32x32" href="../assets/img/favicon-32.png">
   <link rel="apple-touch-icon" href="../assets/img/favicon-clinicshare.png">
-  <link rel="canonical" href="https://clinicshare.net.br/">
+  <link rel="canonical" href="https://clinicshare.net.br/public/index.html">
 
   <!-- Open Graph / redes sociais -->
   <meta property="og:type" content="website">
@@ -44,13 +44,15 @@
   <link rel="stylesheet" href="../assets/css/site.css">
   <script src="../assets/js/brand.js" defer></script>
 
-  <!--
-    TRACKING (placeholders) — IDs virão do Vinicius. No go-live, colar e ativar:
-      • Google Tag Manager: script gtm.js com GTM-XXXXXXX no head + noscript no body.
-      • Meta Pixel: fbq('init','PIXEL_ID'); fbq('track','PageView');
-      • Google Ads (gtag): gtag/js?id=AW-XXXXXXX + gtag('config','AW-XXXXXXX').
-    Na /visita, disparar a conversão de Lead no envio do formulário.
-  -->
+  <!-- Google tag (gtag.js) — ClinicShare · conta 721-356-1772 (instalada 01/09/2026).
+       Uma tag por conta; os eventos de conversão usam send_to com o rótulo de cada ação. -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=AW-18411824511"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'AW-18411824511');
+  </script>
 
   <!-- JSON-LD: LocalBusiness (Dentist). Campos preenchidos a partir do brand.js;
        ATENÇÃO: telefone/CNPJ/geo são placeholders até os dados reais. -->
