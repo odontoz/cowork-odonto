@@ -29,6 +29,12 @@
     .btn-trocar { background:none; border:1px solid var(--linha); color:var(--azul); border-radius:9px;
       padding:6px 12px; font-size:.82rem; font-weight:600; cursor:pointer }
     .btn-trocar:hover { background:#eaf1fd }
+    /* Estender é a ação que EVITA o problema (usar a sala sem reserva), então
+       tem peso visual maior que trocar/cancelar — mas em âmbar, não em vermelho:
+       não é alerta, é a saída fácil. */
+    .btn-estender { background:#fff4d6; border:1px solid #e8cf8a; color:#7a5b00; border-radius:9px;
+                    padding:6px 12px; font-size:.85rem; font-weight:600; cursor:pointer }
+    .btn-estender:hover { background:#ffeab4 }
     .res .acoes { display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end }
     h2.sec { font-size:1.05rem; margin:22px 0 10px }
     .vazio { color:var(--cinza); font-size:.95rem; padding:8px 0 }
@@ -67,6 +73,10 @@
     <div id="card-saldo" class="aviso aviso-info" style="display:none;margin-bottom:16px">
       ⏱ Você tem <strong id="saldo-horas">0h</strong> no seu saldo — usadas automaticamente ao reservar.
     </div>
+
+    <!-- Aviso de hora terminando: montado por avisarFimProximo(). Fica ANTES da
+         lista porque é a única coisa que importa quando aparece. -->
+    <div id="aviso-fim" class="aviso aviso-atencao" style="display:none;margin-bottom:16px;border:1px solid #e8cf8a"></div>
 
     <div id="aviso-demo" class="aviso aviso-info" style="display:none;margin-bottom:16px">
       Modo demonstração — conecte o banco para ver suas reservas reais.
@@ -108,6 +118,30 @@
     var DIAS = ["Domingo","Segunda","Terça","Quarta","Quinta","Sexta","Sábado"];
     var SALAS = [];      // consultórios ativos (para a troca de sala)
     var RESERVAS = {};   // id -> reserva carregada (para a troca de sala)
+    // Quantos minutos antes do fim a tela avisa e libera o "Estender +1h".
+    var ALERTA_FIM_MIN = 10;
+    // Espelho de config.reserva_retroativa_max_min (migration 0030): por quantos
+    // minutos DEPOIS de a hora virar ainda dá para comprar o bloco em curso.
+    // É o que mantém o "Estender" na tela às 19h09 — o minuto exato do caso que
+    // originou esta correção. Sem isto o botão sumia justo quando era preciso.
+    // LIDO DO BANCO (não chumbado): a 0030 promete que baixar a chave para 0
+    // desliga o recurso sem deploy. Se esta tela ignorasse a config, ela seguiria
+    // oferecendo "Estender" para uma hora que a grade e a RPC já recusam.
+    var RETRO_MIN = 60;
+    // horario_funcionamento — para não oferecer hora com a casa fechada. Mesmo
+    // fallback de reservar.html: se o select de config falhar (rede ruim é o
+    // caso típico de quem está com paciente na cadeira), a tela continua sabendo
+    // a que horas fecha, em vez de convidar a reservar 23h numa casa que fecha
+    // às 23h. O valor real do banco sobrescreve isto no carregarConfig().
+    var HORARIO = {
+      "0": { abre: "08:00", fecha: "18:00" }, "1": { abre: "08:00", fecha: "23:00" },
+      "2": { abre: "08:00", fecha: "23:00" }, "3": { abre: "08:00", fecha: "23:00" },
+      "4": { abre: "08:00", fecha: "23:00" }, "5": { abre: "08:00", fecha: "23:00" },
+      "6": { abre: "08:00", fecha: "23:00" }
+    };
+    var CARREGOU = false; // a ÚLTIMA consulta de reservas deu certo
+    var EM_VOO = false;   // já existe uma releitura em andamento
+    var EM_VOO_DESDE = 0; // quando ela começou (para a trava não travar de vez)
 
     function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
     function p2(n){ return String(n).padStart(2,"0"); }
@@ -129,7 +163,31 @@
       if (!perfil) return;
       app.hidden = false;
       await carregarSalas();                 // antes do render: decide se cabe "Trocar de sala"
+      await carregarConfig();                // antes do render: decide se cabe "Estender +1h"
       await Promise.all([carregarSaldo(), carregarReservas()]);
+      // O aviso depende do relógio, não de um novo carregamento: reavaliar de
+      // minuto em minuto, senão quem deixou a tela aberta às 18h30 nunca veria
+      // o alerta das 18h50.
+      avisarFimProximo();
+      // RELÊ O BANCO a cada minuto, não só redesenha. Redesenhar sozinho parecia
+      // suficiente, mas com a checagem de "hora seguinte já reservada" um dado
+      // velho passa a CALAR o aviso: um Pix que expirou no servidor continuaria
+      // vivo nesta aba e o banner nunca apareceria — devolvendo a pessoa
+      // exatamente ao buraco de 31/08, por outro caminho.
+      setInterval(function () {
+        // Aba escondida não precisa de nada: ninguém está olhando, e a releitura
+        // acontece assim que ela voltar ao primeiro plano.
+        if (document.hidden) return;
+        reler();
+      }, 60000);
+      // Voltou para a aba: repinta com o relógio de agora ANTES de esperar a
+      // rede — quem volta depois de horas não deve ver "faltam 3 min" de uma
+      // hora que acabou de manhã — e só então relê.
+      document.addEventListener("visibilitychange", function () {
+        if (document.hidden) return;
+        redistribuir(); avisarFimProximo();
+        reler();
+      });
     }
 
     // Consultórios ativos. Falhar aqui só tira o botão de troca — nunca derruba
@@ -139,6 +197,67 @@
         var s = await DB.client.from("salas").select("id,nome").eq("ativa", true).order("ordem");
         if (!s.error) SALAS = s.data || [];
       } catch (e) { console.warn("salas:", e); }
+    }
+
+    // Releitura única, usada pelo tique e pela volta à aba.
+    // A trava de reentrância impede que uma resposta ANTIGA com erro chegue
+    // depois de uma nova bem-sucedida e desligue o aviso com base em leitura já
+    // superada. Mas ela CADUCA: uma requisição que nunca liquida (celular que
+    // segura o socket aberto) travaria as duas rotas de atualização, e a tela
+    // ficaria congelada sem sequer avisar que está desatualizada.
+    var LIMITE_EM_VOO_MS = 120000;
+    function reler() {
+      if (EM_VOO && Date.now() - EM_VOO_DESDE < LIMITE_EM_VOO_MS) return;
+      EM_VOO = true; EM_VOO_DESDE = Date.now();
+      // `avisarFimProximo` no finally: se a leitura falhar, o banner ainda é
+      // reavaliado contra o relógio atual e ganha a ressalva de atraso.
+      Promise.resolve(carregarReservas())
+        .catch(function (e) { console.warn("releitura:", e); })
+        .finally(function () { EM_VOO = false; avisarFimProximo(); });
+    }
+
+    // Janela retroativa e horário de funcionamento vêm do banco — mesma fonte que
+    // a tela de reserva usa. Falhar aqui mantém os defaults e, no pior caso, o
+    // "Estender" leva a uma grade que recusa: nunca vende nada indevido, porque
+    // a trava real é a da RPC.
+    async function carregarConfig() {
+      try {
+        var c = await DB.client.from("config").select("chave,valor")
+          .in("chave", ["reserva_retroativa_max_min", "horario_funcionamento"]);
+        (c.data || []).forEach(function (x) {
+          if (x.chave === "reserva_retroativa_max_min") RETRO_MIN = Number(x.valor) || 0;
+          // `|| HORARIO`: linha presente com valor nulo não pode zerar o
+          // fallback — sem ele, `if (HORARIO)` sumiria e a tela voltaria a
+          // oferecer hora com a casa fechada.
+          if (x.chave === "horario_funcionamento") HORARIO = x.valor || HORARIO;
+        });
+      } catch (e) { console.warn("config:", e); }
+    }
+
+    // A hora seguinte só é oferecível se (a) a casa ainda estiver aberta nela e
+    // (b) a pessoa já não tiver reservado esse mesmo horário. Sem isso o app
+    // convida a comprar 23h numa casa que fecha às 23h, e oferece "estender"
+    // uma hora que ela já comprou — em outra sala, ainda por cima.
+    function proximaHoraOferecivel(x) {
+      var fim = new Date(x.fim);
+      var fimProx = new Date(fim.getTime() + 60 * 60000);
+      if (HORARIO) {
+        var j = HORARIO[String(fim.getDay())];
+        if (!j || !j.abre || !j.fecha) return false;
+        var f = j.fecha.split(":");
+        var fecha = new Date(fim.getFullYear(), fim.getMonth(), fim.getDate(), +f[0], +f[1] || 0, 0, 0);
+        if (fimProx > fecha) return false;
+        var a = j.abre.split(":");
+        var abre = new Date(fim.getFullYear(), fim.getMonth(), fim.getDate(), +a[0], +a[1] || 0, 0, 0);
+        if (fim < abre) return false;
+      }
+      // já existe reserva viva dela cobrindo a hora seguinte (em qualquer sala)?
+      var jaTem = Object.keys(RESERVAS).some(function (k) {
+        var y = RESERVAS[k];
+        if (["pendente", "pendente_pagamento", "confirmada"].indexOf(y.status) === -1) return false;
+        return new Date(y.inicio) < fimProx && new Date(y.fim) > fim;
+      });
+      return !jaTem;
     }
 
     async function carregarSaldo() {
@@ -157,18 +276,38 @@
       var r = await DB.client.from("reservas")
         .select("id,inicio,fim,status,valor,sala_id,criado_em,salas(nome)")
         .order("inicio", { ascending: false }).limit(100);
-      if (r.error) { erro("Não foi possível carregar suas reservas: " + r.error.message); return; }
+      // Falhou: para de repintar. O que está na tela fica como está (não some
+      // nada), mas nada é reafirmado com dado que pode estar morto no servidor.
+      if (r.error) { CARREGOU = false; erro("Não foi possível carregar suas reservas: " + r.error.message); return; }
+      RESERVAS = {};
+      (r.data||[]).forEach(function (x) { RESERVAS[x.id] = x; });
+      CARREGOU = true;
+      limparErro();
+      redistribuir();
+    }
+
+    // Separa futuras de passadas e redesenha, usando só o que já está em
+    // RESERVAS. Fica separado de carregarReservas() porque o que decide a
+    // divisão é o RELÓGIO, não os dados: sem redesenhar de tempos em tempos, a
+    // aba aberta às 18h continuaria mostrando o estado das 18h para sempre — e o
+    // "Estender +1h" apareceria (ou sumiria) na hora errada.
+    function redistribuir() {
+      // Consulta que falhou não vira "você não tem reservas": quem chama esta
+      // função hoje já só o faz depois de um carregamento bom, então esta linha
+      // é rede de segurança para futuros chamadores — não é a proteção ativa.
+      // A proteção ativa é o `return` no erro de carregarReservas().
+      if (!CARREGOU) return;
       var agora = new Date();
       var futuras = [], passadas = [];
-      RESERVAS = {};
-      (r.data||[]).forEach(function (x) {
-        RESERVAS[x.id] = x;
+      Object.keys(RESERVAS).forEach(function (k) {
+        var x = RESERVAS[k];
         // esconde canceladas/expiradas antigas pra não poluir
         if ((x.status==="cancelada"||x.status==="expirada") && new Date(x.fim) < agora) return;
         if (new Date(x.fim) >= agora && ["pendente","pendente_pagamento","confirmada"].indexOf(x.status)!==-1) futuras.push(x);
         else passadas.push(x);
       });
       futuras.sort(function(a,b){ return new Date(a.inicio)-new Date(b.inicio); });
+      passadas.sort(function(a,b){ return new Date(b.inicio)-new Date(a.inicio); });
       render("futuras", futuras, false);
       render("passadas", passadas, true);
     }
@@ -190,13 +329,26 @@
         // Trocar de sala vale nas mesmas reservas em que dá para cancelar —
         // desde que exista outro consultório para onde levar.
         var podeTrocar = podeCancelar && SALAS.length > 1;
+        // ESTENDER: vale na reserva confirmada que está EM CURSO ou que termina
+        // logo. É o atalho de quem passou do horário com paciente na cadeira —
+        // em vez de procurar o bloco na grade, já cai na tela certa. O botão só
+        // leva para a reserva normal; quem cobra continua sendo o fluxo de
+        // sempre. (Ver o caso da hora das 19h de 31/08 e a migration 0030.)
+        var _ag = new Date();
+        // Vale na reserva em curso E na que acabou de terminar dentro da janela
+        // retroativa: às 19h09, a reserva que foi até 19h ainda permite comprar
+        // a hora das 19h. Era exatamente esse minuto que ficava descoberto.
+        var podeEstender = x.status === "confirmada" && ini <= _ag &&
+          fim > new Date(_ag.getTime() - RETRO_MIN * 60000) &&
+          proximaHoraOferecivel(x);
         el.innerHTML =
           '<div><div class="dia">'+dataLonga(ini)+'</div>'+
           '<div class="sala">'+esc(sala)+'</div>'+
           '<div class="hora">'+hhmm(ini)+' – '+hhmm(fim)+'</div></div>'+
           '<div class="dir">'+selo(x.status)+
           '<span class="dur">'+fmtHoras(horas)+'</span>'+
-          ((podeTrocar||podeCancelar)?'<div class="acoes">'+
+          ((podeTrocar||podeCancelar||podeEstender)?'<div class="acoes">'+
+            (podeEstender?'<button class="btn-estender" data-id="'+x.id+'" title="Reservar a próxima hora nesta mesma sala">Estender +1h</button>':'')+
             (podeTrocar?'<button class="btn-trocar" data-id="'+x.id+'" title="Mesmo dia, mesmo horário, sem custo">Trocar de sala</button>':'')+
             (podeCancelar?'<button class="btn-cancel" data-id="'+x.id+'">Cancelar</button>':'')+
           '</div>':'')+
@@ -209,6 +361,85 @@
       Array.prototype.forEach.call(box.querySelectorAll(".btn-trocar"), function (b) {
         b.addEventListener("click", function(){ trocarSala(b.dataset.id); });
       });
+      Array.prototype.forEach.call(box.querySelectorAll(".btn-estender"), function (b) {
+        b.addEventListener("click", function(){ estender(b.dataset.id); });
+      });
+    }
+
+    // Abre a tela de reserva já na sala/dia certos e com a hora seguinte
+    // pré-selecionada. Não cria nem cobra nada aqui: quem faz isso continua
+    // sendo o fluxo normal de reserva, com o mesmo pagamento de sempre.
+    function estender(id) {
+      var x = RESERVAS[id]; if (!x) return;
+      var fim = new Date(x.fim);
+      // A grade só tem blocos de hora cheia. Uma reserva que termina 19:30
+      // (lançamento manual da gestão — a duração mínima é 60 min, não um
+      // múltiplo obrigatório) mandaria a pessoa para um horário que nunca
+      // existiu na grade, com o aviso enganoso de "não está mais livre".
+      // Arredonda para a hora cheia seguinte, que é o que ela pode comprar.
+      var alvo = new Date(fim);
+      if (alvo.getMinutes() || alvo.getSeconds()) {
+        alvo.setMinutes(0, 0, 0);
+        alvo.setHours(alvo.getHours() + 1);
+      }
+      var data = alvo.getFullYear() + "-" + String(alvo.getMonth()+1).padStart(2,"0") +
+                 "-" + String(alvo.getDate()).padStart(2,"0");
+      location.href = "reservar.html?sala=" + encodeURIComponent(x.sala_id) +
+        "&data=" + data + "&inicio=" + hhmm(alvo);
+    }
+
+    // Banner do topo: aparece quando uma reserva CONFIRMADA está terminando.
+    // É o aviso que faltava — hoje a pessoa só descobre que a hora virou
+    // quando já virou. Só funciona com o app aberto; alerta com o app fechado
+    // depende de push, que é outro trabalho.
+    function avisarFimProximo() {
+      var el = document.getElementById("aviso-fim");
+      if (!el) return;
+      // Rede piscou? O aviso CONTINUA, com o último estado bom e uma ressalva.
+      // Sumir seria o pior dos dois erros: um aviso a mais leva a reservar.html,
+      // que refaz a checagem sozinha; um aviso a menos é a sala usada sem
+      // reserva — exatamente o que este recurso existe para evitar. E some-se
+      // que a lista ao lado segue sendo desenhada com esse mesmo dado.
+      var agora = new Date(), achou = null;
+      Object.keys(RESERVAS).forEach(function (k) {
+        var x = RESERVAS[k];
+        if (x.status !== "confirmada") return;
+        var fim = new Date(x.fim), ini = new Date(x.inicio);
+        if (ini > agora) return;
+        // Duas situações merecem o aviso: está para acabar, ou acabou de acabar
+        // e ainda dá para comprar a hora em curso (janela da migration 0030).
+        var acabando = fim > agora && fim - agora <= ALERTA_FIM_MIN * 60000;
+        var recemVirou = fim <= agora && fim > new Date(agora.getTime() - RETRO_MIN * 60000);
+        // Não avisar sobre uma hora que ela já comprou (mesmo em outra sala) nem
+        // sobre hora em que a casa está fechada.
+        if ((acabando || recemVirou) && proximaHoraOferecivel(x)) {
+          // Entre candidatas, a que termina MAIS TARDE é a relevante: é a sala
+          // onde ela ainda está. A que terminou primeiro já ficou para trás.
+          if (!achou || fim > new Date(achou.fim)) achou = x;
+        }
+      });
+      if (!achou) { el.style.display = "none"; return; }
+      var fim = new Date(achou.fim);
+      var texto;
+      if (fim > agora) {
+        var faltam = Math.max(1, Math.round((fim - agora) / 60000));
+        texto = '<strong>Sua hora termina às ' + hhmm(fim) + '</strong> — faltam ' + faltam +
+          ' min. Se o atendimento passar disso, estenda antes de a hora virar. ';
+      } else {
+        // Este é o caso da Dra. Thaís em 31/08: a hora virou e ela seguiu
+        // atendendo. Dizer que ainda dá tempo é o ponto todo do aviso.
+        texto = '<strong>Sua hora terminou às ' + hhmm(fim) + '</strong> e você ainda pode ' +
+          'reservar a hora em andamento — se continuar atendendo, garanta ela agora. ';
+      }
+      el.innerHTML = texto +
+        '<button class="btn-estender" data-id="' + achou.id + '">Estender +1h</button>' +
+        // Sem quantificar: com a aba escondida por horas, "alguns minutos"
+        // seria mentira.
+        (CARREGOU ? "" : '<div class="muted" style="margin-top:8px;font-size:.85rem">' +
+          'Não consegui atualizar agora — esta informação pode estar desatualizada.</div>');
+      el.style.display = "block";
+      var b = el.querySelector(".btn-estender");
+      if (b) b.addEventListener("click", function () { estender(b.dataset.id); });
     }
 
     // ======================================================================
@@ -405,6 +636,11 @@
     }
 
     function erro(m){ var e=document.getElementById("erro"); e.textContent=m; e.style.display="block"; }
+    // Some com o erro quando uma leitura volta a dar certo. Antes a tela lia o
+    // banco 1 a 3 vezes por sessão e um erro preso era raro; relendo de minuto
+    // em minuto, qualquer blip de rede deixaria "não foi possível carregar"
+    // pregado no topo o dia inteiro, por cima de uma lista perfeitamente fresca.
+    function limparErro(){ document.getElementById("erro").style.display = "none"; }
 
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", iniciar); else iniciar();
   })();
