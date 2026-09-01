@@ -12,6 +12,14 @@
   <script src="../../assets/js/brand.js" defer></script>
   <style>
     .slot.meu-slot { background: #dbeafe !important; color: #14375e !important; }
+    /* hora que já começou e ainda pode ser reservada — precisa saltar aos olhos,
+       porque é justamente a que a pessoa procura quando o atendimento passou
+       do horário e ela está com o paciente na cadeira. */
+    .slot.em-curso { background: #fff4d6 !important; color: #7a5b00 !important; border-color: #e8cf8a !important; font-weight: 600; }
+    /* Selecionado vence o âmbar: sem isto o !important acima ganharia do .sel do
+       base.css e a hora em curso seria o único slot que não acende ao ser
+       escolhido — justo o que a pessoa está tentando marcar. */
+    .slot.em-curso.sel { background: var(--azul) !important; color: #fff !important; border-color: var(--azul) !important; }
 
     /* topo do formulário: campos de largura igual, sem estourar por texto longo do select */
     #form-reserva .row { align-items: flex-end; }
@@ -84,6 +92,7 @@
             <span><i style="background:#fff"></i>livre</span>
             <span><i style="background:#f0f2f5"></i>ocupado</span>
             <span><i style="background:#dbeafe"></i>sua reserva</span>
+            <span><i style="background:#fff4d6"></i>agora (dá pra reservar)</span>
             <span><i style="background:#eef2f6"></i>higienização</span>
             <span><i style="background:#fbe4e4"></i>bloqueado</span>
           </div>
@@ -208,6 +217,9 @@
     // alinhado à cobrança por hora e à duração mínima de 1h. Clicar seleciona a hora
     // inteira; clicar na hora seguinte estende +1h. Evita a confusão dos meios-blocos.
     var CFG = { duracaoMinimaMin: 60, bufferMin: 30, passoSlotMin: 60 };
+    // Minutos que se pode voltar para reservar a hora EM CURSO. 0 = comportamento
+    // antigo (só futuro). Vem de config.reserva_retroativa_max_min; ver 0030.
+    var RETRO_MIN = 60;
 
     var elSala = document.getElementById("sala");
     var elData = document.getElementById("data");
@@ -281,8 +293,11 @@
       var m = PRODUTOS_MAP[PRODUTO_ATUAL ? PRODUTO_ATUAL.tipo : "hora"];
       return m ? m.id : null;
     }
+    // DEVOLVE a promise: renderTimeline/renderFixo são async (leem a ocupação do
+    // dia no banco). Sem o return, `await reRender()` resolvia na hora e quem
+    // esperasse pela grade pronta enxergava LIVRES ainda vazio.
     function reRender() {
-      if (PRODUTO_ATUAL && PRODUTO_ATUAL.modo === "fixo") renderFixo(); else renderTimeline();
+      return (PRODUTO_ATUAL && PRODUTO_ATUAL.modo === "fixo") ? renderFixo() : renderTimeline();
     }
     elProduto.addEventListener("change", function () {
       PRODUTO_ATUAL = OPCOES[+elProduto.value] || null;
@@ -306,7 +321,12 @@
       var dia = ini.getDay();
       document.getElementById("resumo").style.display = "none";
       if (o.fds && dia !== 0 && dia !== 6) { sel = { inicio:null, fim:null }; erroEl.textContent = "Fim de semana só aos sábados e domingos."; erroEl.style.display = "block"; return; }
-      if (ini < new Date()) { sel = { inicio:null, fim:null }; erroEl.textContent = "Esse período já passou. Escolha outra data."; erroEl.style.display = "block"; return; }
+      // Mesma regra da RPC (migration 0030): período encerrado não é vendável,
+      // mas um período que JÁ COMEÇOU e ainda está correndo pode ser comprado —
+      // é o caso de quem só percebe que precisa da sala depois da hora virar.
+      var _agora = new Date();
+      if (fim <= _agora) { sel = { inicio:null, fim:null }; erroEl.textContent = "Esse período já terminou. Escolha outra data."; erroEl.style.display = "block"; return; }
+      if (ini < new Date(_agora.getTime() - RETRO_MIN * 60000)) { sel = { inicio:null, fim:null }; erroEl.textContent = "Esse período já passou. Escolha outra data."; erroEl.style.display = "block"; return; }
       if (!APROVADO) { erroEl.textContent = "Seu cadastro precisa estar aprovado para reservar."; erroEl.style.display = "block"; return; }
       var oc = await ocupacaoDoDia(elSala.value, dataISO); window.__oc = oc;
       var v = M.podeReservar(oc.reservas, oc.bloqueios, HORARIO, { inicio: ini, fim: fim, profissionalId: MEU_ID }, CFG);
@@ -413,6 +433,10 @@
         if (c.chave === "buffer_min") CFG.bufferMin = Number(c.valor) || 30;
         if (c.chave === "duracao_minima_min") CFG.duracaoMinimaMin = Number(c.valor) || 60;
         if (c.chave === "reserva_pagamento_timeout_min") TIMEOUT_MIN = Number(c.valor) || 15;
+        // quanto se pode voltar no tempo para comprar a hora que já começou
+        // (migration 0030). A trava que vale é a da RPC; aqui é para a tela
+        // não oferecer o que o banco vai recusar.
+        if (c.chave === "reserva_retroativa_max_min") RETRO_MIN = Number(c.valor) || 0;
       });
       // mapa de TODOS os produtos ativos, por tipo (hora, periodo, diaria, etc.)
       (r[2].data || []).forEach(function (p) { PRODUTOS_MAP[p.tipo] = { id: p.id, valor: Number(p.valor), nome: p.nome }; });
@@ -485,11 +509,19 @@
 
       var agora = new Date();
       AGORA = agora;
-      // slots livres e ainda no futuro — base para montar o bloco de 1h
-      LIVRES = slots.filter(function (s) { return s.status === "livre" && s.inicio >= agora; });
+      // Limite de quanto se pode voltar: a hora em curso continua vendável, mas
+      // não se compra um bloco que começou muito antes (ver migration 0030).
+      var limiteRetro = new Date(agora.getTime() - RETRO_MIN * 60000);
+      // Slots livres que ainda dão para usar. O critério é o FIM, não o início:
+      // às 19h09 a hora das 19h ainda está correndo e pode ser comprada. Era
+      // esse o buraco de 31/08 — a hora virava e o app só oferecia a seguinte.
+      LIVRES = slots.filter(function (s) {
+        return s.status === "livre" && s.fim > agora && s.inicio >= limiteRetro;
+      });
       slots.forEach(function (s) {
         var div = document.createElement("div");
-        var passado = s.inicio < agora;
+        var passado = s.fim <= agora || s.inicio < limiteRetro;
+        var emCurso = !passado && s.inicio <= agora;
         div.className = "slot " + s.status + (passado ? " ocupado" : "");
         div.dataset.ini = s.inicio.toISOString();
         div.dataset.fim = s.fim.toISOString();
@@ -501,9 +533,15 @@
           return rr.profissionalId === MEU_ID && s.inicio < rr.fim && s.fim > rr.inicio;
         });
         if (meu) div.classList.add("meu-slot");
-        var rotulo = passado ? "passou" : (meu ? "sua reserva" : s.status);
+        var rotulo = passado
+          ? "passou"
+          : (meu ? "sua reserva" : (emCurso && s.status === "livre" ? "agora" : s.status));
+        if (emCurso && s.status === "livre") div.classList.add("em-curso");
         div.innerHTML = hhmm(s.inicio) + "–" + hhmm(s.fim) + "<small>" + rotulo + "</small>";
         if (meu) div.title = "Reserva sua. Se ainda não pagou, ela cai sozinha quando o prazo terminar.";
+        if (emCurso && s.status === "livre") {
+          div.title = "Esta hora já começou e ainda dá para reservar. Você paga a hora cheia.";
+        }
         if (s.status === "livre" && !passado && APROVADO) div.addEventListener("click", function () { escolher(s); });
         tl.appendChild(div);
       });
@@ -806,6 +844,44 @@
         return;
       }
 
+      // A grade foi montada com o relógio de UM instante e a aba pode ter ficado
+      // aberta. Com a hora em curso à venda (0030), um bloco que era válido às
+      // 19h55 já terminou às 20h01 — e a RPC devolveria um erro seco bem na hora
+      // em que a pessoa está com o paciente na cadeira. Revalidar aqui e
+      // remontar a grade dá uma saída, em vez de um beco.
+      var _now = new Date();
+      var _venceu = sel.fim <= _now;                                   // já terminou
+      var _velhoDemais = sel.inicio < new Date(_now.getTime() - RETRO_MIN * 60000); // fora da janela
+      if (_venceu || _velhoDemais) {
+        sel = { inicio: null, fim: null };
+        await reRender();
+        // A mensagem vai DEPOIS do render, nunca antes: renderTimeline() chama
+        // resetarPagamento() e esconde o #resumo — e o #r-erro mora dentro dele.
+        // Escrever antes é escrever para ninguém: a tela apagaria o aviso e a
+        // pessoa veria o card sumir sem explicação ao clicar em Confirmar.
+        // No modo fixo não existe grade na tela (o bloco de horários fica
+        // escondido), então mandar "escolha na grade" seria mandar para lugar
+        // nenhum. E com a chave zerada não há "mais de 0 min" que faça sentido.
+        var _ondeEscolher = (PRODUTO_ATUAL && PRODUTO_ATUAL.modo === "fixo")
+          ? " Escolha outra data ou outro período."
+          : " Atualizei a grade — escolha o horário atual.";
+        // "período" no modo fixo, "horário" no modo hora — mesma palavra que o
+        // resto da tela usa em cada modo.
+        var _oQue = (PRODUTO_ATUAL && PRODUTO_ATUAL.modo === "fixo") ? "período" : "horário";
+        var msg = _venceu
+          ? "Esse " + _oQue + " terminou enquanto a página estava aberta." + _ondeEscolher
+          : (RETRO_MIN > 0
+              ? "Esse " + _oQue + " começou há mais de " + RETRO_MIN + " min e não pode mais ser reservado." + _ondeEscolher
+              : "Esse " + _oQue + " já começou e não pode mais ser reservado." + _ondeEscolher);
+        if (PRODUTO_ATUAL && PRODUTO_ATUAL.modo === "fixo") {
+          var eFixo = document.getElementById("fixo-erro");
+          eFixo.textContent = msg; eFixo.style.display = "block";
+        } else {
+          avisoSlot(msg);
+        }
+        return;
+      }
+
       // 1) cria a reserva como pendente (as RPCs seguram o slot)
       btn.disabled = true; btn.textContent = "Criando reserva…";
       var rc = await DB.client.rpc("criar_reserva", {
@@ -897,8 +973,34 @@
       SALAS.forEach(function (s) { var o = document.createElement("option"); o.value = s.id; o.textContent = s.nome; elSala.appendChild(o); });
       montarSeletorProduto();
       elData.value = hojeISO(); elData.min = hojeISO();
+
+      // ATALHO "Estender" (vindo de minhas-reservas.html): a tela abre já na
+      // sala e no dia certos, com a hora seguinte à reserva que está acabando.
+      // Quem está com paciente na cadeira não deveria ter que procurar horário
+      // na grade — foi o que custou a hora das 19h de 31/08.
+      // Só pré-seleciona: o pagamento segue exatamente o mesmo caminho de
+      // sempre, sem atalho nenhum no dinheiro.
+      var q = new URLSearchParams(location.search);
+      var qSala = q.get("sala"), qData = q.get("data"), qIni = q.get("inicio");
+      if (qSala && SALAS.some(function (s) { return s.id === qSala; })) elSala.value = qSala;
+      if (qData && /^\d{4}-\d{2}-\d{2}$/.test(qData) && qData >= hojeISO()) elData.value = qData;
+
       app.hidden = false;
       await reRender();
+
+      // A pré-seleção do horário roda DEPOIS do primeiro render, porque
+      // depende dos slots já montados na tela.
+      if (qIni && /^\d{2}:\d{2}$/.test(qIni)) {
+        var alvo = at(elData.value, qIni).getTime();
+        var slot = LIVRES.filter(function (s) { return s.inicio.getTime() === alvo; })[0];
+        if (slot) {
+          escolher(slot);
+          var elSlot = document.querySelector('.slot[data-ini="' + new Date(alvo).toISOString() + '"]');
+          if (elSlot && elSlot.scrollIntoView) elSlot.scrollIntoView({ block: "center" });
+        } else {
+          avisoSlot("O horário que você veio estender não está mais livre. Escolha outro na grade.");
+        }
+      }
     })();
   })();
   </script>
