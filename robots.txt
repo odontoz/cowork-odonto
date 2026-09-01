@@ -1,0 +1,12 @@
+# ClinicShare — coworking odontológico em Águas Claras, Brasília-DF
+User-agent: *
+Allow: /
+
+# A landing de anúncio é noindex de propósito (conteúdo duplicado da home,
+# existe só para receber o clique pago). Não gastar rastreio com ela.
+Disallow: /public/visita.html
+
+# Área logada do profissional: nada aqui é conteúdo público.
+Disallow: /public/app/
+
+Sitemap: https://clinicshare.net.br/sitemap.xml
