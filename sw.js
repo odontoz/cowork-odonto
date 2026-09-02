@@ -21,7 +21,11 @@
 // que é do profissional — a casa NÃO fornece. E saiu a frase que prometia mostrar licenças e
 // certificações na visita: o alvará da vigilância ainda não saiu, então isso era promessa que
 // a visita não entrega.
-var CACHE = "enjoy-v45";
+// v46 (02/09): saiu do site TODA declaração de situação regulatória — o card "Vigilância
+// sanitária", "estrutura em conformidade", "regularização já resolvidas", "conforme as normas
+// vigentes". Ordem do dono: nada declarado sobre vigilância/alvará em lugar nenhum enquanto
+// o alvará não sair. A seção de biossegurança agora se sustenta só no físico.
+var CACHE = "enjoy-v46";
 // BASE = diretório do sw.js (termina em "/"). new Request() abaixo resolve os
 // relativos contra a URL do sw, mas guardamos a base p/ a fallback de navegação.
 var BASE = self.location.href.replace(/sw\.js.*$/, "");
