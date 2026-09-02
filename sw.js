@@ -17,7 +17,11 @@
 // v44 (02/09): saíram da home as promessas que não existem hoje — check-in digital
 // (3 lugares) e o raio-X sem a ressalva do sensor/insumos. Com anúncio pago rodando,
 // promessa que a visita desmente vira reclamação, não venda.
-var CACHE = "enjoy-v44";
+// v45 (02/09): raio-X com o nome do aparelho (Saevo de parede) e o posicionador na lista do
+// que é do profissional — a casa NÃO fornece. E saiu a frase que prometia mostrar licenças e
+// certificações na visita: o alvará da vigilância ainda não saiu, então isso era promessa que
+// a visita não entrega.
+var CACHE = "enjoy-v45";
 // BASE = diretório do sw.js (termina em "/"). new Request() abaixo resolve os
 // relativos contra a URL do sw, mas guardamos a base p/ a fallback de navegação.
 var BASE = self.location.href.replace(/sw\.js.*$/, "");
