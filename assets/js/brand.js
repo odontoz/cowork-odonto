@@ -47,6 +47,11 @@
     // Contato — telefone oficial (06/07); e-mail/instagram a criar no domínio novo
     telefone:  "5561982565189",   // (61) 98256-5189 — oficial ClinicShare (23/08/2026)
     whatsapp:  "5561982565189",   // celular oficial = WhatsApp da ClinicShare
+    // Rótulo da conversão "Clique no WhatsApp" (ação 7742820941, conta 721-356-1772).
+    // Fica aqui e não solto no HTML pelo mesmo motivo do telefone: é UM lugar só.
+    // Trocar a ação no Google Ads = trocar esta linha, e o site inteiro acompanha.
+    convWhatsapp: "AW-18411824511/R3VhCM2kiOwcEP_KuMtE",
+
     email:     "contato@clinicshare.net.br",       // caixa ATIVA via ImprovMX → Gmail (22/07)
     instagram: "clinicshareoficial",            // handle oficial (definido 17/07)
 
@@ -258,4 +263,39 @@
     if (/definir-senha\.html/.test(location.pathname)) return;   // ja esta no lugar certo
     location.replace(location.origin + "/public/app/definir-senha.html" + (h || "#erro=link"));
   } catch (e) { /* nunca quebrar a pagina por causa disto */ }
+})();
+
+/* ---------------------------------------------------------------------------
+ * Conversão "Clique no WhatsApp" (02/09/2026)
+ *
+ * POR QUE AQUI E NÃO NO HTML: todo caminho para o WhatsApp neste site passa pelo
+ * brand.js — os links `data-brand-href="whatsapp"` e o botão flutuante que ele
+ * mesmo injeta. Marcar link por link no HTML deixaria o botão flutuante de fora
+ * (ele nasce em JS, depois do HTML) e quebraria de novo na próxima página nova.
+ * Um ouvinte só, delegado no documento, cobre o que existe hoje e o que vier.
+ *
+ * NÃO ATRAPALHA O CLIQUE: só avisa o Google e deixa o link seguir. Sem
+ * preventDefault, sem event_callback segurando a navegação — os links abrem em
+ * aba nova, então não há corrida entre o disparo e a saída da página.
+ *
+ * SILENCIOSO ONDE NÃO HÁ TAG: as telas de /public/app não carregam gtag, e ali
+ * isto simplesmente não faz nada.
+ * ------------------------------------------------------------------------- */
+(function () {
+  var ULTIMO = 0;
+  document.addEventListener("click", function (ev) {
+    try {
+      var a = ev.target && ev.target.closest && ev.target.closest("a[href]");
+      if (!a) return;
+      if (!/(?:wa\.me|api\.whatsapp\.com|web\.whatsapp\.com)/i.test(a.getAttribute("href") || "")) return;
+      if (typeof window.gtag !== "function") return;          // página sem a tag
+      var rotulo = (window.BRAND && window.BRAND.convWhatsapp) || "";
+      if (!rotulo) return;
+      // duplo clique no mesmo botão não vale duas conversões
+      var agora = Date.now();
+      if (agora - ULTIMO < 2000) return;
+      ULTIMO = agora;
+      window.gtag("event", "conversion", { send_to: rotulo });
+    } catch (e) { /* medição nunca pode derrubar o clique */ }
+  }, true);
 })();
