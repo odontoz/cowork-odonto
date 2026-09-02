@@ -53,7 +53,14 @@
     convWhatsapp: "AW-18411824511/R3VhCM2kiOwcEP_KuMtE",
 
     email:     "contato@clinicshare.net.br",       // caixa ATIVA via ImprovMX → Gmail (22/07)
-    instagram: "clinicshareoficial",            // handle oficial (definido 17/07)
+    // 02/09/2026 — TROCADO de "clinicshareoficial" para "clinicsharebr".
+    // O @clinicshareoficial NÃO é nosso: "Sobre esta conta" mostra entrada em AGOSTO/2026,
+    // depois de o site subir (16/07) e do depósito no INPI. Perfil zerado, 0 posts, só
+    // segurando o nome — mesmo padrão do @clinicshare.br (junho/26, um mês depois de a
+    // Caroline Iwata registrar clinicshare.com.br). Enquanto isso ficou aqui, o rodapé
+    // mandava visita PAGA do Google para o perfil de terceiro. A retomada do nome vai por
+    // denúncia de marca no Instagram (o depósito no INPI já existe) — isso é outra frente.
+    instagram: "clinicsharebr",
 
     // Registro — placeholder até abrir/definir o CNPJ da Enjoy
     cnpj: "",   // vazio ate definir o CNPJ; rodape nao exibe mais (removido do HTML)
