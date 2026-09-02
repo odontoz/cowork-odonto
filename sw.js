@@ -25,7 +25,10 @@
 // sanitária", "estrutura em conformidade", "regularização já resolvidas", "conforme as normas
 // vigentes". Ordem do dono: nada declarado sobre vigilância/alvará em lugar nenhum enquanto
 // o alvará não sair. A seção de biossegurança agora se sustenta só no físico.
-var CACHE = "enjoy-v46";
+// v47 (02/09): régua ajustada pelo dono. Volta a linguagem geral ("em conformidade",
+// "regularização", PGRSS) — é descrição de estrutura. Fica FORA só o que DECLARA situação
+// sanitária: o card "Vigilância sanitária" e a promessa de mostrar licenças na visita.
+var CACHE = "enjoy-v47";
 // BASE = diretório do sw.js (termina em "/"). new Request() abaixo resolve os
 // relativos contra a URL do sw, mas guardamos a base p/ a fallback de navegação.
 var BASE = self.location.href.replace(/sw\.js.*$/, "");
