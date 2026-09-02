@@ -25,6 +25,23 @@
     gtag('js', new Date());
     gtag('config', 'AW-18411824511');
   </script>
+
+  <!-- Meta Pixel — ClinicShare, dataset 1059808447015750 (instalado 02/09/2026).
+       Fica ao lado da tag do Google de propósito: as duas medem o mesmo site e a régua de
+       verdade é o CRM, não o número que cada plataforma mostra de si mesma.
+       O evento Lead é disparado no envio do formulário (ver o bloco do formulário mais abaixo);
+       essa linha já existia escrita e nunca disparava, porque fbq não era definido. -->
+  <script>
+    !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+    n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+    t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,
+    document,'script','https://connect.facebook.net/en_US/fbevents.js');
+    fbq('init', '1059808447015750');
+    fbq('track', 'PageView');
+  </script>
+  <noscript><img height="1" width="1" style="display:none"
+    src="https://www.facebook.com/tr?id=1059808447015750&ev=PageView&noscript=1" alt=""></noscript>
 </head>
 <body>
   <header class="topbar">
