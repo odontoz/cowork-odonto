@@ -198,12 +198,44 @@
     });
   }
 
+  /* Conversão "Clique no WhatsApp" (02/09/2026).
+   *
+   * MORA AQUI DENTRO de propósito: `BRAND` é privado do IIFE (não vai para o
+   * window), então um bloco solto no fim do arquivo leria `undefined` e ficaria
+   * calado — foi o que aconteceu na 1ª tentativa, e só apareceu no teste em tela.
+   *
+   * Um ouvinte só, delegado no documento, cobre TODO caminho para o WhatsApp:
+   * os links `data-brand-href="whatsapp"` e o botão flutuante que este mesmo
+   * arquivo injeta depois do HTML — que marcação link a link deixaria de fora.
+   *
+   * NÃO ATRAPALHA O CLIQUE: avisa o Google e deixa o link seguir. Sem
+   * preventDefault e sem event_callback segurando a navegação; os links abrem em
+   * aba nova, então não há corrida entre o disparo e a saída da página.
+   * Onde não há tag (as telas de /public/app), simplesmente não faz nada. */
+  function medirWhatsapp() {
+    if (!BRAND.convWhatsapp) return;
+    var ultimo = 0;
+    document.addEventListener("click", function (ev) {
+      try {
+        var a = ev.target && ev.target.closest && ev.target.closest("a[href]");
+        if (!a) return;
+        if (!/(?:wa\.me|api\.whatsapp\.com|web\.whatsapp\.com)/i.test(a.getAttribute("href") || "")) return;
+        if (typeof raiz.gtag !== "function") return;      // página sem a tag do Google
+        var agora = Date.now();
+        if (agora - ultimo < 2000) return;                // duplo clique não vale duas conversões
+        ultimo = agora;
+        raiz.gtag("event", "conversion", { send_to: BRAND.convWhatsapp });
+      } catch (e) { /* medição nunca pode derrubar o clique */ }
+    }, true);
+  }
+
   function init() {
     aplicarCores();
     preencherTextos();
     preencherLinks();
     injetarLogo();
     injetarWpp();
+    medirWhatsapp();
   }
 
   if (document.readyState === "loading") {
@@ -263,39 +295,4 @@
     if (/definir-senha\.html/.test(location.pathname)) return;   // ja esta no lugar certo
     location.replace(location.origin + "/public/app/definir-senha.html" + (h || "#erro=link"));
   } catch (e) { /* nunca quebrar a pagina por causa disto */ }
-})();
-
-/* ---------------------------------------------------------------------------
- * Conversão "Clique no WhatsApp" (02/09/2026)
- *
- * POR QUE AQUI E NÃO NO HTML: todo caminho para o WhatsApp neste site passa pelo
- * brand.js — os links `data-brand-href="whatsapp"` e o botão flutuante que ele
- * mesmo injeta. Marcar link por link no HTML deixaria o botão flutuante de fora
- * (ele nasce em JS, depois do HTML) e quebraria de novo na próxima página nova.
- * Um ouvinte só, delegado no documento, cobre o que existe hoje e o que vier.
- *
- * NÃO ATRAPALHA O CLIQUE: só avisa o Google e deixa o link seguir. Sem
- * preventDefault, sem event_callback segurando a navegação — os links abrem em
- * aba nova, então não há corrida entre o disparo e a saída da página.
- *
- * SILENCIOSO ONDE NÃO HÁ TAG: as telas de /public/app não carregam gtag, e ali
- * isto simplesmente não faz nada.
- * ------------------------------------------------------------------------- */
-(function () {
-  var ULTIMO = 0;
-  document.addEventListener("click", function (ev) {
-    try {
-      var a = ev.target && ev.target.closest && ev.target.closest("a[href]");
-      if (!a) return;
-      if (!/(?:wa\.me|api\.whatsapp\.com|web\.whatsapp\.com)/i.test(a.getAttribute("href") || "")) return;
-      if (typeof window.gtag !== "function") return;          // página sem a tag
-      var rotulo = (window.BRAND && window.BRAND.convWhatsapp) || "";
-      if (!rotulo) return;
-      // duplo clique no mesmo botão não vale duas conversões
-      var agora = Date.now();
-      if (agora - ULTIMO < 2000) return;
-      ULTIMO = agora;
-      window.gtag("event", "conversion", { send_to: rotulo });
-    } catch (e) { /* medição nunca pode derrubar o clique */ }
-  }, true);
 })();
