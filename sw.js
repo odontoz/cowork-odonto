@@ -28,7 +28,9 @@
 // v47 (02/09): régua ajustada pelo dono. Volta a linguagem geral ("em conformidade",
 // "regularização", PGRSS) — é descrição de estrutura. Fica FORA só o que DECLARA situação
 // sanitária: o card "Vigilância sanitária" e a promessa de mostrar licenças na visita.
-var CACHE = "enjoy-v47";
+// v48 (02/09): Meta Pixel 1059808447015750 instalado nas 5 páginas públicas. O evento Lead
+// da visita.html já estava escrito e nunca disparava — agora fbq existe e ele passa a contar.
+var CACHE = "enjoy-v48";
 // BASE = diretório do sw.js (termina em "/"). new Request() abaixo resolve os
 // relativos contra a URL do sw, mas guardamos a base p/ a fallback de navegação.
 var BASE = self.location.href.replace(/sw\.js.*$/, "");
