@@ -14,7 +14,10 @@
 // arquivo velho do cache: conversão não disparava e o rodapé seguia mandando visita PAGA
 // para o perfil de terceiro. Publicar asset e esquecer o bump = mudança que só o visitante
 // novo enxerga.
-var CACHE = "enjoy-v43";  // v43 (02/09): index.html — depoimentos escondidos até haver depoimento real
+// v44 (02/09): saíram da home as promessas que não existem hoje — check-in digital
+// (3 lugares) e o raio-X sem a ressalva do sensor/insumos. Com anúncio pago rodando,
+// promessa que a visita desmente vira reclamação, não venda.
+var CACHE = "enjoy-v44";
 // BASE = diretório do sw.js (termina em "/"). new Request() abaixo resolve os
 // relativos contra a URL do sw, mas guardamos a base p/ a fallback de navegação.
 var BASE = self.location.href.replace(/sw\.js.*$/, "");
