@@ -8,7 +8,13 @@
  * sem editar nada. O registro (assets/js/db.js e public/index.html) também usa
  * caminho relativo, e a fallback offline resolve pela BASE do sw.
  * ==========================================================================*/
-var CACHE = "enjoy-v41";
+// v42 (02/09/2026): o brand.js mudou DUAS vezes hoje — ganhou o disparo da conversão de
+// clique no WhatsApp e trocou o Instagram de @clinicshareoficial (que não é nosso) para
+// @clinicsharebr. Sem este bump, quem já tinha visitado o site continuava recebendo o
+// arquivo velho do cache: conversão não disparava e o rodapé seguia mandando visita PAGA
+// para o perfil de terceiro. Publicar asset e esquecer o bump = mudança que só o visitante
+// novo enxerga.
+var CACHE = "enjoy-v42";
 // BASE = diretório do sw.js (termina em "/"). new Request() abaixo resolve os
 // relativos contra a URL do sw, mas guardamos a base p/ a fallback de navegação.
 var BASE = self.location.href.replace(/sw\.js.*$/, "");
