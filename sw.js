@@ -30,7 +30,12 @@
 // sanitária: o card "Vigilância sanitária" e a promessa de mostrar licenças na visita.
 // v48 (02/09): Meta Pixel 1059808447015750 instalado nas 5 páginas públicas. O evento Lead
 // da visita.html já estava escrito e nunca disparava — agora fbq existe e ele passa a contar.
-var CACHE = "enjoy-v48";
+// v49 (04/09): a LP de HOF respondia "Sim" a "posso fazer procedimentos injetáveis?" e chamava
+// injetável de "não invasiva". Isso fazia a ClinicShare AUTORIZAR o procedimento em vez de alugar
+// a sala — e é essa aparência de prestador que cria responsabilidade compartilhada. A resposta
+// agora diz o que a casa faz (aluga a sala equipada) e devolve a habilitação para o profissional
+// e o conselho dele. Ver docs/planejamento/17-quem-pode-fazer-hof.md.
+var CACHE = "enjoy-v49";
 // BASE = diretório do sw.js (termina em "/"). new Request() abaixo resolve os
 // relativos contra a URL do sw, mas guardamos a base p/ a fallback de navegação.
 var BASE = self.location.href.replace(/sw\.js.*$/, "");
