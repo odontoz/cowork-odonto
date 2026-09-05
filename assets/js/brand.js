@@ -77,9 +77,12 @@
     },
 
     horarios: {
-      semana:  "Seg a Sex · 8h às 22h",
-      sabado:  "Sábado · 8h às 22h",
-      domingo: "Domingo · 8h às 18h"
+      // 05/09/2026: alinhado ao que a AGENDA realmente abre (config.horario_funcionamento
+      // no banco: 08:00–23:00 todos os dias). O site anunciava 22h/18h e escondia uma hora
+      // por dia mais o domingo inteiro.
+      semana:  "Seg a Sex · 8h às 23h",
+      sabado:  "Sábado · 8h às 23h",
+      domingo: "Domingo · 8h às 23h"
     },
 
     // Mensagem padrão do WhatsApp (CTA principal)
