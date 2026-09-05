@@ -35,7 +35,11 @@
 // a sala — e é essa aparência de prestador que cria responsabilidade compartilhada. A resposta
 // agora diz o que a casa faz (aluga a sala equipada) e devolve a habilitação para o profissional
 // e o conselho dele. Ver docs/planejamento/17-quem-pode-fazer-hof.md.
-var CACHE = "enjoy-v49";
+// v50 (05/09): horário alinhado ao que a agenda REALMENTE abre — 08h às 23h todos os dias
+// (config.horario_funcionamento no banco). O site anunciava "Seg a Sáb até 22h, Dom até 18h"
+// e escondia uma hora por dia mais o domingo inteiro. Mexeu no brand.js, no index (texto,
+// FAQ e JSON-LD) e na LP de aluguel por hora.
+var CACHE = "enjoy-v50";
 // BASE = diretório do sw.js (termina em "/"). new Request() abaixo resolve os
 // relativos contra a URL do sw, mas guardamos a base p/ a fallback de navegação.
 var BASE = self.location.href.replace(/sw\.js.*$/, "");
