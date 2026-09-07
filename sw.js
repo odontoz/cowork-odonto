@@ -39,7 +39,12 @@
 // (config.horario_funcionamento no banco). O site anunciava "Seg a Sáb até 22h, Dom até 18h"
 // e escondia uma hora por dia mais o domingo inteiro. Mexeu no brand.js, no index (texto,
 // FAQ e JSON-LD) e na LP de aluguel por hora.
-var CACHE = "enjoy-v50";
+// v51 (07/09): visita.html — é a página que os anúncios do Meta abrem e ela
+// contradizia os próprios anúncios. Saiu "Pronto pra atender · Cadeira, equipo, RX e
+// esterilização no local" (o RX levava a entender que era só chegar e usar; o sensor e os
+// insumos são do profissional — a home já dizia isso e esta página tinha ficado para trás)
+// e "Aberto todo dia" virou "Todo dia, 8h às 23h", que é específico e verificável.
+var CACHE = "enjoy-v51";
 // BASE = diretório do sw.js (termina em "/"). new Request() abaixo resolve os
 // relativos contra a URL do sw, mas guardamos a base p/ a fallback de navegação.
 var BASE = self.location.href.replace(/sw\.js.*$/, "");
