@@ -48,7 +48,14 @@
 // da Meta, além da conversão do Google. É o evento que a campanha do Meta vai otimizar —
 // escolha do dono, e é o mesmo evento de negócio que a OdontoZ já usa.
 // v57 (07/09): meta tag de verificação de domínio da Meta na raiz e na home.
-var CACHE = "enjoy-v57";
+// v58 (07/09/2026): o brand.js passou a mandar a ORIGEM junto do WhatsApp — uma frase
+// dizendo o canal ("Vi o anúncio de vocês no Google") e um código curto ("Ref.: A7K2M9XY")
+// que o banco troca pelas UTMs (tabela cliques_anuncio, migration 0031). E o bloco de
+// atribuição SUBIU no arquivo: com `defer`, o readyState já é "interactive" quando o
+// brand.js roda, então o init() monta os links na hora — antes, o CS_REF ainda não existia
+// e os links saíam sem o código, calados. Sem este bump, quem já visitou o site continua
+// com o brand.js velho e todo clique volta a chegar sem rastro nenhum.
+var CACHE = "enjoy-v58";
 // BASE = diretório do sw.js (termina em "/"). new Request() abaixo resolve os
 // relativos contra a URL do sw, mas guardamos a base p/ a fallback de navegação.
 var BASE = self.location.href.replace(/sw\.js.*$/, "");
