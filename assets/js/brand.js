@@ -230,11 +230,21 @@
         var a = ev.target && ev.target.closest && ev.target.closest("a[href]");
         if (!a) return;
         if (!/(?:wa\.me|api\.whatsapp\.com|web\.whatsapp\.com)/i.test(a.getAttribute("href") || "")) return;
-        if (typeof raiz.gtag !== "function") return;      // página sem a tag do Google
+        // 07/09/2026: o clique no WhatsApp passou a valer para o GOOGLE **e** para a META.
+        // Motivo: é o evento que a campanha do Meta vai otimizar. Lead completo no formulário
+        // acontece 1 a 3 vezes por semana com R$30/dia — nunca sairia do aprendizado. Clique no
+        // WhatsApp acontece muito mais, e é o mesmo evento de negócio que a OdontoZ já usa.
+        // A trava de 2 segundos vale para os dois, para um duplo clique não virar duas conversões.
+        var temG = typeof raiz.gtag === "function";
+        var temF = typeof raiz.fbq === "function";
+        if (!temG && !temF) return;                       // página sem tag nenhuma
         var agora = Date.now();
         if (agora - ultimo < 2000) return;                // duplo clique não vale duas conversões
         ultimo = agora;
-        raiz.gtag("event", "conversion", { send_to: BRAND.convWhatsapp });
+        if (temG) raiz.gtag("event", "conversion", { send_to: BRAND.convWhatsapp });
+        // ⚠️ "Contact" é evento PADRÃO da Meta de propósito: evento personalizado nasce
+        // SUPRIMIDO até ser confirmado, e queimaria o nome. Ver reference_meta_regras_duras_2026.
+        if (temF) raiz.fbq("track", "Contact");
       } catch (e) { /* medição nunca pode derrubar o clique */ }
     }, true);
   }
