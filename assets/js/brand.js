@@ -266,32 +266,87 @@
 })(typeof window !== "undefined" ? window : this);
 
 /* ---------------------------------------------------------------------------
- * Atribuição de mídia (23/08/2026) — preserva o clique pago entre páginas.
- * O anúncio pode cair na home e o lead ser preenchido na /visita: sem isto,
- * o gclid se perde na navegação e o lead é gravado como orgânico.
- * gbraid/wbraid = equivalentes do gclid em iOS com ATT.
+ * Atribuição de mídia (23/08/2026 · reforçada em 07/09/2026) — preserva o clique
+ * pago entre páginas. O anúncio pode cair na home ou numa LP e o lead ser
+ * preenchido na /visita: sem isto, o gclid/fbclid se perde na navegação e o lead
+ * é gravado como orgânico. gbraid/wbraid = equivalentes do gclid em iOS com ATT.
+ *
+ * 07/09/2026 — três mudanças, todas por causa da campanha do Meta:
+ *  1. localStorage com validade de 90 dias, no lugar de sessionStorage. O
+ *     sessionStorage morre quando a aba fecha: quem clicava no anúncio hoje e
+ *     voltava amanhã para preencher o formulário virava lead orgânico. 90 dias é
+ *     a mesma janela de atribuição que a Meta usa. O sessionStorage continua
+ *     sendo escrito e lido como PLANO B (navegador com localStorage bloqueado) e
+ *     para não perder a atribuição de quem já está com a versão anterior.
+ *  2. _fbp e _fbc entram na atribuição. São os dois identificadores que a Meta
+ *     usa para casar a pessoa; o pixel os cria sozinho (o _fbc a partir do
+ *     fbclid da URL), mas ninguém os estava GUARDANDO junto do lead. Sem eles,
+ *     o dia em que a CAPI entrar o evento do servidor chega sem casamento forte.
+ *     São lidos NA HORA da chamada, nunca no carregamento: o fbevents.js é
+ *     assíncrono e no primeiro instante da visita o cookie ainda não existe.
+ *  3. Guarda a página de entrada e o referrer — é o que responde "o anúncio caiu
+ *     em qual página?" sem depender do que a plataforma diz de si mesma.
  * ------------------------------------------------------------------------- */
 (function () {
   var CHAVES = ["utm_source","utm_medium","utm_campaign","utm_content","utm_term",
                 "gclid","gbraid","wbraid","fbclid","msclkid"];
+  var KEY = "cs_atrib";
+  var DIAS = 90;
+
+  function lerCookie(nome) {
+    try {
+      var m = document.cookie.match(new RegExp("(?:^|;\\s*)" + nome + "=([^;]*)"));
+      return m ? decodeURIComponent(m[1]) : "";
+    } catch (e) { return ""; }
+  }
+
+  // Aceita os DOIS formatos: o novo {ts, dados} e o antigo (objeto plano, gravado
+  // pela versão anterior deste arquivo). Sem isto, quem visitou antes do deploy
+  // perderia a atribuição que já estava guardada.
+  function normalizar(raw) {
+    if (!raw) return null;
+    var o;
+    try { o = JSON.parse(raw); } catch (e) { return null; }
+    if (!o || typeof o !== "object") return null;
+    if (o.dados && typeof o.dados === "object") {
+      if (o.ts && (Date.now() - o.ts) > DIAS * 864e5) return null;   // venceu
+      return o.dados;
+    }
+    return o;   // formato antigo: sem carimbo de tempo, vale enquanto durar a sessão
+  }
+
+  function guardado() {
+    var r = null;
+    try { r = normalizar(localStorage.getItem(KEY)); } catch (e) {}
+    if (r) return r;
+    try { r = normalizar(sessionStorage.getItem(KEY)); } catch (e) {}
+    return r || null;
+  }
+
   try {
     var p = new URLSearchParams(location.search), achou = {};
     CHAVES.forEach(function (k) { if (p.get(k)) achou[k] = p.get(k); });
     if (Object.keys(achou).length) {
-      sessionStorage.setItem("cs_atrib", JSON.stringify(achou));
+      // Clique NOVO sobrescreve o antigo (último clique), como o Google e a Meta contam.
+      achou.landing = (location.origin + location.pathname).slice(0, 500);
+      achou.referrer = (document.referrer || "").slice(0, 500);
+      var pacote = JSON.stringify({ ts: Date.now(), dados: achou });
+      try { localStorage.setItem(KEY, pacote); } catch (e) {}
+      try { sessionStorage.setItem(KEY, pacote); } catch (e) {}
     }
-  } catch (e) { /* sessionStorage bloqueado: segue sem atribuição */ }
+  } catch (e) { /* storage bloqueado: segue sem atribuição */ }
 
   window.ENJOY_ATRIB = function () {
-    var out = {};
+    var out = {}, salvo = guardado() || {};
+    Object.keys(salvo).forEach(function (k) { out[k] = salvo[k]; });
     try {
-      var salvo = JSON.parse(sessionStorage.getItem("cs_atrib") || "{}");
-      Object.keys(salvo).forEach(function (k) { out[k] = salvo[k]; });
+      var q = new URLSearchParams(location.search);
+      CHAVES.forEach(function (k) { if (q.get(k)) out[k] = q.get(k); });  // URL vence
     } catch (e) {}
-    try {
-      var p = new URLSearchParams(location.search);
-      CHAVES.forEach(function (k) { if (p.get(k)) out[k] = p.get(k); });  // URL vence
-    } catch (e) {}
+    // Cookies da Meta lidos AGORA (o pixel os cria de forma assíncrona).
+    var fbp = lerCookie("_fbp"), fbc = lerCookie("_fbc");
+    if (fbp) out._fbp = fbp;
+    if (fbc) out._fbc = fbc;
     return out;
   };
 })();
