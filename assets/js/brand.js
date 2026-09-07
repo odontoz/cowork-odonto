@@ -244,7 +244,13 @@
         if (temG) raiz.gtag("event", "conversion", { send_to: BRAND.convWhatsapp });
         // ⚠️ "Contact" é evento PADRÃO da Meta de propósito: evento personalizado nasce
         // SUPRIMIDO até ser confirmado, e queimaria o nome. Ver reference_meta_regras_duras_2026.
-        if (temF) raiz.fbq("track", "Contact");
+        // 07/09/2026 — o `dl` que o pixel manda para a Meta vem SÓ com o domínio, sem o
+        // caminho (verificado em tela: acontece igual no site da OdontoZ, que converte).
+        // Então "de qual página veio este Contact?" não dá para responder pela URL: vai
+        // aqui, num parâmetro. content_name/content_category são parâmetros PADRÃO — não
+        // correm o risco de nome de evento personalizado não verificado.
+        var pag = (location.pathname.split("/").pop() || "index").replace(/\.html$/, "");
+        if (temF) raiz.fbq("track", "Contact", { content_name: pag, content_category: "whatsapp" });
       } catch (e) { /* medição nunca pode derrubar o clique */ }
     }, true);
   }
