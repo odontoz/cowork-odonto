@@ -246,9 +246,17 @@
         // SUPRIMIDO até ser confirmado, e queimaria o nome. Ver reference_meta_regras_duras_2026.
         // 07/09/2026 — o `dl` que o pixel manda para a Meta vem SÓ com o domínio, sem o
         // caminho (verificado em tela: acontece igual no site da OdontoZ, que converte).
-        // Então "de qual página veio este Contact?" não dá para responder pela URL: vai
-        // aqui, num parâmetro. content_name/content_category são parâmetros PADRÃO — não
+        // Então "de qual página veio este Contact?" não dá para responder pela URL, e vai
+        // aqui num parâmetro. content_name/content_category são parâmetros PADRÃO — não
         // correm o risco de nome de evento personalizado não verificado.
+        //
+        // ⚠️ MEDIDO EM TELA, MESMO DIA: hoje este parâmetro NÃO CHEGA. A requisição que
+        // sai para /tr não leva NENHUM `cd[...]`, e o `dl` vem cortado no domínio — o
+        // dataset está com o compartilhamento de parâmetro personalizado restrito
+        // (Gerenciador de Eventos avisa "restrições adicionais" e a Categoria do conjunto
+        // de dados está como "Nenhuma"). Fica no código porque não custa nada e volta a
+        // valer sozinho quando o dono definir a categoria — mas NÃO CONFIE nele para
+        // saber de que página veio o Contact enquanto isso; a régua é o CRM.
         var pag = (location.pathname.split("/").pop() || "index").replace(/\.html$/, "");
         if (temF) raiz.fbq("track", "Contact", { content_name: pag, content_category: "whatsapp" });
       } catch (e) { /* medição nunca pode derrubar o clique */ }
