@@ -2,6 +2,11 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
+<!-- Verificação de domínio da Meta (07/09/2026). Sem ela não há priorização de eventos
+     agregados e a medição no iOS fica capada. Vai na RAIZ e também na /public/index.html:
+     a raiz redireciona em 1 segundo, e a Meta pode ler qualquer uma das duas.
+     ⚠️ Tem que estar DENTRO do <head> e no HTML servido — não injetada por JavaScript. -->
+<meta name="facebook-domain-verification" content="xp9d5xwh11kphb2hgttll3jfqp2mev" />
 <title>Coworking Odontológico</title>
 <script>
   /* Preserva ?query e #fragmento ao entrar pela raiz — o link de definir senha
