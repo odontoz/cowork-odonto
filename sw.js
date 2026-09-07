@@ -47,7 +47,7 @@
 // v52 (07/09): o clique no WhatsApp agora dispara TAMBÉM o evento Contact
 // da Meta, além da conversão do Google. É o evento que a campanha do Meta vai otimizar —
 // escolha do dono, e é o mesmo evento de negócio que a OdontoZ já usa.
-var CACHE = "enjoy-v53";
+var CACHE = "enjoy-v54";
 // BASE = diretório do sw.js (termina em "/"). new Request() abaixo resolve os
 // relativos contra a URL do sw, mas guardamos a base p/ a fallback de navegação.
 var BASE = self.location.href.replace(/sw\.js.*$/, "");
