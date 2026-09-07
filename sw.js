@@ -47,7 +47,7 @@
 // v52 (07/09): o clique no WhatsApp agora dispara TAMBÉM o evento Contact
 // da Meta, além da conversão do Google. É o evento que a campanha do Meta vai otimizar —
 // escolha do dono, e é o mesmo evento de negócio que a OdontoZ já usa.
-var CACHE = "enjoy-v54";
+var CACHE = "enjoy-v55";
 // BASE = diretório do sw.js (termina em "/"). new Request() abaixo resolve os
 // relativos contra a URL do sw, mas guardamos a base p/ a fallback de navegação.
 var BASE = self.location.href.replace(/sw\.js.*$/, "");
@@ -81,7 +81,13 @@ var SHELL = [
 self.addEventListener("install", function (e) {
   e.waitUntil(
     caches.open(CACHE).then(function (c) {
-      return Promise.allSettled(SHELL.map(function (u) { return c.add(new Request(BASE + u)); }));
+      // cache: "reload" OBRIGATORIO — sem isto o c.add() passa pelo cache HTTP do
+      // navegador e o GitHub Pages responde com max-age=600: o SW NOVO guardava o
+      // arquivo VELHO e o bump do CACHE nao adiantava nada. Pego em tela em 07/09/2026,
+      // com o brand.js: `caches.keys()` dizia enjoy-v54 e o conteudo dentro era o v53.
+      return Promise.allSettled(SHELL.map(function (u) {
+        return c.add(new Request(BASE + u, { cache: "reload" }));
+      }));
     }).then(function () { return self.skipWaiting(); })
   );
 });
@@ -121,7 +127,12 @@ self.addEventListener("fetch", function (e) {
   // link de definir senha em 25/08/2026).
   e.respondWith(
     caches.match(req).then(function (hit) {
-      var rede = fetch(req).then(function (res) {
+      // Mesma razao do install: a revalidacao tem que ir na REDE, nao no cache HTTP.
+      // Only same-origin — em terceiros (fbevents.js, gtag.js) o pedido segue como veio.
+      var pedido = req.url.startsWith(self.location.origin)
+        ? new Request(req.url, { cache: "reload", credentials: req.credentials, mode: "same-origin" })
+        : req;
+      var rede = fetch(pedido).then(function (res) {
         if (res.ok && req.url.startsWith(self.location.origin)) {
           var clone = res.clone(); caches.open(CACHE).then(function (c) { c.put(req, clone); });
         }
