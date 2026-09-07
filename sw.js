@@ -44,7 +44,10 @@
 // esterilização no local" (o RX levava a entender que era só chegar e usar; o sensor e os
 // insumos são do profissional — a home já dizia isso e esta página tinha ficado para trás)
 // e "Aberto todo dia" virou "Todo dia, 8h às 23h", que é específico e verificável.
-var CACHE = "enjoy-v51";
+// v52 (07/09): o clique no WhatsApp agora dispara TAMBÉM o evento Contact
+// da Meta, além da conversão do Google. É o evento que a campanha do Meta vai otimizar —
+// escolha do dono, e é o mesmo evento de negócio que a OdontoZ já usa.
+var CACHE = "enjoy-v52";
 // BASE = diretório do sw.js (termina em "/"). new Request() abaixo resolve os
 // relativos contra a URL do sw, mas guardamos a base p/ a fallback de navegação.
 var BASE = self.location.href.replace(/sw\.js.*$/, "");
