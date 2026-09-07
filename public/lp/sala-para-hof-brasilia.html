@@ -15,6 +15,37 @@
   <link rel="stylesheet" href="../../assets/css/base.css">
   <link rel="stylesheet" href="../../assets/css/site.css">
   <script src="../../assets/js/brand.js" defer></script>
+
+  <!-- ==========================================================================
+       MEDIÇÃO (07/09/2026) — esta LP TEM botão de WhatsApp (o CTA do topo, os do
+       corpo e o flutuante que o brand.js injeta) e NÃO tinha tag nenhuma: todo
+       clique daqui era perdido, e um anúncio que caísse nesta página nem criava o
+       cookie _fbc do fbclid, então o lead preenchido depois na /visita chegava
+       órfão. Mesmo bloco das 5 páginas de /public — nada novo, só o que faltava.
+       ========================================================================== -->
+  <!-- Google tag (gtag.js) — ClinicShare · conta 721-356-1772. -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=AW-18411824511"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'AW-18411824511');
+  </script>
+
+  <!-- Meta Pixel — ClinicShare, dataset 1059808447015750.
+       O evento Contact do clique no WhatsApp é disparado pelo brand.js (ouvinte
+       delegado); aqui só entra a base do pixel + PageView. -->
+  <script>
+    !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+    n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+    t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,
+    document,'script','https://connect.facebook.net/en_US/fbevents.js');
+    fbq('init', '1059808447015750');
+    fbq('track', 'PageView');
+  </script>
+  <noscript><img height="1" width="1" style="display:none"
+    src="https://www.facebook.com/tr?id=1059808447015750&ev=PageView&noscript=1" alt=""></noscript>
 </head>
 <body>
   <header class="topbar">
