@@ -1,72 +1,11 @@
-/* ============================================================================
- * sw.js — Service worker mínimo do PWA Enjoy.
- * Estratégia: HTML rede-primeiro (evita ficar preso em página velha), estáticos
- * cache-first. Bump o CACHE ao trocar assets pra invalidar o antigo.
- *
- * ⚠️ TODOS os caminhos são RELATIVOS ao local do próprio sw.js (raiz do site).
- * Assim o PWA funciona em qualquer subpath (ex.: GitHub Pages /cowork-odonto/)
- * sem editar nada. O registro (assets/js/db.js e public/index.html) também usa
- * caminho relativo, e a fallback offline resolve pela BASE do sw.
- * ==========================================================================*/
-// v42 (02/09/2026): o brand.js mudou DUAS vezes hoje — ganhou o disparo da conversão de
-// clique no WhatsApp e trocou o Instagram de @clinicshareoficial (que não é nosso) para
-// @clinicsharebr. Sem este bump, quem já tinha visitado o site continuava recebendo o
-// arquivo velho do cache: conversão não disparava e o rodapé seguia mandando visita PAGA
-// para o perfil de terceiro. Publicar asset e esquecer o bump = mudança que só o visitante
-// novo enxerga.
-// v44 (02/09): saíram da home as promessas que não existem hoje — check-in digital
-// (3 lugares) e o raio-X sem a ressalva do sensor/insumos. Com anúncio pago rodando,
-// promessa que a visita desmente vira reclamação, não venda.
-// v45 (02/09): raio-X com o nome do aparelho (Saevo de parede) e o posicionador na lista do
-// que é do profissional — a casa NÃO fornece. E saiu a frase que prometia mostrar licenças e
-// certificações na visita: o alvará da vigilância ainda não saiu, então isso era promessa que
-// a visita não entrega.
-// v46 (02/09): saiu do site TODA declaração de situação regulatória — o card "Vigilância
-// sanitária", "estrutura em conformidade", "regularização já resolvidas", "conforme as normas
-// vigentes". Ordem do dono: nada declarado sobre vigilância/alvará em lugar nenhum enquanto
-// o alvará não sair. A seção de biossegurança agora se sustenta só no físico.
-// v47 (02/09): régua ajustada pelo dono. Volta a linguagem geral ("em conformidade",
-// "regularização", PGRSS) — é descrição de estrutura. Fica FORA só o que DECLARA situação
-// sanitária: o card "Vigilância sanitária" e a promessa de mostrar licenças na visita.
-// v48 (02/09): Meta Pixel 1059808447015750 instalado nas 5 páginas públicas. O evento Lead
-// da visita.html já estava escrito e nunca disparava — agora fbq existe e ele passa a contar.
-// v49 (04/09): a LP de HOF respondia "Sim" a "posso fazer procedimentos injetáveis?" e chamava
-// injetável de "não invasiva". Isso fazia a ClinicShare AUTORIZAR o procedimento em vez de alugar
-// a sala — e é essa aparência de prestador que cria responsabilidade compartilhada. A resposta
-// agora diz o que a casa faz (aluga a sala equipada) e devolve a habilitação para o profissional
-// e o conselho dele. Ver docs/planejamento/17-quem-pode-fazer-hof.md.
-// v50 (05/09): horário alinhado ao que a agenda REALMENTE abre — 08h às 23h todos os dias
-// (config.horario_funcionamento no banco). O site anunciava "Seg a Sáb até 22h, Dom até 18h"
-// e escondia uma hora por dia mais o domingo inteiro. Mexeu no brand.js, no index (texto,
-// FAQ e JSON-LD) e na LP de aluguel por hora.
-// v51 (07/09): visita.html — é a página que os anúncios do Meta abrem e ela
-// contradizia os próprios anúncios. Saiu "Pronto pra atender · Cadeira, equipo, RX e
-// esterilização no local" (o RX levava a entender que era só chegar e usar; o sensor e os
-// insumos são do profissional — a home já dizia isso e esta página tinha ficado para trás)
-// e "Aberto todo dia" virou "Todo dia, 8h às 23h", que é específico e verificável.
-// v52 (07/09): o clique no WhatsApp agora dispara TAMBÉM o evento Contact
-// da Meta, além da conversão do Google. É o evento que a campanha do Meta vai otimizar —
-// escolha do dono, e é o mesmo evento de negócio que a OdontoZ já usa.
-// v57 (07/09): meta tag de verificação de domínio da Meta na raiz e na home.
-// v58 (07/09/2026): o brand.js passou a mandar a ORIGEM junto do WhatsApp — uma frase
-// dizendo o canal ("Vi o anúncio de vocês no Google") e um código curto ("Ref.: A7K2M9XY")
-// que o banco troca pelas UTMs (tabela cliques_anuncio, migration 0031). E o bloco de
-// atribuição SUBIU no arquivo: com `defer`, o readyState já é "interactive" quando o
-// brand.js roda, então o init() monta os links na hora — antes, o CS_REF ainda não existia
-// e os links saíam sem o código, calados. Sem este bump, quem já visitou o site continua
-// com o brand.js velho e todo clique volta a chegar sem rastro nenhum.
-// v59 (08/09/2026): a home mudou em duas regras que o visitante lê e cobra. O
-// cancelamento sem custo passou de "24 horas de antecedência" para "mais de 1 hora"
-// (FAQ da home e termos), e a taxa de R$ 149 deixou de ser "única" para ser "válida
-// por 12 meses" (passo 1, bloco de preços e FAQ). A public/index.html está no SHELL:
-// sem este bump, quem já visitou continuaria lendo a regra velha no cache e chegaria
-// à visita com a informação errada — o curl mostraria o novo e o navegador o antigo.
-// Sobe também a leva 1 da fazenda de SEO (80 páginas em /consultorios/) — essas NÃO
-// entram no SHELL de propósito: HTML aqui é rede-primeiro e pré-cachear 220 páginas
-// faria todo visitante baixar o site inteiro (seção 8.4 do 21-seo-plano.md).
-var CACHE = "enjoy-v59";
-// BASE = diretório do sw.js (termina em "/"). new Request() abaixo resolve os
-// relativos contra a URL do sw, mas guardamos a base p/ a fallback de navegação.
+// ClinicShare — service worker.
+// O HISTÓRICO DE VERSÕES SAIU DAQUI DE PROPÓSITO (08/09/2026): este arquivo é público,
+// baixado por todo visitante, e o changelog expunha assunto interno. Ele vive agora em
+// docs/sw-historico.md, que não sobe para o site.
+// v60 (08/09): brand.js e public/index.html perderam comentários internos; sem o bump,
+// quem já visitou continuaria servindo do cache a versão com eles.
+
+var CACHE = "enjoy-v60";
 var BASE = self.location.href.replace(/sw\.js.*$/, "");
 var FALLBACK = "public/app/index.html";
 var SHELL = [
@@ -98,10 +37,6 @@ var SHELL = [
 self.addEventListener("install", function (e) {
   e.waitUntil(
     caches.open(CACHE).then(function (c) {
-      // cache: "reload" OBRIGATORIO — sem isto o c.add() passa pelo cache HTTP do
-      // navegador e o GitHub Pages responde com max-age=600: o SW NOVO guardava o
-      // arquivo VELHO e o bump do CACHE nao adiantava nada. Pego em tela em 07/09/2026,
-      // com o brand.js: `caches.keys()` dizia enjoy-v54 e o conteudo dentro era o v53.
       return Promise.allSettled(SHELL.map(function (u) {
         return c.add(new Request(BASE + u, { cache: "reload" }));
       }));
@@ -120,8 +55,8 @@ self.addEventListener("activate", function (e) {
 
 self.addEventListener("fetch", function (e) {
   var req = e.request;
-  if (req.method !== "GET") return;                 // não intercepta POST (RPCs)
-  if (req.url.indexOf("supabase.co") !== -1) return; // nunca cacheia a API
+  if (req.method !== "GET") return;
+  if (req.url.indexOf("supabase.co") !== -1) return;
 
   var ehHtml = req.mode === "navigate" ||
     (req.headers.get("accept") || "").indexOf("text/html") !== -1;
@@ -138,14 +73,8 @@ self.addEventListener("fetch", function (e) {
     return;
   }
 
-  // stale-while-revalidate: entrega o cache (rapido) MAS sempre busca a versao nova
-  // em segundo plano. Antes era cache-first cego — um brand.js corrigido podia nunca
-  // chegar no navegador de quem ja tinha o antigo (aconteceu 2x: logo do rodape e o
-  // link de definir senha em 25/08/2026).
   e.respondWith(
     caches.match(req).then(function (hit) {
-      // Mesma razao do install: a revalidacao tem que ir na REDE, nao no cache HTTP.
-      // Only same-origin — em terceiros (fbevents.js, gtag.js) o pedido segue como veio.
       var pedido = req.url.startsWith(self.location.origin)
         ? new Request(req.url, { cache: "reload", credentials: req.credentials, mode: "same-origin" })
         : req;
