@@ -1,25 +1,599 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
-<meta charset="utf-8">
+  <meta charset="utf-8">
 <!-- Verificação de domínio da Meta (07/09/2026). Sem ela não há priorização de eventos
-     agregados e a medição no iOS fica capada. Vai na RAIZ e também na /public/index.html:
-     a raiz redireciona em 1 segundo, e a Meta pode ler qualquer uma das duas.
+     agregados e a medição no iOS fica capada. Desde 08/09/2026 a home de verdade é ESTE
+     arquivo, na RAIZ; a /public/index.html virou um redirecionamento e também carrega a meta.
      ⚠️ Tem que estar DENTRO do <head> e no HTML servido — não injetada por JavaScript. -->
 <meta name="facebook-domain-verification" content="xp9d5xwh11kphb2hgttll3jfqp2mev" />
-<title>Coworking Odontológico</title>
-<script>
-  /* Preserva ?query e #fragmento ao entrar pela raiz — o link de definir senha
-     chega com o token no fragmento e o meta-refresh abaixo o descartaria. */
+  <script>
+  /* Link de definir senha — INLINE de proposito: o e-mail do Supabase cai aqui na home
+     com o token no fragmento, e este arquivo (HTML) e servido network-first, enquanto o
+     brand.js e cache-first e pode estar velho no navegador da pessoa. Sem isto, o usuario
+     via a tela de login sem opcao de criar senha.
+     08/09/2026: a home passou a ser servida NA RAIZ. Antes, a raiz era um redirecionamento
+     que copiava location.search + location.hash para /public/index.html; agora nao ha salto
+     nenhum e o fragmento chega inteiro aqui — este bloco continua sendo quem o le. A
+     /public/index.html virou o redirecionamento inverso e repassa search + hash para a raiz,
+     entao os dois enderecos continuam funcionando para quem tiver o link antigo. */
   (function () {
-    try { location.replace("public/index.html" + location.search + location.hash); }
-    catch (e) {}
+    try {
+      var h = location.hash || "";
+      var temToken = h.indexOf("access_token") > -1 &&
+                     /type=(recovery|invite|signup|magiclink)/.test(h);
+      // link expirado/ja usado volta SEM token, so com error_description —
+      // sem isto a pessoa caia na home sem entender nada (caso do Thiago, 26/08)
+      var temErro = h.indexOf("error") > -1 || (location.search || "").indexOf("error") > -1;
+      if (!temToken && !temErro) return;
+      location.replace(location.origin + "/public/app/definir-senha.html" + (h || "#erro=link"));
+    } catch (e) {}
   })();
-</script>
-<meta http-equiv="refresh" content="1; url=public/index.html">
-<link rel="canonical" href="https://clinicshare.net.br/"><!-- 08/09/2026 · BLOCO 0 da fazenda de SEO: a home canonica e a RAIZ. og:url e o JSON-LD ja diziam isso; o sitemap agora diz a mesma string. -->
+  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ClinicShare — Coworking Odontológico em Águas Claras, Brasília | Consultório por hora</title>
+  <meta name="description" content="Seu consultório odontológico pronto em Águas Claras — pague só pelo uso. Consultórios equipados por hora, período ou plano mensal, com biossegurança e reserva pelo app. Em frente ao metrô.">
+  <meta name="theme-color" content="#0E2A47">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/img/favicon-32.png">
+  <link rel="apple-touch-icon" href="assets/img/favicon-clinicshare.png">
+  <link rel="canonical" href="https://clinicshare.net.br/"><!-- 08/09/2026 · BLOCO 0 da fazenda de SEO: a home canonica e a RAIZ. og:url e o JSON-LD ja diziam isso; o sitemap agora diz a mesma string. -->
+
+  <!-- Open Graph / redes sociais -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="ClinicShare Coworking Odontológico">
+  <meta property="og:title" content="Seu consultório odontológico pronto em Águas Claras — pague só pelo uso">
+  <meta property="og:description" content="Consultórios equipados por hora, período ou plano mensal. Biossegurança de clínica e reserva pelo app. Em frente à estação Águas Claras do metrô.">
+  <meta property="og:locale" content="pt_BR">
+  <meta property="og:url" content="https://clinicshare.net.br/">
+  <!-- OG:IMAGE — trocar pela foto/arte real quando existir -->
+  <meta property="og:image" content="https://clinicshare.net.br/assets/img/fotos/og.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/site.css">
+  <script src="assets/js/brand.js" defer></script>
+
+  <!-- Google tag (gtag.js) — ClinicShare · conta 721-356-1772 (instalada 01/09/2026).
+       Uma tag por conta; os eventos de conversão usam send_to com o rótulo de cada ação. -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=AW-18411824511"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'AW-18411824511');
+  </script>
+
+  <!-- JSON-LD: LocalBusiness (Dentist). Campos preenchidos a partir do brand.js;
+       ATENÇÃO: telefone/CNPJ/geo são placeholders até os dados reais. -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": ["LocalBusiness", "Dentist"],
+    "name": "ClinicShare Coworking Odontológico",
+    "description": "Coworking odontológico em Águas Claras, Brasília. Consultórios equipados para alugar por hora, período ou plano mensal, com biossegurança e reserva pelo app.",
+    "url": "https://clinicshare.net.br/",
+    "telephone": "+5561982565189",
+    "priceRange": "R$$",
+    "image": "https://clinicshare.net.br/assets/img/fotos/og.jpg",
+    "logo": "https://clinicshare.net.br/assets/img/logo-clinicshare.svg",
+    "address": {
+      "@type": "PostalAddress",
+      "streetAddress": "Ed. E-Business — Av. Pau Brasil, Lote 06",
+      "addressLocality": "Águas Claras",
+      "addressRegion": "DF",
+      "postalCode": "71916-500",
+      "addressCountry": "BR"
+    },
+    "geo": { "@type": "GeoCoordinates", "latitude": -15.8340, "longitude": -48.0270 },
+    "areaServed": "Brasília, DF",
+    "publicAccess": true,
+    "openingHoursSpecification": [
+      { "@type": "OpeningHoursSpecification", "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"], "opens": "08:00", "closes": "23:00" }
+    ]
+  }
+  </script>
+
+  <!-- Meta Pixel — ClinicShare, dataset 1059808447015750 (instalado 02/09/2026).
+       Fica ao lado da tag do Google de propósito: as duas medem o mesmo site e a régua de
+       verdade é o CRM, não o número que cada plataforma mostra de si mesma.
+       O evento Lead é disparado no envio do formulário (ver o bloco do formulário mais abaixo);
+       essa linha já existia escrita e nunca disparava, porque fbq não era definido. -->
+  <script>
+    !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+    n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+    t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,
+    document,'script','https://connect.facebook.net/en_US/fbevents.js');
+    fbq('init', '1059808447015750');
+    fbq('track', 'PageView');
+  </script>
+  <noscript><img height="1" width="1" style="display:none"
+    src="https://www.facebook.com/tr?id=1059808447015750&ev=PageView&noscript=1" alt=""></noscript>
 </head>
 <body>
-<p>Redirecionando… <a href="public/index.html">clique aqui</a> se não for automático.</p>
+  <!-- ===== TOPO ===== -->
+  <header class="topbar">
+    <div class="container">
+      <a class="marca" href="./"><span data-brand="nomeCurto">ClinicShare</span> <span data-brand="tagline">Coworking</span></a>
+      <nav class="nav-site">
+        <a class="link nav-oculto-mobile" href="#estrutura">Estrutura</a>
+        <a class="link nav-oculto-mobile" href="consultorios/">Consultórios</a>
+        <a class="link nav-oculto-mobile" href="public/precos.html">Preços</a>
+        <a class="link nav-oculto-mobile" href="#faq">Dúvidas</a>
+        <a class="link" href="public/app/login.html">Entrar</a>
+        <a class="btn btn-cta" href="public/visita.html">Agendar visita</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ===== 1. HERO ===== -->
+  <section class="hero-site">
+    <div class="container">
+      <div class="hero-grid">
+        <div class="stack">
+          <span class="selo-metro">Em frente à estação Águas Claras do metrô</span>
+          <h1>Seu consultório odontológico pronto em Águas Claras — pague só pelo uso</h1>
+          <p class="promessa">
+            Comece a atender esta semana, sem CAPEX de R$65 mil a R$200 mil. Consultórios
+            equipados, biossegurança de clínica de verdade e reserva pelo app em 1 minuto.
+          </p>
+          <div class="row hero-ctas">
+            <a class="btn btn-cta" href="public/visita.html">Agendar visita</a>
+            <a class="btn btn-neutro" data-brand-href="whatsapp">Falar no WhatsApp</a>
+          </div>
+          <div class="mini-provas">
+            <span><b>R$ 75</b>/hora avulsa</span>
+            <span><b>1ª hora grátis</b> no cadastro</span>
+            <span><b>Todos os dias, 8h às 23h</b></span>
+          </div>
+        </div>
+        <img src="assets/img/fotos/hero.jpg" alt="Recepção e sala de espera da ClinicShare, coworking odontológico em Águas Claras" style="width:100%;height:100%;min-height:300px;object-fit:cover;border-radius:var(--raio);box-shadow:var(--sombra);display:block">
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 2. COMO FUNCIONA ===== -->
+  <section class="secao secao-alt" id="como-funciona">
+    <div class="container">
+      <div class="centro" style="margin-bottom:32px">
+        <p class="eyebrow">Sem burocracia</p>
+        <h2>Como funciona</h2>
+        <p class="intro">Autosserviço de ponta a ponta. Você cuida do paciente; a estrutura e o sistema cuidam do resto.</p>
+      </div>
+      <div class="grid grid-3">
+        <div class="card passo">
+          <div class="num">1</div>
+          <h3>Crie sua conta</h3>
+          <p>Cadastre-se e envie seu registro profissional. Taxa de cadastro, válida por 12 meses, de <b>R$ 149</b> que já inclui a sua <b>1ª hora grátis</b>. Sem fidelidade no avulso.</p>
+        </div>
+        <div class="card passo">
+          <div class="num">2</div>
+          <h3>Reserve pelo app</h3>
+          <p>Escolha consultório, dia e horário. O preço aparece na hora e você confirma em 1 minuto.</p>
+        </div>
+        <div class="card passo">
+          <div class="num">3</div>
+          <h3>Atenda</h3>
+          <p>Seu paciente chega, você atende. Sem recepção para atravessar e sem espera.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 3. COMPARATIVO ===== -->
+  <section class="secao" id="comparativo">
+    <div class="container">
+      <div class="centro" style="margin-bottom:32px">
+        <p class="eyebrow">Consultório próprio × ClinicShare</p>
+        <h2>Monte carteira, não um consultório</h2>
+        <p class="intro">Abrir um consultório do zero em Brasília custa caro e demora meses. Na ClinicShare você começa nesta semana.</p>
+      </div>
+      <div class="compara">
+        <div class="card caro">
+          <h3>Consultório próprio</h3>
+          <div class="valorao">R$ 65 mil – R$ 200 mil</div>
+          <p class="muted" style="margin:0">de investimento inicial (CAPEX)</p>
+          <ul>
+            <li>Obra, cadeira, equipo, autoclave e RX por sua conta</li>
+            <li>Aluguel, condomínio e contas fixas todo mês</li>
+            <li>Recepcionista e limpeza na folha de pagamento</li>
+            <li>Vigilância sanitária e PGRSS pra você resolver</li>
+            <li>Meses até a primeira consulta</li>
+          </ul>
+        </div>
+        <div class="card bom">
+          <h3>ClinicShare</h3>
+          <div class="valorao">a partir de R$ 75</div>
+          <p class="muted" style="margin:0">por hora — paga só quando usa</p>
+          <ul>
+            <li>Consultórios equipados, prontos pra atender</li>
+            <li>Zero custo fixo se você não atender</li>
+            <li>Biossegurança e regularização já resolvidas</li>
+            <li>Reserva e pagamento pelo app</li>
+            <li>Comece a atender esta semana</li>
+          </ul>
+        </div>
+      </div>
+      <p class="centro" style="margin-top:24px">
+        <a class="btn btn-primario" href="public/precos.html">Ver planos e preços</a>
+      </p>
+    </div>
+  </section>
+
+  <!-- ===== 4. ESTRUTURA ===== -->
+  <section class="secao secao-alt" id="estrutura">
+    <div class="container">
+      <div class="centro" style="margin-bottom:32px">
+        <p class="eyebrow">Estrutura</p>
+        <h2>Tudo pronto pra você atender</h2>
+        <p class="intro">Dois consultórios completos e áreas comuns pensadas pra experiência do seu paciente.</p>
+      </div>
+      <div class="grid grid-2">
+        <!-- FOTO REAL: Consultório 1 (com aparelho de raio-X) -->
+        <div class="card" style="padding:0;overflow:hidden">
+          <img src="assets/img/fotos/consultorio-rx.jpg" alt="Consultório 1 com cadeira odontológica, equipo completo e aparelho de raio-X de parede" style="width:100%;height:240px;object-fit:cover;display:block">
+          <div style="padding:18px">
+            <h3>Consultório 1 · com raio-X</h3>
+            <p class="muted" style="margin:0">Cadeira e equipo completos e aparelho de raio-X Saevo de parede na própria sala. O sensor, o posicionador e os insumos são seus; aqui você tem o aparelho e a caixa de revelação.</p>
+            <div class="chip-list">
+              <span class="chip">Raio-X</span><span class="chip">Cadeira + equipo</span>
+              <span class="chip">Ar-condicionado</span><span class="chip">Wi-Fi</span>
+            </div>
+          </div>
+        </div>
+        <!-- FOTO REAL: Consultório 2 -->
+        <div class="card" style="padding:0;overflow:hidden">
+          <img src="assets/img/fotos/consultorio-2.jpg" alt="Consultório 2 com cadeira odontológica completa e vista panorâmica de Águas Claras" style="width:100%;height:240px;object-fit:cover;display:block">
+          <div style="padding:18px">
+            <h3>Consultório 2 · completo</h3>
+            <p class="muted" style="margin:0">Cadeira e equipo completos para clínica geral, especialidades, HOF e estética.</p>
+            <div class="chip-list">
+              <span class="chip">Cadeira + equipo</span><span class="chip">Ar-condicionado</span>
+              <span class="chip">Wi-Fi</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="grid grid-3" style="margin-top:20px">
+        <!-- FOTO REAL: CME / autoclave -->
+        <div class="card" style="padding:0;overflow:hidden">
+          <img src="assets/img/fotos/autoclave.jpg" alt="Central de esterilização (CME) com bancada, pia e área de preparo de materiais" style="width:100%;height:170px;object-fit:cover;display:block">
+          <div style="padding:16px"><h3>Autoclave &amp; CME</h3><p class="muted" style="margin:0">Central de esterilização no local.</p></div>
+        </div>
+        <!-- FOTO REAL: sala de espera com sofás -->
+        <div class="card" style="padding:0;overflow:hidden">
+          <img src="assets/img/fotos/espera.jpg" alt="Sala de espera com sofá confortável e balcão da recepção ao fundo" style="width:100%;height:170px;object-fit:cover;display:block">
+          <div style="padding:16px"><h3>Sala de espera</h3><p class="muted" style="margin:0">Recepção confortável para o seu paciente.</p></div>
+        </div>
+        <!-- FOTO REAL: copa / lounge do profissional -->
+        <div class="card" style="padding:0;overflow:hidden">
+          <img src="assets/img/fotos/copa.jpg" alt="Copa do profissional com cafeteira e purificador de água" style="width:100%;height:170px;object-fit:cover;display:block">
+          <div style="padding:16px"><h3>Copa &amp; lounge</h3><p class="muted" style="margin:0">Copa completa e espaço do profissional.</p></div>
+        </div>
+      </div>
+      <!-- NOTA: lista final de equipamentos por sala será confirmada pelo Vinicius. -->
+    </div>
+  </section>
+
+  <!-- ===== 5. O APP ===== -->
+  <section class="secao" id="app">
+    <div class="container">
+      <div class="app-showcase">
+        <div>
+          <p class="eyebrow">Diferencial</p>
+          <h2>Tudo pelo app</h2>
+          <p class="intro">Reserva em 1 minuto, preço na hora e extrato do mês. O sistema é nosso — não é planilha nem telefone.</p>
+          <ul class="app-feats">
+            <li>Veja horários livres e reserve na hora, com preço calculado automaticamente</li>
+            <li>Higienização de 30 min garantida entre profissionais diferentes</li>
+            <li>Sem telefone e sem planilha: você resolve tudo pelo app</li>
+            <li>Extrato do mês, faturas e recados num só lugar</li>
+          </ul>
+          <p style="margin-top:18px"><a class="btn btn-primario" href="public/app/login.html">Ver a área do profissional</a></p>
+        </div>
+        <!-- Mock/print estilizado da timeline de reserva (ilustração em CSS, não é foto) -->
+        <div class="fone" aria-hidden="true">
+          <div class="fone-tela">
+            <div class="topo"><b>Reservar</b><span class="dia">Consultório 1 · Ter, 08/07</span></div>
+            <div class="fone-tl">
+              <div class="h">08:00</div><div class="b livre">Livre</div>
+              <div class="h">09:00</div><div class="b ocup">Ocupado</div>
+              <div class="h">10:00</div><div class="b buf">Higienização · 30 min</div>
+              <div class="h">14:00</div><div class="b sel">Selecionado</div>
+              <div class="h">15:00</div><div class="b sel">Selecionado</div>
+              <div class="h">16:00</div><div class="b livre">Livre</div>
+            </div>
+            <div class="fone-resumo">
+              <div class="row-between"><span class="muted">14:00 – 16:00 · 2h</span><span class="preco">R$ 150</span></div>
+              <div class="cta">Confirmar reserva</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 6. BIOSSEGURANÇA ===== -->
+  
+  <section class="secao secao-alt" id="biosseguranca">
+    <div class="container">
+      <div class="centro" style="margin-bottom:32px">
+        <p class="eyebrow">Biossegurança &amp; regularização</p>
+        <h2>Estrutura em conformidade — sem dor de cabeça pra você</h2>
+        <p class="intro">A parte chata da regularização já está montada. Você chega e atende com segurança.</p>
+      </div>
+      <div class="grid grid-3">
+        <div class="card">
+          <h3>Esterilização (CME)</h3>
+          <p class="muted" style="margin:0">Autoclave e central de esterilização no local, com fluxo de material controlado.</p>
+        </div>
+        <div class="card">
+          <h3>Descarte (PGRSS)</h3>
+          <p class="muted" style="margin:0">Gestão de resíduos de serviço de saúde conforme as normas vigentes.</p>
+        </div>
+        <div class="card">
+          <h3>Higienização entre atendimentos</h3>
+          <p class="muted" style="margin:0">30 minutos de intervalo garantidos entre profissionais diferentes — a própria agenda bloqueia.</p>
+        </div>
+      </div>
+      <p class="muted centro" style="margin-top:20px;font-size:.9rem">
+        Na visita você vê o espaço inteiro, sala por sala. Melhor conferir do que acreditar.
+      </p>
+    </div>
+  </section>
+
+  <!-- ===== 7. PLANOS E PREÇOS ===== -->
+  <section class="secao" id="precos">
+    <div class="container">
+      <div class="centro" style="margin-bottom:32px">
+        <p class="eyebrow">Planos e preços</p>
+        <h2>Preço publicado, sem surpresa</h2>
+        <p class="intro">Comece no avulso e migre para um plano quando repetir. Taxa de cadastro, válida por 12 meses, de <b>R$ 149</b> — já inclui a sua <b>1ª hora grátis</b>.</p>
+      </div>
+
+      <h3 style="margin-bottom:12px">Avulso</h3>
+      <div class="preco-grid cols-3">
+        <div class="card preco-card"><div class="nome">Hora avulsa</div><div class="valor">R$ 75<small>/h</small></div><div class="nota">Mínimo de 1 hora</div></div>
+        <div class="card preco-card"><div class="nome">Período (manhã ou tarde)</div><div class="valor">R$ 250</div><div class="nota">4h — manhã 8h–12h ou tarde 14h–18h</div></div>
+        <div class="card preco-card"><div class="nome">Período noturno</div><div class="valor">R$ 350</div><div class="nota">18h às 22h</div></div>
+        <div class="card preco-card"><div class="nome">Diária</div><div class="valor">R$ 400</div><div class="nota">Manhã + tarde</div></div>
+        <div class="card preco-card"><div class="nome">Período sábado/domingo</div><div class="valor">R$ 300</div><div class="nota">Fim de semana</div></div>
+        <div class="card preco-card"><div class="nome">Taxa de cadastro</div><div class="valor">R$ 149</div><div class="nota">Vale 12 meses · a adesão já inclui a 1ª hora grátis</div></div>
+      </div>
+
+      <h3 style="margin:32px 0 12px">Planos de lançamento</h3>
+      <div class="preco-grid cols-3">
+        <div class="card preco-card">
+          <span class="tag-lancamento">Lançamento</span>
+          <div class="nome">Plano 10h/mês</div><div class="valor">R$ 590<small>/mês</small></div>
+          <div class="nota">R$ 59/h · 10 horas no mês (não acumula)</div>
+        </div>
+        <div class="card preco-card destaque">
+          <span class="tag-lancamento">Lançamento · mais escolhido</span>
+          <div class="nome">Plano 20h/mês</div><div class="valor">R$ 990<small>/mês</small></div>
+          <div class="nota">R$ 49,50/h · pra quem atende toda semana</div>
+        </div>
+        <div class="card preco-card">
+          <span class="tag-lancamento">Lançamento</span>
+          <div class="nome">Turno fixo</div><div class="valor">R$ 690<small>/mês</small></div>
+          <div class="nota">Mesmo período toda semana, horário garantido</div>
+        </div>
+      </div>
+      <p class="centro" style="margin-top:24px">
+        <a class="btn btn-cta" href="public/visita.html">Agendar visita</a>
+        <a class="btn btn-neutro" href="public/precos.html">Detalhes dos planos</a>
+      </p>
+    </div>
+  </section>
+
+  <!-- ===== 9-bis. ENTRADA PARA AS PÁGINAS DE CONSULTÓRIO E PARA OS GUIAS =====
+       08/09/2026: até hoje nenhuma página do site linkava para /consultorios/. A única
+       porta de entrada era o sitemap, e página sem link interno costuma parar em
+       "Descoberta — não indexada" no Search Console. Este bloco é a porta de verdade. -->
+  <section class="secao secao-alt" id="por-especialidade">
+    <div class="container">
+      <div class="centro" style="margin-bottom:28px">
+        <p class="eyebrow">Onde você atende</p>
+        <h2>Consultório por especialidade e por região</h2>
+        <p class="intro">Cada especialidade usa a sala de um jeito. Quem faz endodontia precisa de
+        raio-X à mão; quem faz ortodontia precisa de agenda curta e repetida; quem vem do Guará, de
+        Taguatinga ou do Plano quer saber quanto tempo leva até a Av. Pau Brasil. Montamos uma
+        página para cada combinação — com o preço da hora, o caminho até aqui e o que já está na
+        sala — em vez de deixar você garimpar tudo nesta.</p>
+      </div>
+      <p class="centro" style="margin:0">
+        <a class="btn btn-primario" href="consultorios/">Ver os consultórios por especialidade e por região</a>
+      </p>
+      <p class="centro muted" style="margin-top:14px">
+        Antes de decidir, vale ler os
+        <a href="guias/">guias sobre montar consultório, dividir sala e usar o raio-X</a> —
+        são as contas que a gente refaz toda semana com quem chega aqui.
+      </p>
+    </div>
+  </section>
+
+  <!-- ===== 8. PROVA SOCIAL ===== -->
+  <!-- ================================================================
+     02/09/2026 — SEÇÃO DE DEPOIMENTOS ESCONDIDA (hidden), não apagada.
+     Os dois cards estavam no ar dizendo "Espaço reservado para depoimento
+     de profissional." — com a campanha do Google já rodando. Prova social
+     vazia numa página de coworking odontológico é pior do que não ter a
+     seção: quem está decidindo onde vai atender lê como "ninguém atende aqui".
+     PARA RELIGAR quando houver o primeiro depoimento real: trocar o texto
+     dos cards e remover o atributo `hidden` da <section> abaixo.
+     ================================================================ -->
+<section hidden class="secao secao-alt" id="depoimentos">
+    <div class="container">
+      <div class="centro" style="margin-bottom:32px">
+        <p class="eyebrow">Quem já atende aqui</p>
+        <h2>Profissionais na ClinicShare</h2>
+      </div>
+      <div class="grid grid-2">
+        <!-- DEPOIMENTO 1 — preencher com nome + CRO quando aprovado (ex.: Alyne)
+        <div class="card depo">
+          <div class="aspas">"</div>
+          <p>DEPOIMENTO AQUI.</p>
+          <div class="autor">Dra. NOME <small>CRO-DF 00000 · Especialidade</small></div>
+        </div>
+        -->
+        <!-- DEPOIMENTO 2 — preencher com nome + CRO quando aprovado (ex.: Mariane)
+        <div class="card depo">
+          <div class="aspas">"</div>
+          <p>DEPOIMENTO AQUI.</p>
+          <div class="autor">Dra. NOME <small>CRO-DF 00000 · Especialidade</small></div>
+        </div>
+        -->
+        <div class="card depo depo-vazio">Espaço reservado para depoimento de profissional.</div>
+        <div class="card depo depo-vazio">Espaço reservado para depoimento de profissional.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 9. FAQ ===== -->
+  <section class="secao" id="faq">
+    <div class="container container-sm" style="max-width:760px">
+      <div class="centro" style="margin-bottom:32px">
+        <p class="eyebrow">Dúvidas</p>
+        <h2>Perguntas frequentes</h2>
+      </div>
+      <div class="faq">
+        <details open>
+          <summary>Tem taxa de cadastro ou fidelidade?</summary>
+          <div class="resp"><p>Sim, uma <b>taxa de cadastro de R$ 149, válida por 12 meses</b>. Ela cobre a <b>verificação do seu registro profissional</b> — confirmamos que você está habilitado e regular no conselho, com validação do documento e prova de vida, para garantir a segurança de todos que atendem no espaço. E ela <b>já inclui a sua 1ª hora grátis</b>: na prática, você experimenta o espaço sem pagar a mais por isso. No avulso <b>não há fidelidade</b>: você paga só pelo que usar.</p></div>
+        </details>
+        <details>
+          <summary>Como funciona o cancelamento?</summary>
+          <div class="resp"><p>Cancelou com mais de <b>1 hora</b> de antecedência? As horas voltam inteiras para o seu saldo. É só cancelar pelo app.</p></div>
+        </details>
+        <details>
+          <summary>O que está incluso no valor?</summary>
+          <div class="resp"><p>Consultório equipado (cadeira e equipo), esterilização (autoclave/CME), sala de espera, copa, Wi-Fi, ar-condicionado e limpeza diária. Os <b>insumos e materiais são à parte</b>.</p></div>
+        </details>
+        <details>
+          <summary>E os insumos e materiais?</summary>
+          <div class="resp"><p>Os <b>insumos, materiais de consumo e o instrumental específico da sua especialidade são seus</b> — cada profissional traz o que usa. Para conveniência, mantemos um <b>mercadinho no espaço</b> com itens básicos (descartáveis, EPI, anestésico e afins) para comprar na hora; a disponibilidade de cada item é confirmada no local.</p></div>
+        </details>
+        <details>
+          <summary>Os dois consultórios têm raio-X?</summary>
+          <div class="resp"><p>O <b>aparelho de raio-X fica no Consultório 1</b>. Se você precisa de RX, reserve essa sala.</p></div>
+        </details>
+        <details>
+          <summary>Quem pode atender no espaço?</summary>
+          <div class="resp"><p>Dentistas de todas as especialidades, além de <b>HOF, médicos e profissionais de estética não invasiva</b>. Todos passam por aprovação de cadastro (registro profissional).</p></div>
+        </details>
+        <details>
+          <summary>Tem estacionamento?</summary>
+          <div class="resp"><p>Sim, o <b>prédio (Ed. E-Business) tem estacionamento</b>. E estamos em frente à estação Águas Claras do metrô.</p></div>
+        </details>
+        <details>
+          <summary>Quais os horários de funcionamento?</summary>
+          <div class="resp"><p><b>Todos os dias, das 8h às 23h</b> — inclusive domingo. Abrir à noite e no fim de semana é um diferencial nosso.</p></div>
+        </details>
+        <details>
+          <summary>Preciso ter paciente para começar?</summary>
+          <div class="resp"><p>Sim — o espaço é para você atender a sua própria carteira. A ClinicShare oferece a estrutura, a biossegurança e o sistema; você traz o paciente e o atendimento.</p></div>
+        </details>
+        <details>
+          <summary>Como faço para conhecer?</summary>
+          <div class="resp"><p><a href="public/visita.html">Agende uma visita</a> pelo site ou fale com a gente no <a data-brand-href="whatsapp">WhatsApp</a>. Mostramos tudo pessoalmente.</p></div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== FAIXA CTA ===== -->
+  <section class="secao" style="padding-top:0">
+    <div class="container">
+      <div class="faixa-cta">
+        <h2>Venha conhecer a ClinicShare</h2>
+        <p>Agende uma visita e conheça o espaço pessoalmente, sem compromisso. Ao se cadastrar, sua <b>1ª hora sai grátis</b>.</p>
+        <div class="row" style="justify-content:center">
+          <a class="btn btn-cta" href="public/visita.html">Agendar visita</a>
+          <a class="btn btn-neutro" style="background:transparent;color:#fff;border-color:rgba(255,255,255,.5)" data-brand-href="whatsapp">WhatsApp</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 10. LOCALIZAÇÃO ===== -->
+  <section class="secao secao-alt" id="localizacao">
+    <div class="container">
+      <div class="centro" style="margin-bottom:32px">
+        <p class="eyebrow">Localização</p>
+        <h2>Em Águas Claras, em frente ao metrô</h2>
+      </div>
+      <div class="grid grid-2" style="align-items:center">
+        <!-- MAPA REAL: embutir mapa/iframe do Google quando o endereço estiver confirmado -->
+        <a class="mapa-ph" data-brand-href="maps">Abrir no Google Maps<br><span data-brand="enderecoCurto"></span></a>
+        <div class="stack">
+          <div class="card">
+            <h3>Endereço</h3>
+            <p style="margin:0"><span data-brand="endereco.logradouro"></span><br>
+            <span data-brand="endereco.bairro"></span> — <span data-brand="endereco.cidade"></span>/<span data-brand="endereco.uf"></span></p>
+            <p class="muted" style="margin:8px 0 0"><span data-brand="endereco.complemento"></span></p>
+          </div>
+          <div class="card">
+            <h3>Horários</h3>
+            <p style="margin:0"><span data-brand="horarios.semana"></span><br>
+            <span data-brand="horarios.sabado"></span><br>
+            <span data-brand="horarios.domingo"></span></p>
+          </div>
+          <div class="card">
+            <h3>Estacionamento</h3>
+            <p class="muted" style="margin:0">Estacionamento no prédio (Ed. E-Business) e estação de metrô em frente.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 11. RODAPÉ ===== -->
+  <footer class="rodape-rico">
+    <div class="container">
+      <div class="cols">
+        <div>
+          <div class="marca"><span data-brand="nome">ClinicShare</span></div>
+          <p style="margin:10px 0 0;max-width:320px;color:#aebccc">Coworking odontológico em Águas Claras, Brasília. Consultórios equipados por hora, período ou plano mensal.</p>
+          <p style="margin:12px 0 0"><a data-brand-href="instagram">Instagram @<span data-brand="instagram"></span></a></p>
+        </div>
+        <div>
+          <h4>Navegar</h4>
+          <ul>
+            <li><a href="#como-funciona">Como funciona</a></li>
+            <li><a href="consultorios/">Consultórios por região</a></li>
+            <li><a href="guias/">Guias</a></li>
+            <li><a href="public/precos.html">Preços</a></li>
+            <li><a href="#estrutura">Estrutura</a></li>
+            <li><a href="#faq">Dúvidas</a></li>
+            <li><a href="public/visita.html">Agendar visita</a></li>
+            <li><a href="public/app/login.html">Área do profissional</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Contato</h4>
+          <ul>
+            <li><a data-brand-href="whatsapp">WhatsApp</a></li>
+            <li><a data-brand-href="tel"><span data-brand="telefoneFmt"></span></a></li>
+            <li><a data-brand-href="email"><span data-brand="email"></span></a></li>
+            <li><span data-brand="enderecoCurto"></span></li>
+          </ul>
+        </div>
+      </div>
+      <div class="base">
+        <span>© <span data-brand="nome">ClinicShare</span></span>
+        <span><a href="public/privacidade.html">Privacidade</a> · <a href="public/termos.html">Termos de uso</a></span>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // Service worker (PWA) — mesmo do restante do site.
+    if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+      window.addEventListener("load", function () {
+        navigator.serviceWorker.register("sw.js").catch(function (e) { console.warn("SW não registrado:", e); });
+      });
+    }
+  </script>
 </body>
 </html>

@@ -2,14 +2,15 @@
 // O HISTÓRICO DE VERSÕES SAIU DAQUI DE PROPÓSITO (08/09/2026): este arquivo é público,
 // baixado por todo visitante, e o changelog expunha assunto interno. Ele vive agora em
 // docs/sw-historico.md, que não sobe para o site.
-// v61 (08/09): texto da taxa de cadastro corrigido para "vale 12 meses" no index,
-// no cadastro, no pagamento e nas faturas; sem o bump o cache serviria o texto velho.
+// v62 (08/09): a raiz passou a servir a home de verdade (era um redirecionamento de 1,2 KB);
+// duas entradas que respondiam 404 sairam do SHELL.
 
-var CACHE = "enjoy-v61";
+var CACHE = "enjoy-v62";
 var BASE = self.location.href.replace(/sw\.js.*$/, "");
 var FALLBACK = "public/app/index.html";
 var SHELL = [
-  "public/index.html",
+  "index.html",          // a raiz e a home canonica desde 08/09; era "public/index.html"
+  "public/index.html",   // continua no ar (redireciona para a raiz) — vale pre-cachear
   "public/app/index.html",
   "public/app/login.html",
   "public/app/cadastro.html",
@@ -19,7 +20,6 @@ var SHELL = [
   "public/app/gestao-financeiro.html",
   "public/app/gestao-cadastros.html",
   "public/app/gestao-avisos.html",
-  "public/app/renovar-taxa.html",
   "public/app/faturas.html",
   "public/app/pagamento-cartao.html",
   "public/app/contrato.html",
@@ -28,7 +28,7 @@ var SHELL = [
   "assets/js/brand.js",
   "assets/js/db.js",
   "assets/js/nav-app.js",
-  "assets/js/taxa-banner.js",
+  // "assets/js/taxa-banner.js" e "public/app/renovar-taxa.html" sairam do SHELL: ainda nao foram publicados (404). Voltam quando a tela de renovacao da taxa for ao ar.
   "assets/vendor/supabase.js",
   "assets/img/icon.svg",
   "manifest.webmanifest"

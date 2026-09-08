@@ -8,4 +8,8 @@
     <loc>https://clinicshare.net.br/sitemap-consultorios-1.xml</loc>
     <lastmod>2026-09-08</lastmod>
   </sitemap>
+  <sitemap>
+    <loc>https://clinicshare.net.br/sitemap-guias.xml</loc>
+    <lastmod>2026-09-08</lastmod>
+  </sitemap>
 </sitemapindex>
