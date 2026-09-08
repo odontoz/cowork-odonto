@@ -2,10 +2,10 @@
 // O HISTÓRICO DE VERSÕES SAIU DAQUI DE PROPÓSITO (08/09/2026): este arquivo é público,
 // baixado por todo visitante, e o changelog expunha assunto interno. Ele vive agora em
 // docs/sw-historico.md, que não sobe para o site.
-// v60 (08/09): brand.js e public/index.html perderam comentários internos; sem o bump,
-// quem já visitou continuaria servindo do cache a versão com eles.
+// v61 (08/09): texto da taxa de cadastro corrigido para "vale 12 meses" no index,
+// no cadastro, no pagamento e nas faturas; sem o bump o cache serviria o texto velho.
 
-var CACHE = "enjoy-v60";
+var CACHE = "enjoy-v61";
 var BASE = self.location.href.replace(/sw\.js.*$/, "");
 var FALLBACK = "public/app/index.html";
 var SHELL = [
