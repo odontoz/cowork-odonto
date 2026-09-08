@@ -4,8 +4,9 @@
 // docs/sw-historico.md, que não sobe para o site.
 // v62 (08/09): a raiz passou a servir a home de verdade (era um redirecionamento de 1,2 KB);
 // duas entradas que respondiam 404 sairam do SHELL.
+// v63 (08/09): pagina de erro propria (404.html) no ar e index.html da raiz republicado.
 
-var CACHE = "enjoy-v62";
+var CACHE = "enjoy-v63";
 var BASE = self.location.href.replace(/sw\.js.*$/, "");
 var FALLBACK = "public/app/index.html";
 var SHELL = [
