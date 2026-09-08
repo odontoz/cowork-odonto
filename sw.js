@@ -55,7 +55,16 @@
 // brand.js roda, então o init() monta os links na hora — antes, o CS_REF ainda não existia
 // e os links saíam sem o código, calados. Sem este bump, quem já visitou o site continua
 // com o brand.js velho e todo clique volta a chegar sem rastro nenhum.
-var CACHE = "enjoy-v58";
+// v59 (08/09/2026): a home mudou em duas regras que o visitante lê e cobra. O
+// cancelamento sem custo passou de "24 horas de antecedência" para "mais de 1 hora"
+// (FAQ da home e termos), e a taxa de R$ 149 deixou de ser "única" para ser "válida
+// por 12 meses" (passo 1, bloco de preços e FAQ). A public/index.html está no SHELL:
+// sem este bump, quem já visitou continuaria lendo a regra velha no cache e chegaria
+// à visita com a informação errada — o curl mostraria o novo e o navegador o antigo.
+// Sobe também a leva 1 da fazenda de SEO (80 páginas em /consultorios/) — essas NÃO
+// entram no SHELL de propósito: HTML aqui é rede-primeiro e pré-cachear 220 páginas
+// faria todo visitante baixar o site inteiro (seção 8.4 do 21-seo-plano.md).
+var CACHE = "enjoy-v59";
 // BASE = diretório do sw.js (termina em "/"). new Request() abaixo resolve os
 // relativos contra a URL do sw, mas guardamos a base p/ a fallback de navegação.
 var BASE = self.location.href.replace(/sw\.js.*$/, "");

@@ -1,12 +1,20 @@
 # ClinicShare — coworking odontológico em Águas Claras, Brasília-DF
+# Gerado por seo/gerar.py. Editar aqui não adianta: edite o gerador.
 User-agent: *
 Allow: /
 
-# A landing de anúncio é noindex de propósito (conteúdo duplicado da home,
-# existe só para receber o clique pago). Não gastar rastreio com ela.
-Disallow: /public/visita.html
-
 # Área logada do profissional: nada aqui é conteúdo público.
 Disallow: /public/app/
+
+# LPs antigas: viraram stub com canonical para /consultorios/.
+Disallow: /public/lp/
+
+# Fonte do site, não conteúdo: plano, dados e template da fazenda.
+Disallow: /seo/
+Disallow: /docs/
+
+# A /public/visita.html NÃO entra aqui de propósito. Ela é noindex por meta tag,
+# e bloquear no robots impede o Google de LER esse noindex — a URL apareceria
+# na busca como listagem nua, sem título (seção 1.5 do plano).
 
 Sitemap: https://clinicshare.net.br/sitemap.xml
