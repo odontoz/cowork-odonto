@@ -15,11 +15,13 @@
   var arquivo = (location.pathname.split("/").pop() || "index.html").toLowerCase();
 
   // menus por contexto (dentista x gestão) — decidido pelo nome do arquivo
-  var GESTAO = ["gestao.html", "gestao-financeiro.html", "gestao-cadastros.html"];
+  var GESTAO = ["gestao.html", "gestao-leads.html", "gestao-financeiro.html",
+                "gestao-cadastros.html"];
   var ehGestao = GESTAO.indexOf(arquivo) !== -1;
 
   var LINKS = ehGestao ? [
     { href: "gestao.html",            txt: "Agenda" },
+    { href: "gestao-leads.html",      txt: "Quem chegou", ponto: "leads" },
     { href: "gestao-cadastros.html",  txt: "Cadastros" },
     { href: "gestao-financeiro.html", txt: "Financeiro" }
   ] : [
@@ -44,6 +46,9 @@
       ".nav-links a{color:var(--cinza);text-decoration:none;font-weight:600;font-size:.95rem;padding:8px 12px;border-radius:9px;line-height:1}",
       ".nav-links a:hover{color:var(--tinta);background:var(--fundo);text-decoration:none}",
       ".nav-links a.active{color:var(--azul);background:color-mix(in srgb,var(--azul) 10%,transparent)}",
+      ".nav-links a{position:relative}",
+      ".nav-links a .pt{position:absolute;top:2px;right:4px;width:7px;height:7px;border-radius:50%;background:var(--vermelho)}",
+      "@media(max-width:640px){.nav-links a .pt{top:50%;right:12px;margin-top:-3px}}",
       ".nav-sair{color:var(--vermelho)!important}",
       ".nav-burger{display:none;margin-left:auto;background:none;border:1px solid var(--linha);border-radius:9px;width:40px;height:38px;font-size:20px;line-height:1;color:var(--tinta);cursor:pointer}",
       "@media(max-width:640px){",
@@ -72,7 +77,8 @@
 
     var linksHTML = LINKS.map(function (l) {
       var on = (l.href.toLowerCase() === arquivo) ? " active" : "";
-      return '<a href="' + l.href + '" class="nav-lk' + on + '">' + l.txt + '</a>';
+      var pt = l.ponto ? ' data-ponto="' + l.ponto + '"' : "";
+      return '<a href="' + l.href + '" class="nav-lk' + on + '"' + pt + '>' + l.txt + '</a>';
     }).join("");
 
     wrap.innerHTML =
@@ -106,7 +112,27 @@
     });
   }
 
-  function iniciar() { css(); montar(); }
+  // Ponto vermelho em "Quem chegou": há ficha que ninguém falou ainda.
+  // Falha calada de propósito: nada aqui pode derrubar a navegação.
+  function pontinho() {
+    if (!ehGestao) return;
+    var alvo = document.querySelector('.nav-links a[data-ponto="leads"]');
+    if (!alvo) return;
+    var api = window.EnjoyDB;
+    if (!api || !api.pronto) return;
+    api.client.from("leads_site")
+      .select("id", { count: "exact", head: true })
+      .eq("situacao", "novo")
+      .then(function (r) {
+        if (r.error || !r.count) return;
+        var p = document.createElement("span");
+        p.className = "pt";
+        p.title = r.count + (r.count === 1 ? " ficha sem ninguém falar" : " fichas sem ninguém falar");
+        alvo.appendChild(p);
+      }, function () { /* silencioso */ });
+  }
+
+  function iniciar() { css(); montar(); pontinho(); }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", iniciar);
   else iniciar();
 })();

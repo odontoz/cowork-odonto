@@ -1,0 +1,933 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quem chegou — Gestão ClinicShare</title>
+  <meta name="theme-color" content="#0E2A47">
+  <meta name="robots" content="noindex,nofollow">
+  <link rel="icon" type="image/png" sizes="32x32" href="../../assets/img/favicon-32.png">
+  <link rel="apple-touch-icon" href="../../assets/img/favicon-clinicshare.png">
+  <link rel="manifest" href="../../manifest.webmanifest">
+  <link rel="stylesheet" href="../../assets/css/base.css">
+  <script src="../../assets/js/brand.js" defer></script>
+  <style>
+    /* números do topo */
+    .numeros{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px}
+    .num{background:var(--branco);border:1px solid var(--linha);border-radius:var(--raio);padding:14px 16px;box-shadow:var(--sombra)}
+    .num b{display:block;font-size:1.7rem;line-height:1.1;letter-spacing:-.02em}
+    .num small{color:var(--cinza);font-size:.8rem}
+    .num.alerta{border-color:#f0c3c3;background:#fff8f8}
+    .num.alerta b{color:var(--vermelho)}
+
+    /* filtros */
+    .filtros{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+    .filtros input,.filtros select{height:42px}
+    .filtros select{width:auto;flex:0 1 auto;min-width:180px}
+    .filtros input[type=search]{flex:1 1 200px;min-width:170px;max-width:330px}
+    @media(max-width:640px){ .filtros select,.filtros input[type=search]{flex:1 1 100%;max-width:none;width:100%} }
+    .chk{display:flex;align-items:center;gap:7px;font-size:.9rem;font-weight:600;color:var(--cinza);white-space:nowrap}
+    .chk input{width:auto;height:auto}
+
+    /* tabela */
+    table.roster{width:100%;border-collapse:collapse}
+    table.roster th,table.roster td{text-align:left;padding:11px 12px;border-bottom:1px solid var(--linha);font-size:.94rem;vertical-align:middle}
+    table.roster th{color:var(--cinza);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap}
+    table.roster tbody tr{cursor:pointer}
+    table.roster tbody tr:hover{background:var(--fundo)}
+    table.roster tbody tr.nova td:first-child{box-shadow:inset 3px 0 0 var(--vermelho)}
+    .nome-cel strong{display:block;line-height:1.25}
+    .nome-cel small{color:var(--cinza);font-size:.8rem}
+    .acoes{display:flex;gap:6px;justify-content:flex-end}
+    .acoes .btn{padding:7px 11px;font-size:.85rem;border-radius:9px}
+    @media(max-width:700px){
+      table.roster thead{display:none}
+      table.roster,table.roster tbody,table.roster tr,table.roster td{display:block;width:100%}
+      table.roster tr{border-bottom:1px solid var(--linha);padding:12px 6px}
+      table.roster tr:last-child{border-bottom:none}
+      table.roster td{border:none;padding:3px 10px}
+      table.roster td[data-r]::before{content:attr(data-r) ": ";color:var(--cinza);font-size:.78rem;font-weight:600}
+      table.roster tbody tr.nova td:first-child{box-shadow:none}
+      table.roster tbody tr.nova{box-shadow:inset 3px 0 0 var(--vermelho)}
+      .acoes{justify-content:flex-start;margin-top:9px}
+      .acoes .btn{flex:1;padding:11px}
+    }
+    .btn-wpp{background:#25D366;color:#0b3a1d;border-color:#25D366}
+    .btn-wpp:hover{background:#1eb757;color:#0b3a1d}
+
+    /* selos */
+    .st{display:inline-block;padding:3px 10px;border-radius:99px;font-size:.75rem;font-weight:700;white-space:nowrap}
+    .st-verde{background:#e4f5ec;color:#137a41} .st-amarelo{background:#fdf3d8;color:#8a6400}
+    .st-vermelho{background:#fbe4e4;color:#a12d2d} .st-cinza{background:#eef1f5;color:#5b6b7b}
+    .st-azul{background:#e7f0fb;color:#1a539c} .st-roxo{background:#efe8fb;color:#5b3ea8}
+    .st-laranja{background:#fdeadd;color:#98511c}
+    .fonte{display:inline-flex;align-items:center;gap:5px;font-size:.78rem;font-weight:700;padding:3px 9px;border-radius:99px;white-space:nowrap}
+    .f-google{background:#e8f0fe;color:#1a56c4} .f-meta{background:#e7ecfd;color:#2f4bd8}
+    .f-ig{background:#fdeaf3;color:#b02a72} .f-direto{background:#eef1f5;color:#5b6b7b}
+    .f-manual{background:#fdf3d8;color:#8a6400}
+    .fora{background:#fbe4e4;color:#a12d2d;font-size:.7rem;font-weight:700;padding:1px 7px;border-radius:99px;margin-left:6px;white-space:nowrap}
+
+    /* ficha (overlay) */
+    .ficha-bg{position:fixed;inset:0;background:rgba(16,32,43,.45);display:none;z-index:50;padding:20px;overflow:auto}
+    .ficha-bg.on{display:flex;align-items:flex-start;justify-content:center}
+    .ficha{background:var(--branco);border-radius:16px;box-shadow:var(--sombra);width:100%;max-width:760px;margin:auto}
+    .ficha-topo{position:sticky;top:0;background:var(--branco);border-bottom:1px solid var(--linha);border-radius:16px 16px 0 0;
+      padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;z-index:2}
+    .ficha-corpo{padding:20px}
+    .ficha-corpo h3{font-size:.8rem;text-transform:uppercase;letter-spacing:.05em;color:var(--cinza);margin:22px 0 10px}
+    .ficha-corpo h3:first-child{margin-top:0}
+    .fechar{background:none;border:1px solid var(--linha);border-radius:9px;width:38px;height:38px;font-size:20px;cursor:pointer;color:var(--tinta);flex:0 0 auto}
+    .kv{display:grid;grid-template-columns:132px 1fr;gap:7px 12px;font-size:.94rem}
+    .kv .k{color:var(--cinza)}
+    @media(max-width:520px){ .kv{grid-template-columns:1fr;gap:2px 0} .kv .k{margin-top:8px;font-size:.8rem} }
+
+    /* régua de estados */
+    .regua{display:flex;gap:6px;flex-wrap:wrap}
+    .et{border:1px solid var(--linha);background:var(--branco);border-radius:99px;padding:8px 14px;font-size:.85rem;font-weight:700;
+      cursor:pointer;color:var(--cinza);font-family:inherit;transition:.15s}
+    .et:hover{border-color:var(--azul);color:var(--tinta)}
+    .et.on{background:var(--azul);border-color:var(--azul);color:#fff}
+    .et.on.perdido{background:var(--vermelho);border-color:var(--vermelho)}
+    .et.feito{background:#e4f5ec;border-color:#bfe6d0;color:#137a41}
+    .et[disabled]{opacity:.55;cursor:progress}
+
+    /* linha do tempo */
+    .tl{list-style:none;padding:0;margin:0}
+    .tl li{position:relative;padding:0 0 14px 20px;border-left:2px solid var(--linha);margin-left:5px}
+    .tl li:last-child{border-left-color:transparent;padding-bottom:0}
+    .tl li::before{content:"";position:absolute;left:-6px;top:4px;width:10px;height:10px;border-radius:50%;background:var(--azul)}
+    .tl .quando{color:var(--cinza);font-size:.78rem}
+    .tl p{margin:2px 0 0;font-size:.92rem}
+
+    /* abas da ficha */
+    .abas{display:flex;gap:4px;border-bottom:1px solid var(--linha);margin-bottom:16px;overflow-x:auto}
+    .aba{background:none;border:none;border-bottom:2px solid transparent;padding:10px 14px;font-family:inherit;font-size:.92rem;
+      font-weight:700;color:var(--cinza);cursor:pointer;white-space:nowrap}
+    .aba.on{color:var(--azul);border-bottom-color:var(--azul)}
+    .aba:disabled{opacity:.45;cursor:not-allowed}
+    .aba .cad{font-size:.62rem;background:var(--fundo);border:1px solid var(--linha);border-radius:99px;padding:1px 6px;margin-left:5px;vertical-align:1px}
+
+    /* aba Conversa — visível e desligada */
+    .futuro{border:2px dashed var(--linha);border-radius:12px;padding:22px;text-align:center;color:var(--cinza);background:var(--fundo)}
+    .balao{max-width:78%;padding:9px 12px;border-radius:12px;font-size:.9rem;margin-bottom:8px;filter:blur(2.4px);user-select:none}
+    .balao.deles{background:var(--branco);border:1px solid var(--linha)}
+    .balao.nossa{background:#dcf8c6;margin-left:auto}
+
+    /* visitas */
+    .visita{border:1px solid var(--linha);border-radius:12px;padding:13px 15px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+    .visita+.visita{margin-top:10px}
+    .visita .quando{background:var(--fundo);border:1px solid var(--linha);border-radius:10px;padding:7px 11px;text-align:center;flex:0 0 auto;min-width:74px}
+    .visita .quando b{display:block;font-size:1.25rem;line-height:1;letter-spacing:-.02em}
+    .visita .quando small{font-size:.7rem;color:var(--cinza);text-transform:uppercase;letter-spacing:.04em}
+    .visita .quem{flex:1;min-width:150px}
+    .visita .quem strong{display:block}
+    .visita .quem small{color:var(--cinza);font-size:.82rem}
+
+    .previa-msg{background:#dcf8c6;border-radius:12px;padding:12px 14px;font-size:.92rem;white-space:pre-wrap;line-height:1.45}
+
+    .toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,80px);background:var(--tinta);color:#fff;
+      padding:12px 18px;border-radius:99px;font-size:.9rem;font-weight:600;box-shadow:var(--sombra);opacity:0;
+      transition:.25s;z-index:99;max-width:92vw;text-align:center}
+    .toast.on{transform:translate(-50%,0);opacity:1}
+    .toast.ruim{background:var(--vermelho)}
+
+    .vazio{color:var(--cinza);font-size:.9rem;margin:4px 0}
+    .nota{font-size:.85rem;color:var(--cinza);background:var(--fundo);border-left:3px solid var(--linha);padding:10px 14px;border-radius:0 8px 8px 0}
+  </style>
+</head>
+<body data-no-wpp>
+  <header class="topbar">
+    <div class="container">
+      <a class="marca" href="gestao.html">Coworking <span>Odontológico</span> · Gestão</a>
+      <a class="muted" href="gestao.html">← Agenda</a>
+    </div>
+  </header>
+
+  <main class="container" style="padding:22px 16px 60px" id="app" hidden>
+
+    <div class="row-between" style="margin-bottom:6px">
+      <h1 style="margin:0">Quem chegou pelo site</h1>
+      <span class="badge badge-cinza" id="contador">—</span>
+    </div>
+    <p class="muted" style="margin-top:0;max-width:70ch">
+      Toda pessoa que preenche o formulário do site cai aqui. Falar com ela é o trabalho.
+      Esta é a tela onde dá para ver quem chegou, quem já foi contatado, quem tem visita
+      marcada e quem virou cliente. <a href="ajuda-quem-chegou.html">Como usar esta tela →</a>
+    </p>
+
+    <div class="aviso aviso-info" id="aviso-demo" style="display:none;margin-bottom:16px">
+      Modo demonstração — conecte o banco para ver as fichas reais.
+    </div>
+
+    <div class="numeros">
+      <div class="num"><b id="n-site">0</b><small>vieram do site</small></div>
+      <div class="num alerta"><b id="n-novas">0</b><small>ninguém falou ainda</small></div>
+      <div class="num"><b id="n-visitas">0</b><small>visitas ainda marcadas</small></div>
+      <div class="num alerta"><b id="n-fora">0</b><small>com DDD de fora do DF</small></div>
+    </div>
+
+    <!-- Para hoje -->
+    <section class="card" style="margin-bottom:16px;border-left:4px solid var(--vermelho)">
+      <div class="row-between" style="margin-bottom:10px">
+        <h2 style="margin:0">Para hoje</h2>
+        <span class="st st-cinza" id="hoje-selo">—</span>
+      </div>
+      <p class="muted" style="margin:0 0 12px;font-size:.9rem">
+        Fichas sem contato nenhum, mais quem tem retorno marcado para hoje ou atrasado.
+        Quando essa lista zera, o dia de comercial acabou.
+      </p>
+      <div id="lista-hoje" class="stack"></div>
+    </section>
+
+    <!-- Lista -->
+    <section style="margin-bottom:16px">
+      <div class="row-between" style="margin-bottom:12px">
+        <h2 style="margin:0">Todas as fichas</h2>
+        <button class="btn btn-neutro" id="btn-nova">+ Ficha / visita por fora</button>
+      </div>
+
+      <div class="filtros">
+        <input type="search" id="busca" placeholder="Buscar por nome, WhatsApp ou CRO…">
+        <select id="f-situacao">
+          <option value="">Todas as situações</option>
+          <option value="novo">Chegou (ninguém falou)</option>
+          <option value="contatado">Contatado, sem resposta</option>
+          <option value="conversando">Respondeu / conversando</option>
+          <option value="visita_marcada">Visita marcada</option>
+          <option value="compareceu">Compareceu</option>
+          <option value="cliente">Virou cliente</option>
+          <option value="perdido">Perdido</option>
+        </select>
+        <select id="f-fonte">
+          <option value="">Toda origem</option>
+          <option value="google">Google Ads</option>
+          <option value="meta">Meta pago</option>
+          <option value="ig">Instagram orgânico</option>
+          <option value="manual">Registro manual</option>
+          <option value="direto">Direto / sem origem</option>
+        </select>
+        <label class="chk"><input type="checkbox" id="f-fora"> só fora do DF</label>
+      </div>
+
+      <div class="card" style="padding:0;overflow:hidden">
+        <div class="scroll-x">
+          <table class="roster">
+            <thead><tr>
+              <th>Nome</th><th>CRO</th><th>Veio de</th>
+              <th>Chegou</th><th>Situação</th><th style="text-align:right">Ação</th>
+            </tr></thead>
+            <tbody id="corpo"></tbody>
+          </table>
+        </div>
+        <p id="vazio" class="vazio" style="padding:18px;display:none">Nenhuma ficha com esses filtros.</p>
+      </div>
+    </section>
+
+    <!-- Visitas -->
+    <section class="card" style="margin-bottom:16px">
+      <div class="row-between" style="margin-bottom:6px">
+        <h2 style="margin:0">Visitas marcadas</h2>
+        <button class="btn btn-neutro" id="btn-visita">+ Marcar visita</button>
+      </div>
+      <p class="muted" style="margin:0 0 14px;font-size:.9rem">
+        Aqui entram as visitas que nasceram de uma ficha <strong>e</strong> as que alguém marcou
+        por fora (no WhatsApp, num evento, por indicação). Uma visita registrada por fora
+        cria a ficha junto — assim continua existindo uma lista só.
+      </p>
+      <div id="lista-visitas"></div>
+    </section>
+
+    <!-- WhatsApp -->
+    <section class="card">
+      <h2>Sobre o botão verde</h2>
+      <div class="stack">
+        <div style="border:1px solid var(--linha);border-left:4px solid var(--verde);border-radius:10px;padding:14px 16px">
+          <strong>O botão abre a conversa — <span class="st st-verde">é o que está no ar</span></strong>
+          <p class="muted" style="margin:6px 0 0;font-size:.92rem">
+            Ele abre o WhatsApp (aplicativo ou navegador, o que você usar) em outra aba,
+            já na conversa certa e com a primeira mensagem escrita, com o nome da pessoa.
+            Você revisa e envia. A ficha passa sozinha para "Contatado" e fica no seu nome.
+            O que ele não faz: mostrar a resposta dela aqui dentro — para ler a resposta, é o WhatsApp.
+          </p>
+        </div>
+        <p class="nota" style="margin:0">
+          A aba <strong>Conversa</strong> da ficha está no lugar e desligada. Quando a caixa de
+          entrada entrar, ela acende — <strong>sem redesenhar nada</strong> desta tela.
+        </p>
+      </div>
+    </section>
+  </main>
+
+  <!-- Ficha -->
+  <div class="ficha-bg" id="ficha-bg">
+    <div class="ficha">
+      <div class="ficha-topo">
+        <div>
+          <strong id="fi-nome" style="font-size:1.12rem"></strong>
+          <div class="muted" id="fi-sub" style="font-size:.85rem"></div>
+        </div>
+        <button class="fechar" id="fi-fechar" aria-label="Fechar">&times;</button>
+      </div>
+      <div class="ficha-corpo">
+        <div class="abas">
+          <button class="aba on" data-aba="dados">Ficha</button>
+          <button class="aba" data-aba="followup">Follow-up</button>
+          <button class="aba" data-aba="conversa" disabled>Conversa <span class="cad">depois</span></button>
+        </div>
+        <div id="pane-dados"></div>
+        <div id="pane-followup" hidden></div>
+        <div id="pane-conversa" hidden></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Nova ficha / visita por fora -->
+  <div class="ficha-bg" id="nova-bg">
+    <div class="ficha" style="max-width:520px">
+      <div class="ficha-topo">
+        <div><strong style="font-size:1.12rem">Registrar por fora</strong>
+        <div class="muted" style="font-size:.85rem">Quem não preencheu o formulário do site</div></div>
+        <button class="fechar" id="nv-fechar" aria-label="Fechar">&times;</button>
+      </div>
+      <div class="ficha-corpo stack">
+        <p class="nota" style="margin:0">
+          É por aqui que entram as visitas marcadas no WhatsApp de alguém da equipe. A ficha
+          nasce com origem <strong>Registro manual</strong> e o nome de quem trouxe — assim dá
+          para saber depois quanto do resultado veio do site e quanto veio de gente.
+        </p>
+        <div class="campo"><label for="nv-nome">Nome</label><input id="nv-nome" type="text" placeholder="Nome de quem vai visitar"></div>
+        <div class="campo"><label for="nv-wpp">WhatsApp</label><input id="nv-wpp" type="tel" placeholder="(61) 9 9999-9999"></div>
+        <div class="row">
+          <div class="campo grow"><label for="nv-cro">CRO (opcional)</label><input id="nv-cro" type="text" placeholder="17413"></div>
+          <div class="campo grow"><label for="nv-quem">Quem trouxe</label><select id="nv-quem"></select></div>
+        </div>
+        <div class="row">
+          <div class="campo grow"><label for="nv-data">Dia da visita</label><input id="nv-data" type="date" onclick="this.showPicker&amp;&amp;this.showPicker()"></div>
+          <div class="campo grow"><label for="nv-hora">Hora</label><input id="nv-hora" type="time" value="14:00"></div>
+        </div>
+        <small class="muted">Sem dia e hora, a ficha entra como "Respondeu / conversando" e a visita fica para depois.</small>
+        <button class="btn btn-primario btn-bloco" id="nv-salvar">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="../../config/config.js" onerror="console.warn('config.js ausente — modo demonstração')"></script>
+  <script src="../../assets/vendor/supabase.js"></script>
+  <script src="../../assets/js/db.js"></script>
+  <script src="../../assets/js/nav-app.js" defer></script>
+  <script>
+  (function () {
+    "use strict";
+    var DB = window.EnjoyDB;
+    var app = document.getElementById("app");
+
+    var FICHAS = [], VISITAS = [], INTER = [], EQUIPE = [], CLIQUES = {};
+    var EU = null;
+
+    // ---- régua de situações -----------------------------------------------
+    var ETAPAS = [
+      { k:"novo",           t:"Chegou" },
+      { k:"contatado",      t:"Contatado" },
+      { k:"conversando",    t:"Respondeu" },
+      { k:"visita_marcada", t:"Visita marcada" },
+      { k:"compareceu",     t:"Compareceu" },
+      { k:"cliente",        t:"Virou cliente" }
+    ];
+    var SELO = {
+      novo:          ["st-vermelho","Chegou"],
+      contatado:     ["st-amarelo","Contatado"],
+      conversando:   ["st-azul","Conversando"],
+      visita_marcada:["st-roxo","Visita marcada"],
+      compareceu:    ["st-laranja","Compareceu"],
+      cliente:       ["st-verde","Cliente"],
+      perdido:       ["st-cinza","Perdido"]
+    };
+    // Lista FECHADA — o valor é o que vai para o banco, o texto é o que a pessoa lê.
+    var MOTIVOS = [
+      ["preco","Preço"],
+      ["sala_fixa","Quer sala fixa / consultório próprio"],
+      ["fora_de_brasilia","Mora fora de Brasília"],
+      ["nao_responde","Não responde há dias"],
+      ["concorrente","Foi para um concorrente"],
+      ["so_pesquisando","Só estava pesquisando"],
+      ["outro","Outro"]
+    ];
+    var VISITA_SELO = {
+      marcada:       ["st-roxo","marcada"],
+      compareceu:    ["st-verde","compareceu"],
+      nao_compareceu:["st-vermelho","não veio"],
+      remarcada:     ["st-amarelo","remarcada"],
+      cancelada:     ["st-cinza","cancelada"]
+    };
+
+    // ---- utilidades -------------------------------------------------------
+    function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
+    function $(id){ return document.getElementById(id); }
+    function so(w){ return String(w==null?"":w).replace(/\D/g,""); }
+    function ddd(w){ var d=so(w); if(d.indexOf("55")===0&&d.length>11) d=d.slice(2); return d.slice(0,2); }
+    function foraDF(f){ var d=ddd(f.whatsapp_norm||f.whatsapp); return d && d!=="61"; }
+    function wppFmt(w){
+      var d=so(w); if(d.indexOf("55")===0&&d.length>11) d=d.slice(2);
+      if(d.length<10) return String(w||"—");
+      return "("+d.slice(0,2)+") "+d.slice(2,d.length-4)+"-"+d.slice(-4);
+    }
+    function haQuanto(iso){
+      var ms = Date.now() - new Date(iso).getTime();
+      var h = Math.floor(ms/3600000);
+      if (h < 1) return "há " + Math.max(1,Math.floor(ms/60000)) + " min";
+      if (h < 24) return "há " + h + "h";
+      var d = Math.floor(h/24);
+      return "há " + d + (d===1 ? " dia" : " dias");
+    }
+    function hojeISO(){ var d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+    function dataBR(iso){ if(!iso) return "—"; var d=new Date(String(iso).length<=10 ? iso+"T12:00:00" : iso); return d.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"}); }
+    function diaSemana(iso){ var d=new Date(String(iso).length<=10 ? iso+"T12:00:00" : iso); return d.toLocaleDateString("pt-BR",{weekday:"short"}).replace(".",""); }
+    function horaBR(iso){ return new Date(iso).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}); }
+    function dtBR(iso){ if(!iso) return "—"; return new Date(iso).toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"}); }
+    function daqui(dias){ var d=new Date(); d.setDate(d.getDate()+dias);
+      return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+
+    var TOAST_T;
+    function toast(msg, ruim){
+      var el = $("toast"); el.textContent = msg;
+      el.className = "toast on" + (ruim ? " ruim" : "");
+      clearTimeout(TOAST_T); TOAST_T = setTimeout(function(){ el.className = "toast"; }, 3200);
+    }
+
+    // ---- de onde veio -----------------------------------------------------
+    // Quem responde "de onde veio" é a utm, não a coluna `origem`.
+    // A ORDEM IMPORTA: o utm_source vem primeiro porque o Instagram carimba
+    // `fbclid` também em link orgânico da bio. Olhando o carimbo antes da fonte,
+    // visita orgânica apareceria como anúncio pago — e o custo por lead mentiria.
+    function fonteDe(f){
+      var o = String(f.origem||"");
+      if (o.indexOf("manual:") === 0) return "manual";
+      var u = f.utm || {};
+      var src = String(u.utm_source||"").toLowerCase();
+      var med = String(u.utm_medium||"").toLowerCase();
+      var pago = /paid|cpc|ppc|ads/.test(med);
+      if (src) {
+        if (/google|adwords|gads/.test(src)) return "google";
+        if (/^(ig|instagram)$/.test(src)) return pago ? "meta" : "ig";
+        if (/^(meta|facebook|fb)$/.test(src)) return "meta";
+      }
+      if (u.gclid || u.gbraid || u.wbraid) return "google";
+      if (u.fbclid) return "meta";
+      return "direto";
+    }
+    var FONTE_TXT = { google:"Google Ads", meta:"Meta pago", ig:"Instagram orgânico",
+                      manual:"Registro manual", direto:"Direto / sem origem" };
+    function fonteHTML(f){
+      var k = fonteDe(f);
+      return '<span class="fonte f-' + k + '">' + esc(FONTE_TXT[k]) + "</span>";
+    }
+    function detalheDe(f){
+      var k = fonteDe(f), u = f.utm || {}, p = [];
+      if (k === "manual") return "registrada à mão por " + esc(String(f.origem||"manual:equipe").slice(7)) + " — não veio do formulário do site";
+      if (u.utm_campaign) p.push("campanha " + u.utm_campaign);
+      if (u.utm_content)  p.push("anúncio " + u.utm_content);
+      if (u.referrer)     p.push("chegou de " + String(u.referrer).replace(/^https?:\/\//,"").replace(/\/$/,""));
+      if (u.ref_codigo)   p.push("código " + u.ref_codigo);
+      if (!p.length && k === "google") return "clique pago do Google (gclid) — a página não guardou as UTMs, então não dá para saber qual anúncio";
+      if (!p.length) return "sem detalhe de campanha";
+      return p.join(" · ");
+    }
+    function seloHTML(f){
+      var s = SELO[f.situacao] || SELO.novo;
+      return '<span class="st ' + s[0] + '">' + s[1] + "</span>";
+    }
+    function nomeDe(id){
+      for (var i=0;i<EQUIPE.length;i++) if (EQUIPE[i].id === id) return EQUIPE[i].nome;
+      return null;
+    }
+
+    // ---- primeira mensagem ------------------------------------------------
+    function msgSugerida(f){
+      var primeiro = String(f.nome||"").trim().split(/\s+/)[0] || "tudo bem";
+      primeiro = primeiro.charAt(0).toUpperCase() + primeiro.slice(1);
+      if (fonteDe(f) === "manual") {
+        return "Oi, " + primeiro + "! Aqui é da ClinicShare, o coworking odontológico em Brasília. " +
+               "Estou passando para confirmar a sua visita ao espaço. Posso te mandar o endereço?";
+      }
+      return "Oi, " + primeiro + "! Aqui é da ClinicShare, o coworking odontológico em Brasília. " +
+             "Vi que você pediu para conhecer o espaço pelo nosso site. " +
+             "Posso te mandar os horários de visita desta semana?";
+    }
+    function linkWpp(f){
+      var d = so(f.whatsapp_norm || f.whatsapp);
+      if (d.length <= 11) d = "55" + d;               // número brasileiro sem o país
+      return "https://wa.me/" + d + "?text=" + encodeURIComponent(msgSugerida(f));
+    }
+
+    // ---- dados auxiliares por ficha ---------------------------------------
+    function visitasDe(id){ return VISITAS.filter(function(v){ return v.lead_id === id; }); }
+    function visitaAberta(id){
+      var v = visitasDe(id).filter(function(x){ return x.status === "marcada"; });
+      return v.length ? v[0] : null;
+    }
+    function histDe(id){ return INTER.filter(function(i){ return i.lead_id === id; }); }
+
+    // =======================================================================
+    // Carga
+    // =======================================================================
+    async function carregar(){
+      var r = await Promise.all([
+        DB.client.from("leads_site")
+          .select("id,nome,whatsapp,whatsapp_norm,cro,momento,origem,utm,situacao,motivo_perda,responsavel_id,proximo_contato,observacao,criado_em,atualizado_em")
+          .order("criado_em", { ascending:false }),
+        DB.client.from("leads_visitas")
+          .select("id,lead_id,quando,status,marcada_por,observacao,criado_em")
+          .order("quando", { ascending:true }),
+        DB.client.from("leads_interacoes")
+          .select("id,lead_id,tipo,texto,autor_id,criado_em")
+          .order("criado_em", { ascending:false }).limit(500),
+        DB.client.from("perfis").select("id,nome").in("tipo", ["gestao","recepcao"]).order("nome"),
+        DB.client.from("cliques_anuncio").select("token,canal,utm,lead_id").not("lead_id","is",null)
+      ]);
+      for (var i=0;i<4;i++) if (r[i].error) throw r[i].error;
+      FICHAS = r[0].data || [];
+      VISITAS = r[1].data || [];
+      INTER = r[2].data || [];
+      EQUIPE = r[3].data || [];
+      CLIQUES = {};
+      (r[4].data || []).forEach(function(c){ CLIQUES[c.lead_id] = c; });
+
+      $("nv-quem").innerHTML = EQUIPE.map(function(p){
+        return '<option value="' + p.id + '"' + (EU && p.id===EU.id ? " selected" : "") + ">" + esc(p.nome) + "</option>";
+      }).join("");
+    }
+
+    // =======================================================================
+    // Lista
+    // =======================================================================
+    function filtradas(){
+      var q = $("busca").value.trim().toLowerCase();
+      var sit = $("f-situacao").value, fon = $("f-fonte").value, fora = $("f-fora").checked;
+      return FICHAS.filter(function(f){
+        if (sit && f.situacao !== sit) return false;
+        if (fon && fonteDe(f) !== fon) return false;
+        if (fora && !foraDF(f)) return false;
+        if (q && (f.nome+" "+f.whatsapp+" "+wppFmt(f.whatsapp_norm)+" "+(f.cro||"")).toLowerCase().indexOf(q) === -1) return false;
+        return true;
+      });
+    }
+
+    function pintar(){
+      var lista = filtradas();
+      $("corpo").innerHTML = lista.map(function(f){
+        var dono = nomeDe(f.responsavel_id);
+        return '<tr data-id="' + f.id + '"' + (f.situacao==="novo" ? ' class="nova"' : '') + '>' +
+          '<td class="nome-cel"><strong>' + esc(f.nome) + (foraDF(f) ? '<span class="fora">DDD ' + esc(ddd(f.whatsapp_norm)) + '</span>' : "") +
+            '</strong><small>' + esc(wppFmt(f.whatsapp_norm)) + (f.momento ? " · " + esc(f.momento) : "") + "</small></td>" +
+          '<td data-r="CRO">' + (f.cro ? esc(f.cro) : '<span class="muted">sem CRO</span>') + "</td>" +
+          '<td data-r="Veio de">' + fonteHTML(f) + "</td>" +
+          '<td data-r="Chegou" style="white-space:nowrap;font-size:.86rem">' + haQuanto(f.criado_em) + "</td>" +
+          '<td data-r="Situação">' + seloHTML(f) + '<br><small class="muted" style="font-size:.76rem">' +
+            (dono ? esc(dono.split(" ")[0]) : "sem responsável") + "</small></td>" +
+          '<td><div class="acoes">' +
+            '<a class="btn btn-wpp" href="' + esc(linkWpp(f)) + '" target="_blank" rel="noopener" data-wpp="' + f.id + '">WhatsApp</a>' +
+            '<button class="btn btn-neutro" data-abrir="' + f.id + '">Abrir</button>' +
+          "</div></td></tr>";
+      }).join("");
+      $("vazio").style.display = lista.length ? "none" : "block";
+
+      var doSite = FICHAS.filter(function(f){ return fonteDe(f) !== "manual"; }).length;
+      $("n-site").textContent    = doSite;
+      $("n-novas").textContent   = FICHAS.filter(function(f){ return f.situacao === "novo"; }).length;
+      $("n-visitas").textContent = VISITAS.filter(function(v){ return v.status === "marcada"; }).length;
+      $("n-fora").textContent    = FICHAS.filter(foraDF).length;
+      $("contador").textContent  = FICHAS.length + " fichas · " + doSite + " do site";
+
+      pintarHoje();
+      pintarVisitas();
+    }
+
+    function pintarHoje(){
+      var hj = hojeISO();
+      var lista = FICHAS.filter(function(f){
+        if (f.situacao === "novo") return true;
+        if (f.situacao === "cliente" || f.situacao === "perdido") return false;
+        return !!f.proximo_contato && f.proximo_contato <= hj;
+      });
+      $("hoje-selo").textContent = lista.length ? lista.length + " esperando" : "tudo em dia";
+      $("hoje-selo").className = "st " + (lista.length ? "st-vermelho" : "st-verde");
+      $("lista-hoje").innerHTML = lista.length
+        ? lista.map(function(f){
+            var porque = f.situacao === "novo"
+              ? "chegou " + haQuanto(f.criado_em) + " e ninguém falou"
+              : (f.proximo_contato < hj ? "retorno atrasado (era " + dataBR(f.proximo_contato) + ")" : "retorno marcado para hoje");
+            return '<div class="visita"><div class="quem"><strong>' + esc(f.nome) + "</strong>" +
+              "<small>" + esc(porque) + " · " + esc(wppFmt(f.whatsapp_norm)) + "</small></div>" +
+              '<a class="btn btn-wpp" href="' + esc(linkWpp(f)) + '" target="_blank" rel="noopener" data-wpp="' + f.id + '">WhatsApp</a>' +
+              '<button class="btn btn-neutro" data-abrir="' + f.id + '">Abrir</button></div>';
+          }).join("")
+        : '<p class="vazio" style="margin:0">Nada pendente. Todo mundo que chegou já tem retorno com data.</p>';
+    }
+
+    function pintarVisitas(){
+      var vis = VISITAS.filter(function(v){ return v.status === "marcada" || v.status === "compareceu"; })
+                       .sort(function(a,b){ return a.quando < b.quando ? -1 : 1; });
+      $("lista-visitas").innerHTML = vis.length
+        ? vis.map(function(v){
+            var f = FICHAS.filter(function(x){ return x.id === v.lead_id; })[0];
+            if (!f) return "";
+            var st = VISITA_SELO[v.status] || ["st-cinza","—"];
+            var quem = nomeDe(v.marcada_por);
+            return '<div class="visita">' +
+              '<div class="quando"><b>' + dataBR(v.quando) + "</b><small>" + diaSemana(v.quando) + " " + horaBR(v.quando) + "</small></div>" +
+              '<div class="quem"><strong>' + esc(f.nome) + "</strong>" +
+                "<small>" + esc(wppFmt(f.whatsapp_norm)) + (quem ? " · marcada por " + esc(quem.split(" ")[0]) : "") + "</small></div>" +
+              '<span class="st ' + st[0] + '">' + st[1] + "</span>" +
+              '<button class="btn btn-neutro" data-abrir="' + f.id + '">Abrir</button></div>';
+          }).join("")
+        : '<p class="vazio">Nenhuma visita marcada.</p>';
+    }
+
+    // =======================================================================
+    // Ficha
+    // =======================================================================
+    var ATUAL = null;
+
+    function abrir(id){
+      ATUAL = FICHAS.filter(function(f){ return f.id === id; })[0];
+      if (!ATUAL) return;
+      $("fi-nome").textContent = ATUAL.nome;
+      $("fi-sub").textContent = wppFmt(ATUAL.whatsapp_norm) + (ATUAL.cro ? " · CRO " + ATUAL.cro : " · sem CRO") +
+        " · chegou " + haQuanto(ATUAL.criado_em);
+      aba("dados");
+      $("ficha-bg").classList.add("on");
+      document.body.style.overflow = "hidden";
+    }
+    function fechar(){ $("ficha-bg").classList.remove("on"); document.body.style.overflow = ""; ATUAL = null; }
+
+    function aba(qual){
+      ["dados","followup","conversa"].forEach(function(a){ $("pane-"+a).hidden = (a !== qual); });
+      Array.prototype.forEach.call(document.querySelectorAll(".aba"), function(b){
+        b.classList.toggle("on", b.dataset.aba === qual);
+      });
+      if (qual === "dados") paneDados();
+      if (qual === "followup") paneFollowup();
+      if (qual === "conversa") paneConversa();
+    }
+
+    function paneDados(){
+      var f = ATUAL; if (!f) return;
+      var idx = ETAPAS.map(function(e){ return e.k; }).indexOf(f.situacao);
+      var regua = ETAPAS.map(function(e, i){
+        var cls = "et";
+        if (f.situacao === e.k) cls += " on";
+        else if (idx > -1 && i < idx) cls += " feito";
+        return '<button class="' + cls + '" data-etapa="' + e.k + '">' + e.t + "</button>";
+      }).join("") +
+      '<button class="et' + (f.situacao === "perdido" ? " on perdido" : "") + '" data-etapa="perdido">Perdido</button>';
+
+      var vAberta = visitaAberta(f.id);
+      var visitaHTML = vAberta
+        ? '<div class="visita" style="margin-top:10px">' +
+            '<div class="quando"><b>' + dataBR(vAberta.quando) + "</b><small>" + diaSemana(vAberta.quando) + " " + horaBR(vAberta.quando) + "</small></div>" +
+            '<div class="quem"><strong>Visita marcada</strong><small>' +
+              (nomeDe(vAberta.marcada_por) ? "marcada por " + esc(nomeDe(vAberta.marcada_por)) : "sem responsável") + "</small></div>" +
+            '<button class="btn btn-neutro" data-visita="compareceu" data-vid="' + vAberta.id + '">Compareceu</button>' +
+            '<button class="btn btn-neutro" data-visita="nao_compareceu" data-vid="' + vAberta.id + '">Não veio</button></div>'
+        : '<div class="row" style="margin-top:10px;align-items:flex-end">' +
+            '<div class="campo grow" style="min-width:130px"><label for="vi-data">Dia</label>' +
+              '<input id="vi-data" type="date" min="' + hojeISO() + '" onclick="this.showPicker&&this.showPicker()"></div>' +
+            '<div class="campo grow" style="min-width:110px"><label for="vi-hora">Hora</label><input id="vi-hora" type="time" value="14:00"></div>' +
+            '<button class="btn btn-primario" id="vi-marcar" style="height:44px">Marcar visita</button></div>';
+
+      var anteriores = visitasDe(f.id).filter(function(v){ return v.status !== "marcada"; });
+      if (anteriores.length) {
+        visitaHTML += '<ul class="tl" style="margin-top:12px">' + anteriores.map(function(v){
+          var st = VISITA_SELO[v.status] || ["st-cinza","—"];
+          return '<li><span class="quando">' + esc(dtBR(v.quando)) + '</span><p><span class="st ' + st[0] + '">' + st[1] + "</span></p></li>";
+        }).join("") + "</ul>";
+      }
+
+      var clique = CLIQUES[f.id];
+
+      $("pane-dados").innerHTML =
+        "<h3>Situação</h3>" +
+        '<div class="regua" id="regua">' + regua + "</div>" +
+        '<div id="box-motivo" style="margin-top:12px"' + (f.situacao === "perdido" ? "" : " hidden") + ">" +
+          '<label for="fi-motivo">Por que perdemos</label>' +
+          '<select id="fi-motivo">' + MOTIVOS.map(function(m){
+            return '<option value="' + m[0] + '"' + (f.motivo_perda === m[0] ? " selected" : "") + ">" + esc(m[1]) + "</option>"; }).join("") + "</select>" +
+        "</div>" +
+
+        "<h3>Falar com ela agora</h3>" +
+        '<p class="muted" style="margin:0 0 8px;font-size:.88rem">' +
+          "O botão abre o WhatsApp em outra aba já nesta conversa, com o texto abaixo escrito. " +
+          "Você revisa e envia. A ficha passa para “Contatado” sozinha." +
+        "</p>" +
+        '<div class="previa-msg">' + esc(msgSugerida(f)) + "</div>" +
+        '<div class="row" style="margin-top:10px">' +
+          '<a class="btn btn-wpp grow" href="' + esc(linkWpp(f)) + '" target="_blank" rel="noopener" data-wpp="' + f.id + '">Abrir conversa no WhatsApp</a>' +
+          '<button class="btn btn-neutro" id="fi-copiar">Copiar texto</button>' +
+        "</div>" +
+
+        "<h3>Visita</h3>" + visitaHTML +
+
+        "<h3>De onde veio</h3>" +
+        '<div class="kv">' +
+          '<div class="k">Canal</div><div>' + fonteHTML(f) + "</div>" +
+          '<div class="k">Detalhe</div><div style="font-size:.9rem">' + esc(detalheDe(f)) + "</div>" +
+          '<div class="k">Momento</div><div>' + esc(f.momento || "não informou") + "</div>" +
+          '<div class="k">Chegou</div><div>' + esc(dtBR(f.criado_em)) + "</div>" +
+          '<div class="k">Quem cuida</div><div><select id="fi-dono" style="max-width:230px">' +
+            '<option value="">— ninguém ainda —</option>' +
+            EQUIPE.map(function(p){ return '<option value="' + p.id + '"' + (f.responsavel_id === p.id ? " selected" : "") + ">" + esc(p.nome) + "</option>"; }).join("") +
+          "</select></div>" +
+        "</div>" +
+
+        (clique
+          ? '<p class="nota" style="margin-top:10px">Anúncio confirmado pelo código <strong>' + esc(clique.token) + "</strong>" +
+            (clique.utm && clique.utm.utm_content ? " — " + esc(clique.utm.utm_content) : "") + ".</p>"
+          : '<div class="row" style="margin-top:10px;align-items:flex-end">' +
+              '<div class="campo grow"><label for="fi-ref">Ela mandou um código "Ref."? Cole aqui</label>' +
+                '<input id="fi-ref" type="text" maxlength="8" placeholder="A7K2M9XY" style="text-transform:uppercase"></div>' +
+              '<button class="btn btn-neutro" id="fi-ref-ok" style="height:44px">Ligar à ficha</button></div>' +
+            '<small class="muted">O código vem escrito na primeira mensagem de quem clicou no anúncio. Colando aqui, a ficha passa a saber de qual anúncio veio.</small>') +
+
+        (foraDF(f) ? '<div class="aviso aviso-atencao" style="margin-top:12px">DDD ' + esc(ddd(f.whatsapp_norm)) +
+          " — provavelmente não mora em Brasília. Confirmar antes de gastar tempo: é o motivo de perda mais barato de descobrir." +
+          "</div>" : "");
+
+      // ---- régua
+      Array.prototype.forEach.call($("regua").querySelectorAll(".et"), function(b){
+        b.addEventListener("click", function(){
+          var novo = b.dataset.etapa;
+          if (novo === "perdido") { $("box-motivo").hidden = false; }
+          var motivo = (novo === "perdido") ? ($("fi-motivo") ? $("fi-motivo").value : "outro") : null;
+          mudarSituacao(f, novo, motivo, b);
+        });
+      });
+      if ($("fi-motivo")) {
+        $("fi-motivo").addEventListener("change", function(){
+          if (f.situacao === "perdido") mudarSituacao(f, "perdido", this.value, null);
+        });
+      }
+
+      // ---- responsável
+      $("fi-dono").addEventListener("change", async function(){
+        var v = this.value || null;
+        var r = await DB.client.from("leads_site").update({ responsavel_id: v }).eq("id", f.id);
+        if (r.error) { toast("Não consegui salvar: " + r.error.message, true); return; }
+        await DB.client.from("leads_interacoes").insert({
+          lead_id: f.id, tipo: "nota", autor_id: EU ? EU.id : null,
+          texto: v ? ("Passou a ser responsabilidade de " + nomeDe(v) + ".") : "Ficou sem responsável."
+        });
+        toast(v ? ("Agora é com " + nomeDe(v).split(" ")[0] + ".") : "Ficou sem responsável.");
+        await recarregar();
+      });
+
+      // ---- copiar
+      $("fi-copiar").addEventListener("click", function(){
+        var t = msgSugerida(f);
+        if (navigator.clipboard) navigator.clipboard.writeText(t).then(
+          function(){ toast("Texto copiado."); }, function(){ toast("Não consegui copiar aqui.", true); });
+        else toast("Não consegui copiar aqui.", true);
+      });
+
+      // ---- marcar visita
+      if ($("vi-marcar")) {
+        $("vi-marcar").addEventListener("click", async function(){
+          var d = $("vi-data").value, h = $("vi-hora").value || "14:00";
+          if (!d) { toast("Escolha o dia da visita.", true); return; }
+          this.disabled = true;
+          var r = await DB.client.rpc("lead_marcar_visita", {
+            p_lead: f.id, p_quando: new Date(d + "T" + h + ":00").toISOString(), p_obs: null });
+          this.disabled = false;
+          if (r.error) { toast(r.error.message, true); return; }
+          toast("Visita marcada para " + dataBR(d) + ".");
+          await recarregar(); if (ATUAL) paneDados();
+        });
+      }
+
+      // ---- resultado da visita
+      Array.prototype.forEach.call($("pane-dados").querySelectorAll("[data-visita]"), function(b){
+        b.addEventListener("click", async function(){
+          b.disabled = true;
+          var r = await DB.client.rpc("lead_visita_resultado", {
+            p_visita: b.dataset.vid, p_status: b.dataset.visita, p_obs: null });
+          b.disabled = false;
+          if (r.error) { toast(r.error.message, true); return; }
+          toast(b.dataset.visita === "compareceu"
+            ? "Marcado como compareceu."
+            : "Marcado como não veio — a ficha volta para conversando.");
+          await recarregar(); if (ATUAL) paneDados();
+        });
+      });
+
+      // ---- código de origem
+      if ($("fi-ref-ok")) {
+        $("fi-ref-ok").addEventListener("click", async function(){
+          var cod = ($("fi-ref").value || "").trim().toUpperCase();
+          if (!/^[A-HJ-NP-Z2-9]{8}$/.test(cod)) { toast("O código tem 8 letras e números, sem O nem I.", true); return; }
+          this.disabled = true;
+          var r = await DB.client.rpc("vincular_clique_lead", { p_token: cod, p_lead: f.id });
+          this.disabled = false;
+          if (r.error) { toast(r.error.message, true); return; }
+          if (r.data === true) { toast("Anúncio ligado à ficha."); await recarregar(); if (ATUAL) paneDados(); }
+          else toast("Esse código não bateu com nenhum clique.", true);
+        });
+      }
+    }
+
+    async function mudarSituacao(f, novo, motivo, botao){
+      if (botao) botao.disabled = true;
+      var r = await DB.client.rpc("lead_mudar_situacao", { p_lead: f.id, p_situacao: novo, p_motivo: motivo });
+      if (botao) botao.disabled = false;
+      if (r.error) { toast(r.error.message, true); return; }
+      await recarregar();
+      if (ATUAL) { ATUAL = FICHAS.filter(function(x){ return x.id === f.id; })[0] || ATUAL; paneDados(); }
+    }
+
+    function paneFollowup(){
+      var f = ATUAL; if (!f) return;
+      var hist = histDe(f.id);
+      $("pane-followup").innerHTML =
+        "<h3>Quando falar de novo</h3>" +
+        '<div class="row" style="align-items:flex-end">' +
+          '<div class="campo grow"><label for="fu-data">Próximo contato</label>' +
+            '<input id="fu-data" type="date" min="' + hojeISO() + '" value="' + esc(f.proximo_contato || "") + '" onclick="this.showPicker&&this.showPicker()"></div>' +
+          '<button class="btn btn-neutro" id="fu-3d" style="height:44px">daqui a 3 dias</button>' +
+          '<button class="btn btn-neutro" id="fu-7d" style="height:44px">daqui a 7 dias</button>' +
+        "</div>" +
+        '<p class="muted" style="font-size:.88rem;margin-top:8px">Com data marcada, a ficha reaparece sozinha em "Para hoje". Sem data, ela some do radar.</p>' +
+
+        "<h3>Anotar o que foi dito</h3>" +
+        '<textarea id="fu-txt" rows="3" placeholder="Ex.: falei por WhatsApp, ela quer saber o preço da hora de sábado. Retorno na segunda."></textarea>' +
+        '<button class="btn btn-primario" id="fu-salvar" style="margin-top:10px">Salvar anotação</button>' +
+
+        "<h3>O que já aconteceu</h3>" +
+        (hist.length
+          ? '<ul class="tl">' + hist.map(function(h){
+              return '<li><span class="quando">' + esc(dtBR(h.criado_em)) +
+                (nomeDe(h.autor_id) ? " · " + esc(nomeDe(h.autor_id).split(" ")[0]) : "") +
+                "</span><p>" + esc(h.texto || "") + "</p></li>"; }).join("") + "</ul>"
+          : '<p class="vazio">Nada anotado ainda.</p>');
+
+      async function salvarProximo(v){
+        var r = await DB.client.from("leads_site").update({ proximo_contato: v || null }).eq("id", f.id);
+        if (r.error) { toast(r.error.message, true); return; }
+        toast(v ? ("Retorno em " + dataBR(v) + ".") : "Retorno tirado da agenda.");
+        await recarregar(); if (ATUAL) paneFollowup();
+      }
+      $("fu-data").addEventListener("change", function(){ salvarProximo(this.value); });
+      $("fu-3d").addEventListener("click", function(){ salvarProximo(daqui(3)); });
+      $("fu-7d").addEventListener("click", function(){ salvarProximo(daqui(7)); });
+
+      $("fu-salvar").addEventListener("click", async function(){
+        var t = $("fu-txt").value.trim();
+        if (!t) { toast("Escreva alguma coisa antes de salvar.", true); return; }
+        this.disabled = true;
+        var r = await DB.client.from("leads_interacoes").insert({
+          lead_id: f.id, tipo: "nota", texto: t, autor_id: EU ? EU.id : null });
+        this.disabled = false;
+        if (r.error) { toast(r.error.message, true); return; }
+        // Quem anotou, falou: a ficha não continua em "Chegou".
+        if (f.situacao === "novo") {
+          await DB.client.rpc("lead_mudar_situacao", { p_lead: f.id, p_situacao: "contatado", p_motivo: null });
+        }
+        toast("Anotado.");
+        await recarregar(); if (ATUAL) paneFollowup();
+      });
+    }
+
+    function paneConversa(){
+      $("pane-conversa").innerHTML =
+        '<div class="futuro">' +
+          '<div style="max-width:360px;margin:0 auto;text-align:left">' +
+            '<div class="balao deles">Oi! Vi o anúncio de vocês, queria saber o preço da hora</div>' +
+            '<div class="balao nossa">Oi! Quer conhecer o espaço?</div>' +
+            '<div class="balao deles">Quero. Sábado dá?</div>' +
+          "</div>" +
+          '<p style="margin:16px 0 0"><strong>Esta aba fica desligada até existir a ponte de WhatsApp.</strong><br>' +
+          "Ela já está no lugar certo: quando a caixa de entrada entrar, a conversa aparece aqui — " +
+          "sem mexer no resto da tela.</p>" +
+        "</div>";
+    }
+
+    // =======================================================================
+    // Nova ficha / visita por fora
+    // =======================================================================
+    function abrirNova(){ $("nova-bg").classList.add("on"); document.body.style.overflow = "hidden"; }
+    function fecharNova(){ $("nova-bg").classList.remove("on"); document.body.style.overflow = ""; }
+
+    $("btn-nova").addEventListener("click", abrirNova);
+    $("btn-visita").addEventListener("click", abrirNova);
+    $("nv-fechar").addEventListener("click", fecharNova);
+    $("nv-salvar").addEventListener("click", async function(){
+      var nome = $("nv-nome").value.trim(), wpp = so($("nv-wpp").value);
+      if (!nome) { toast("Falta o nome.", true); return; }
+      if (wpp.length < 10) { toast("WhatsApp incompleto.", true); return; }
+      var d = $("nv-data").value, h = $("nv-hora").value || "14:00";
+      this.disabled = true;
+      var r = await DB.client.rpc("lead_registrar_manual", {
+        p_nome: nome, p_whatsapp: $("nv-wpp").value.trim(),
+        p_cro: $("nv-cro").value.trim() || null,
+        p_quem: $("nv-quem").value || null,
+        p_quando: d ? new Date(d + "T" + h + ":00").toISOString() : null
+      });
+      this.disabled = false;
+      if (r.error) { toast(r.error.message, true); return; }
+      ["nv-nome","nv-wpp","nv-cro","nv-data"].forEach(function(i){ $(i).value = ""; });
+      fecharNova();
+      toast(d ? "Ficha e visita criadas." : "Ficha criada.");
+      await recarregar();
+    });
+
+    // =======================================================================
+    // Ligações gerais
+    // =======================================================================
+    document.addEventListener("click", function(e){
+      var ab = e.target.closest("[data-abrir]");
+      if (ab) { abrir(ab.dataset.abrir); return; }
+
+      // O <a> abre a aba sozinho (síncrono, sem bloqueador de pop-up) e o
+      // registro vai atrás — por isso "contatado" não precisa ser marcado à mão.
+      var wa = e.target.closest("[data-wpp]");
+      if (wa) {
+        var id = wa.dataset.wpp;
+        DB.client.rpc("lead_abriu_whatsapp", { p_lead: id }).then(async function(r){
+          if (r.error) { toast("Abri a conversa, mas não consegui anotar: " + r.error.message, true); return; }
+          var f = FICHAS.filter(function(x){ return x.id === id; })[0];
+          await recarregar();
+          if (ATUAL) paneDados();
+          else if (f) toast("Anotado: " + String(f.nome).split(" ")[0] + " foi contatada.");
+        });
+      }
+    });
+    $("fi-fechar").addEventListener("click", fechar);
+    $("ficha-bg").addEventListener("click", function(e){ if (e.target === this) fechar(); });
+    $("nova-bg").addEventListener("click", function(e){ if (e.target === this) fecharNova(); });
+    document.addEventListener("keydown", function(e){ if (e.key === "Escape") { fechar(); fecharNova(); } });
+    Array.prototype.forEach.call(document.querySelectorAll(".aba"), function(b){
+      b.addEventListener("click", function(){ if (!b.disabled) aba(b.dataset.aba); });
+    });
+    ["busca","f-situacao","f-fonte","f-fora"].forEach(function(id){
+      $(id).addEventListener("input", pintar);
+      $(id).addEventListener("change", pintar);
+    });
+
+    async function recarregar(){
+      await carregar();
+      if (ATUAL) ATUAL = FICHAS.filter(function(x){ return x.id === ATUAL.id; })[0] || null;
+      pintar();
+    }
+
+    // ---- boot (auth ANTES de renderizar) ----------------------------------
+    (async function(){
+      if (!(DB && DB.pronto)) { $("aviso-demo").style.display = "block"; app.hidden = false; return; }
+      EU = await DB.exigirLogin({ exigirGestao: true });
+      if (!EU) return;
+      app.hidden = false;
+      try { await carregar(); pintar(); }
+      catch (e) { console.error(e); toast("Não consegui carregar as fichas: " + e.message, true); }
+    })();
+  })();
+  </script>
+</body>
+</html>

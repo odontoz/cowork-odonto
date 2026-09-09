@@ -207,6 +207,16 @@
       return o;
     }
 
+    // Código curto do clique, gerado pelo brand.js. Ele vem dentro do texto que
+    // o CS_REF() monta ("Ref.: A7K2M9XY"); aqui só se extrai o código.
+    function refCodigo() {
+      try {
+        if (typeof window.CS_REF !== "function") return null;
+        var m = /Ref\.:\s*([A-HJ-NP-Z2-9]{8})/.exec(window.CS_REF() || "");
+        return m ? m[1] : null;
+      } catch (e) { return null; }
+    }
+
     form.addEventListener("submit", async function (e) {
       e.preventDefault();
       aviso.style.display = "none";
@@ -228,6 +238,17 @@
             p_utm: utm()
           });
           if (r.error) throw r.error;
+
+          // Liga o clique do anúncio à ficha recém-criada. Se falhar, a ficha
+          // continua valendo: isto nunca é condição para o cadastro entrar.
+          try {
+            var cod = refCodigo();
+            if (cod && r.data) {
+              await window.EnjoyDB.client.rpc("vincular_clique_lead",
+                { p_token: cod, p_lead: r.data });
+            }
+          } catch (e2) { /* silencioso de propósito */ }
+
           sucesso(true); return;
         } catch (err) {
           console.warn("registrar_lead falhou, caindo pro WhatsApp:", err);
