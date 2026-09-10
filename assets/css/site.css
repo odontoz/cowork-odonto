@@ -4,13 +4,108 @@
  * sem CDN. Cores herdam das CSS vars alimentadas por brand.js.
  * ==========================================================================*/
 
-/* ---- nav do site ---- */
-.nav-site { display: flex; align-items: center; gap: 8px; }
+/* ---- nav do site ----
+ * 10/09/2026 — MENU SANDUÍCHE. Antes disto a regra era `.nav-oculto-mobile
+ * { display: none }` liberada só a partir de 720px, e abaixo disso os quatro
+ * links (Estrutura, Consultórios, Preços, Dúvidas) simplesmente SUMIAM, sem
+ * nada no lugar: no celular ninguém chegava em /consultorios/ pelo cabeçalho.
+ * A classe `nav-oculto-mobile` foi APOSENTADA de propósito, e nenhuma regra a
+ * esconde mais — se alguma página antiga ainda a tiver, o link aparece (que é
+ * o defeito seguro), em vez de sumir.
+ *
+ * A régua:
+ *   • "Entrar" e "Agendar visita" NUNCA entram no painel — convertem, ficam à vista.
+ *   • Sem JavaScript, os quatro links continuam visíveis e quebram linha.
+ *     O painel só existe quando o <html> ganha a classe `js` (linha no <head>).
+ *   • O painel e o botão são operados pelo assets/js/nav-site.js (Esc, foco, fundo).
+ *
+ * O CORTE É 860px, não 720. Medido no navegador: com os quatro links em linha o
+ * cabeçalho precisa de 816px de janela, e abaixo disso o botão "Agendar visita"
+ * quebrava em DUAS linhas dentro do próprio botão e a barra ia a 86px de altura
+ * — defeito que já existia no ar, em tablet de 768px (o aparelho do dono). De
+ * 860px para baixo, então, quem manda é o sanduíche. 860 é o mesmo corte que a
+ * .hero-grid já usa mais abaixo neste arquivo.
+ */
+.nav-site { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .nav-site a.link { color: var(--tinta); font-weight: 600; font-size: .95rem; padding: 6px 8px; }
 .nav-site a.link:hover { color: var(--azul); text-decoration: none; }
 .nav-site .btn { padding: 8px 14px; font-size: .9rem; }
-.nav-oculto-mobile { display: none; }
-@media (min-width: 720px) { .nav-oculto-mobile { display: inline-flex; } }
+.nav-menu { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.nav-sanduiche { display: none; }
+@media (min-width: 860px) {
+  .nav-site, .nav-menu { flex-wrap: nowrap; }
+}
+
+/* ---- telas estreitas COM JavaScript: os quatro viram painel ---- */
+@media (max-width: 859.98px) {
+  html.js .nav-site { flex-wrap: nowrap; gap: 5px; }
+  /* nowrap no CTA: sem isto "Agendar visita" quebra em duas linhas dentro do
+     botão quando o espaço aperta, e a barra inteira cresce para 86px de altura */
+  html.js .nav-site .btn { padding: 9px 10px; font-size: .8rem; white-space: nowrap; }
+  html.js .nav-site a.link { padding: 6px 3px; font-size: .85rem; white-space: nowrap; }
+
+  html.js .nav-sanduiche {
+    display: inline-flex; align-items: center; justify-content: center;
+    flex: 0 0 auto; width: 42px; height: 40px; padding: 0; cursor: pointer;
+    background: var(--branco); color: var(--tinta);
+    border: 1px solid var(--linha); border-radius: 10px;
+    font-family: inherit;
+  }
+  html.js .nav-sanduiche:hover { background: var(--fundo); }
+  html.js .nav-sanduiche:focus-visible {
+    outline: none; border-color: var(--azul); box-shadow: 0 0 0 3px rgba(31,111,235,.18);
+  }
+  /* as três barras: uma <span> e seus dois ::before/::after viram o X ao abrir */
+  html.js .nav-sanduiche .barras { position: relative; display: block; width: 18px; height: 2px;
+    border-radius: 2px; background: currentColor; transition: background .15s; }
+  html.js .nav-sanduiche .barras::before,
+  html.js .nav-sanduiche .barras::after {
+    content: ""; position: absolute; left: 0; display: block; width: 18px; height: 2px;
+    border-radius: 2px; background: currentColor; transition: transform .15s, top .15s;
+  }
+  html.js .nav-sanduiche .barras::before { top: -6px; }
+  html.js .nav-sanduiche .barras::after  { top: 6px; }
+  html.js .nav-sanduiche[aria-expanded="true"] .barras { background: transparent; }
+  html.js .nav-sanduiche[aria-expanded="true"] .barras::before { top: 0; transform: rotate(45deg); }
+  html.js .nav-sanduiche[aria-expanded="true"] .barras::after  { top: 0; transform: rotate(-45deg); }
+
+  /* o painel ancora na .topbar (que é position: sticky, logo é bloco de contenção) */
+  html.js .nav-menu {
+    display: none;
+    position: absolute; top: 100%; left: 0; right: 0; z-index: 5;
+    flex-direction: column; align-items: stretch; gap: 0; flex-wrap: nowrap;
+    background: var(--branco); border-bottom: 1px solid var(--linha);
+    box-shadow: var(--sombra); padding: 4px 16px 10px;
+  }
+  html.js .nav-menu.aberto { display: flex; }
+  html.js .nav-menu a.link {
+    padding: 14px 4px; font-size: 1rem; border-radius: 8px;
+  }
+  html.js .nav-menu a.link + a.link { border-top: 1px solid var(--linha); }
+
+  /* Camada de fundo. A ordem tem que ser: página < botão do WhatsApp (50) <
+     escurecido (55) < barra do topo, porque o painel VIVE dentro da .topbar e
+     precisa ficar por cima do escurecido. Por isso a topbar sobe de 10 para 60
+     enquanto o menu está aberto — sem isso o botão verde flutuante ficava aceso
+     e clicável por cima da camada. */
+  .nav-fundo {
+    position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 55;
+    background: rgba(16, 32, 43, .38); border: 0;
+  }
+  body.menu-aberto .topbar { z-index: 60; }
+}
+/* O espaço no celular é curto: a 390px o logotipo de 44px (206px de largura,
+   posto pelo brand.js num style inline) mais "Entrar" + "Agendar visita" + o
+   botão do menu davam 424px numa barra de 390 — a página ganhava rolagem
+   lateral. O logotipo desce para 30px SÓ até 560px; o `!important` existe
+   porque a altura vem em atributo style, e mexer no brand.js custaria bumpar
+   o cache do service worker por uma questão de layout. */
+@media (max-width: 560px) {
+  .topbar .marca img { height: 30px !important; }
+}
+@media (max-width: 859.98px) and (min-width: 640px) {
+  html.js .nav-menu { padding-left: 24px; padding-right: 24px; }
+}
 
 /* ---- seções ---- */
 .secao { padding: 56px 0; }

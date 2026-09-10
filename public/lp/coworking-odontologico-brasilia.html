@@ -14,6 +14,8 @@
   <meta property="og:description" content="O 'Livance para dentistas' de Brasília: estrutura completa, app próprio e biossegurança resolvida.">
   <link rel="stylesheet" href="../../assets/css/base.css">
   <link rel="stylesheet" href="../../assets/css/site.css">
+  <script>document.documentElement.classList.add("js")</script>
+  <script src="../../assets/js/nav-site.js" defer></script>
   <script src="../../assets/js/brand.js" defer></script>
 
   <!-- Google tag (gtag.js) — ClinicShare · conta 721-356-1772. -->
@@ -45,13 +47,18 @@
     <div class="container">
       <a class="marca" href="../../"><span data-brand="nomeCurto">ClinicShare</span> <span data-brand="tagline">Coworking</span></a>
       <nav class="nav-site">
-        <a class="link nav-oculto-mobile" href="../../">Início</a>
-        <a class="link nav-oculto-mobile" href="../../#estrutura">Estrutura</a>
-        <a class="link nav-oculto-mobile" href="../precos.html">Preços</a>
-        <a class="link nav-oculto-mobile" href="../../consultorios/">Consultórios</a>
-        <a class="link nav-oculto-mobile" href="../../#faq">Dúvidas</a>
+        <div class="nav-menu" id="menu-site">
+          <a class="link" href="../../">Início</a>
+          <a class="link" href="../../#estrutura">Estrutura</a>
+          <a class="link" href="../precos.html">Preços</a>
+          <a class="link" href="../../consultorios/">Consultórios</a>
+          <a class="link" href="../../#faq">Dúvidas</a>
+        </div>
         <a class="link" href="../app/login.html">Entrar</a>
         <a class="btn btn-cta" href="../visita.html">Agendar visita</a>
+        <button class="nav-sanduiche" type="button" aria-controls="menu-site" aria-expanded="false" aria-label="Abrir menu">
+          <span class="barras" aria-hidden="true"></span>
+        </button>
       </nav>
     </div>
   </header>

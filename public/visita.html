@@ -15,6 +15,8 @@
   <link rel="manifest" href="../manifest.webmanifest">
   <link rel="stylesheet" href="../assets/css/base.css">
   <link rel="stylesheet" href="../assets/css/site.css">
+  <script>document.documentElement.classList.add("js")</script>
+  <script src="../assets/js/nav-site.js" defer></script>
   <script src="../assets/js/brand.js" defer></script>
 
   <!-- TRACKING: GTM/Pixel/Ads como na home (descomentar no go-live). Esta é a
@@ -51,12 +53,17 @@
     <div class="container">
       <a class="marca" href="index.html"><span data-brand="nomeCurto">ClinicShare</span> <span data-brand="tagline">Coworking</span></a>
       <nav class="nav-site">
-        <a class="link nav-oculto-mobile" href="index.html">Início</a>
-        <a class="link nav-oculto-mobile" href="index.html#estrutura">Estrutura</a>
-        <a class="link nav-oculto-mobile" href="precos.html">Preços</a>
-        <a class="link nav-oculto-mobile" href="index.html#faq">Dúvidas</a>
+        <div class="nav-menu" id="menu-site">
+          <a class="link" href="index.html">Início</a>
+          <a class="link" href="index.html#estrutura">Estrutura</a>
+          <a class="link" href="precos.html">Preços</a>
+          <a class="link" href="index.html#faq">Dúvidas</a>
+        </div>
         <a class="link" href="app/login.html">Entrar</a>
         <a class="btn btn-cta" data-brand-href="whatsapp">WhatsApp</a>
+        <button class="nav-sanduiche" type="button" aria-controls="menu-site" aria-expanded="false" aria-label="Abrir menu">
+          <span class="barras" aria-hidden="true"></span>
+        </button>
       </nav>
     </div>
   </header>

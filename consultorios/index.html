@@ -19,6 +19,8 @@
   <meta name="twitter:card" content="summary_large_image">
   <link rel="stylesheet" href="../assets/css/base.css">
   <link rel="stylesheet" href="../assets/css/site.css">
+  <script>document.documentElement.classList.add("js")</script>
+  <script src="../assets/js/nav-site.js" defer></script>
   <script src="../assets/js/brand.js" defer></script>
   <script async src="https://www.googletagmanager.com/gtag/js?id=AW-18411824511"></script>
   <script>
@@ -44,9 +46,14 @@
     <div class="container">
       <a class="marca" href="../"><span data-brand="nomeCurto">ClinicShare</span> <span data-brand="tagline">Coworking</span></a>
       <nav class="nav-site">
-        <a class="link nav-oculto-mobile" href="../public/precos.html">Preços</a>
+        <div class="nav-menu" id="menu-site">
+          <a class="link" href="../public/precos.html">Preços</a>
+        </div>
         <a class="link" href="../public/app/login.html">Entrar</a>
         <a class="btn btn-cta" href="../public/visita.html">Agendar visita</a>
+        <button class="nav-sanduiche" type="button" aria-controls="menu-site" aria-expanded="false" aria-label="Abrir menu">
+          <span class="barras" aria-hidden="true"></span>
+        </button>
       </nav>
     </div>
   </header>

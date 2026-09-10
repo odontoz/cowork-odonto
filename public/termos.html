@@ -8,6 +8,8 @@
   <link rel="apple-touch-icon" href="../assets/img/favicon-clinicshare.png">
   <link rel="stylesheet" href="../assets/css/base.css">
   <link rel="stylesheet" href="../assets/css/site.css">
+  <script>document.documentElement.classList.add("js")</script>
+  <script src="../assets/js/nav-site.js" defer></script>
   <script src="../assets/js/brand.js" defer></script>
 
   <!-- Google tag (gtag.js) — ClinicShare · conta 721-356-1772 (02/09/2026).
@@ -43,12 +45,17 @@
     <div class="container">
       <a class="marca" href="index.html"><span data-brand="nomeCurto">ClinicShare</span> <span data-brand="tagline">Coworking</span></a>
       <nav class="nav-site">
-        <a class="link nav-oculto-mobile" href="index.html">Início</a>
-        <a class="link nav-oculto-mobile" href="index.html#estrutura">Estrutura</a>
-        <a class="link nav-oculto-mobile" href="precos.html">Preços</a>
-        <a class="link nav-oculto-mobile" href="index.html#faq">Dúvidas</a>
+        <div class="nav-menu" id="menu-site">
+          <a class="link" href="index.html">Início</a>
+          <a class="link" href="index.html#estrutura">Estrutura</a>
+          <a class="link" href="precos.html">Preços</a>
+          <a class="link" href="index.html#faq">Dúvidas</a>
+        </div>
         <a class="link" href="app/login.html">Entrar</a>
         <a class="btn btn-cta" href="visita.html">Agendar visita</a>
+        <button class="nav-sanduiche" type="button" aria-controls="menu-site" aria-expanded="false" aria-label="Abrir menu">
+          <span class="barras" aria-hidden="true"></span>
+        </button>
       </nav>
     </div>
   </header>

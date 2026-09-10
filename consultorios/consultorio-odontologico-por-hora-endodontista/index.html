@@ -25,6 +25,8 @@
   <link rel="stylesheet" href="../../assets/css/site.css">
   <!-- brand.js: sem ele o WhatsApp flutuante some, a conversao do Google nao dispara
        e o Contact da Meta nao sai. Nao remover. -->
+  <script>document.documentElement.classList.add("js")</script>
+  <script src="../../assets/js/nav-site.js" defer></script>
   <script src="../../assets/js/brand.js" defer></script>
 
   <!-- Google tag (gtag.js) — ClinicShare · conta 721-356-1772 -->
@@ -171,10 +173,15 @@
     <div class="container">
       <a class="marca" href="../../"><span data-brand="nomeCurto">ClinicShare</span> <span data-brand="tagline">Coworking</span></a>
       <nav class="nav-site">
-        <a class="link nav-oculto-mobile" href="../../consultorios/">Consultórios</a>
-        <a class="link nav-oculto-mobile" href="../../public/precos.html">Preços</a>
+        <div class="nav-menu" id="menu-site">
+          <a class="link" href="../../consultorios/">Consultórios</a>
+          <a class="link" href="../../public/precos.html">Preços</a>
+        </div>
         <a class="link" href="../../public/app/login.html">Entrar</a>
         <a class="btn btn-cta" href="../../public/visita.html">Agendar visita</a>
+        <button class="nav-sanduiche" type="button" aria-controls="menu-site" aria-expanded="false" aria-label="Abrir menu">
+          <span class="barras" aria-hidden="true"></span>
+        </button>
       </nav>
     </div>
   </header>
