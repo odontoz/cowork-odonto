@@ -3,7 +3,7 @@
 // baixado por todo visitante, e o changelog expunha assunto interno. Ele vive agora em
 // docs/sw-historico.md, que não sobe para o site.
 
-var CACHE = "enjoy-v64";
+var CACHE = "enjoy-v65";
 var BASE = self.location.href.replace(/sw\.js.*$/, "");
 var FALLBACK = "public/app/index.html";
 var SHELL = [

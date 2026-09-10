@@ -165,9 +165,12 @@
       e.preventDefault(); if (DB && DB.pronto) DB.sair(); else location.href = "login.html";
     });
 
-    // grade de horários 8h→22h de 30 em 30
+    // grade de horários 8h→23h de 30 em 30 (a casa funciona 08:00–23:00 todo dia:
+    // `config.horario_funcionamento`). Ia só até 21:30, então o período noturno
+    // vendido das 19h às 23h aparecia CORTADO nesta tela — as 22:00 e 22:30 de uma
+    // reserva existente simplesmente não eram desenhadas. Corrigido em 10/09/2026.
     var HORAS = [];
-    for (var h = 8; h < 22; h++) { HORAS.push(h + ":00"); HORAS.push(h + ":30"); }
+    for (var h = 8; h < 23; h++) { HORAS.push(h + ":00"); HORAS.push(h + ":30"); }
     function pad(n) { return String(n).padStart(2, "0"); }
     function normHora(hstr) { var p = hstr.split(":"); return pad(+p[0]) + ":" + pad(+p[1]); } // "9:00"->"09:00"
     function hojeISO() { var d = new Date(); return d.getFullYear() + "-" + pad(d.getMonth()+1) + "-" + pad(d.getDate()); }

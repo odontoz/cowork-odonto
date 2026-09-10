@@ -451,9 +451,12 @@
       document.getElementById("aviso-demo").style.display = "block";
       SALAS = [{ id: "s1", nome: "Consultório 1 (RX)" }, { id: "s2", nome: "Consultório 2" }];
       PRODUTOS = [{ tipo: "hora", valor: 75 }];
+      // Espelho da tabela real (produtos_preco). Régua de 10/09/2026: TODO período
+      // de 4h custa R$ 250 (preço de lançamento); a diária é 2 períodos = R$ 500.
+      // Isto é só o modo demonstração — o preço que cobra vem sempre do banco.
       PRODUTOS_MAP = {
-        hora: { valor: 75 }, periodo: { valor: 250 }, periodo_noturno: { valor: 350 },
-        diaria: { valor: 400 }, periodo_fds: { valor: 300 }
+        hora: { valor: 75 }, periodo: { valor: 250 }, periodo_noturno: { valor: 250 },
+        diaria: { valor: 500 }, periodo_fds: { valor: 250 }
       };
       MEU_ID = "prof-eu";
     }
