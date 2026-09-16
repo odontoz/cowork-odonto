@@ -99,17 +99,42 @@
 
   /**
    * dentroDoHorario(horarioFuncionamento, ini, fim)
-   * horarioFuncionamento: { "0":{abre:"08:00",fecha:"18:00"}, ... } (0=domingo).
-   * true se a reserva cabe na janela do dia. (Assume ini/fim no mesmo dia.)
+   * horarioFuncionamento: { "0":{abre:"00:00",fecha:"24:00"}, ... } (0=domingo).
+   * true se a reserva cabe na janela de funcionamento.
+   *
+   * 16/09/2026 — a casa passou a abrir 24 HORAS todo dia (urgência). Duas consequências:
+   *   1. "24:00" significa a meia-noite do dia SEGUINTE (horaParaData já resolve isso,
+   *      porque setHours(24) rola para o dia seguinte);
+   *   2. uma reserva pode ATRAVESSAR a meia-noite (23:00 → 01:00). A versão antiga
+   *      assumia ini/fim no mesmo dia e recusava esse caso. Agora a reserva é conferida
+   *      dia a dia: cada pedaço precisa cair dentro da janela do seu próprio dia, e a
+   *      emenda só vale se o dia fecha na meia-noite e o seguinte abre na meia-noite.
    */
   function dentroDoHorario(horarioFuncionamento, ini, fim) {
     ini = paraDate(ini); fim = paraDate(fim);
-    var dia = String(ini.getDay());
-    var janela = horarioFuncionamento && horarioFuncionamento[dia];
-    if (!janela) return false; // dia fechado
-    var abre = horaParaData(ini, janela.abre);
-    var fecha = horaParaData(ini, janela.fecha);
-    return ini.getTime() >= abre.getTime() && fim.getTime() <= fecha.getTime();
+    if (!horarioFuncionamento) return false;
+    var cursor = new Date(ini);
+    // teto de 14 voltas: uma reserva não atravessa duas semanas, e o laço nunca trava.
+    for (var volta = 0; volta < 14 && cursor.getTime() < fim.getTime(); volta++) {
+      var janela = horarioFuncionamento[String(cursor.getDay())];
+      if (!janela) return false;                       // dia fechado
+      var abre  = horaParaData(cursor, janela.abre);
+      var fecha = horaParaData(cursor, janela.fecha);
+      if (cursor.getTime() < abre.getTime()) return false;   // começa antes de abrir
+      if (cursor.getTime() >= fecha.getTime()) return false; // começa depois de fechar
+      if (fim.getTime() <= fecha.getTime()) return true;     // termina dentro do dia
+      var meiaNoite = proximaMeiaNoite(cursor);
+      if (fecha.getTime() < meiaNoite.getTime()) return false; // fecha antes da virada
+      cursor = meiaNoite;                              // emenda no dia seguinte
+    }
+    return cursor.getTime() >= fim.getTime();
+  }
+
+  function proximaMeiaNoite(base) {
+    var d = new Date(base);
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() + 1);
+    return d;
   }
 
   function horaParaData(base, hhmm) {

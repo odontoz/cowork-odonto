@@ -208,11 +208,14 @@
     var PRODUTOS_MAP = {};        // tipo → { id, valor, nome }
     var PRODUTO_ATUAL = null;     // opção escolhida (hora ou bloco fixo)
     var PRECO_BASE = 0, PRECO_FINAL = 0, CUPOM_OK = null;
+    // 16/09/2026: a casa funciona 24 HORAS, todos os dias (decisão do dono, para
+    // atender urgência). Este é só o palpite enquanto `config.horario_funcionamento`
+    // não chega do banco — quem manda é o banco. "24:00" = meia-noite do dia seguinte.
     var HORARIO = {
-      "0": { abre: "08:00", fecha: "18:00" }, "1": { abre: "08:00", fecha: "23:00" },
-      "2": { abre: "08:00", fecha: "23:00" }, "3": { abre: "08:00", fecha: "23:00" },
-      "4": { abre: "08:00", fecha: "23:00" }, "5": { abre: "08:00", fecha: "23:00" },
-      "6": { abre: "08:00", fecha: "23:00" }
+      "0": { abre: "00:00", fecha: "24:00" }, "1": { abre: "00:00", fecha: "24:00" },
+      "2": { abre: "00:00", fecha: "24:00" }, "3": { abre: "00:00", fecha: "24:00" },
+      "4": { abre: "00:00", fecha: "24:00" }, "5": { abre: "00:00", fecha: "24:00" },
+      "6": { abre: "00:00", fecha: "24:00" }
     };
     // passoSlotMin = 60: a grade mostra BLOCOS DE 1 HORA (13:00–14:00, 14:00–15:00…),
     // alinhado à cobrança por hora e à duração mínima de 1h. Clicar seleciona a hora
@@ -425,9 +428,15 @@
       var prodP = DB.client.from("produtos_preco").select("id,tipo,valor,nome,regras").eq("ativo", true);
       var r = await Promise.all([salasP, cfgP, prodP]);
 
+      // O nome vem do banco (Consultório Silver / Consultório Gold). O sufixo diz, na
+      // própria lista, o que diferencia um do outro: o Silver tem o raio-X; o Gold tem
+      // dois ambientes (sala clínica + escritório com mesa de trabalho).
       SALAS = (r[0].data || []).map(function (s) {
-        var temRx = (s.comodidades || []).indexOf("rx") !== -1;
-        return { id: s.id, nome: s.nome + (temRx ? " (RX)" : "") };
+        var com = s.comodidades || [];
+        var extra = "";
+        if (com.indexOf("rx") !== -1) extra = " · raio-X";
+        else if (com.indexOf("escritorio") !== -1) extra = " · 2 ambientes";
+        return { id: s.id, nome: s.nome + extra };
       });
       (r[1].data || []).forEach(function (c) {
         if (c.chave === "horario_funcionamento") HORARIO = c.valor;
@@ -449,14 +458,15 @@
 
     function carregarMock(perfil) {
       document.getElementById("aviso-demo").style.display = "block";
-      SALAS = [{ id: "s1", nome: "Consultório 1 (RX)" }, { id: "s2", nome: "Consultório 2" }];
+      SALAS = [{ id: "s1", nome: "Consultório Silver · raio-X" }, { id: "s2", nome: "Consultório Gold · 2 ambientes" }];
       PRODUTOS = [{ tipo: "hora", valor: 75 }];
-      // Espelho da tabela real (produtos_preco). Régua de 10/09/2026: TODO período
-      // de 4h custa R$ 250 (preço de lançamento); a diária é 2 períodos = R$ 500.
+      // Espelho da tabela real (produtos_preco). Régua de 10/09/2026: TODO período de 4h
+      // custa R$ 250 (preço de lançamento). Diária: R$ 450 desde 16/09/2026 (era R$ 500) —
+      // passou a sair mais barato que dois períodos.
       // Isto é só o modo demonstração — o preço que cobra vem sempre do banco.
       PRODUTOS_MAP = {
         hora: { valor: 75 }, periodo: { valor: 250 }, periodo_noturno: { valor: 250 },
-        diaria: { valor: 500 }, periodo_fds: { valor: 250 }
+        diaria: { valor: 450 }, periodo_fds: { valor: 250 }
       };
       MEU_ID = "prof-eu";
     }

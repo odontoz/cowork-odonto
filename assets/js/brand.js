@@ -328,12 +328,13 @@
     },
 
     horarios: {
-      // 05/09/2026: alinhado ao que a AGENDA realmente abre (config.horario_funcionamento
-      // no banco: 08:00–23:00 todos os dias). O site anunciava 22h/18h e escondia uma hora
-      // por dia mais o domingo inteiro.
-      semana:  "Seg a Sex · 8h às 23h",
-      sabado:  "Sábado · 8h às 23h",
-      domingo: "Domingo · 8h às 23h"
+      // 16/09/2026: o espaço passou a funcionar 24 HORAS, todos os dias (decisão do dono),
+      // para atender urgência. A agenda do banco (config.horario_funcionamento) foi aberta
+      // 00:00–24:00 em todos os dias da semana — estes três campos são só o texto do site.
+      // Histórico: até 05/09 o site anunciava 22h/18h; de 05/09 a 16/09 valeu 08:00–23:00.
+      semana:  "Todo dia · 24 horas",
+      sabado:  "Sábado e domingo · 24 horas",
+      domingo: "Urgência: a agenda do app não fecha"
     },
 
     // Mensagem padrão do WhatsApp (CTA principal)

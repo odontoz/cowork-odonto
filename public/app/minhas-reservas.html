@@ -135,10 +135,10 @@
     // a que horas fecha, em vez de convidar a reservar 23h numa casa que fecha
     // às 23h. O valor real do banco sobrescreve isto no carregarConfig().
     var HORARIO = {
-      "0": { abre: "08:00", fecha: "18:00" }, "1": { abre: "08:00", fecha: "23:00" },
-      "2": { abre: "08:00", fecha: "23:00" }, "3": { abre: "08:00", fecha: "23:00" },
-      "4": { abre: "08:00", fecha: "23:00" }, "5": { abre: "08:00", fecha: "23:00" },
-      "6": { abre: "08:00", fecha: "23:00" }
+      "0": { abre: "00:00", fecha: "24:00" }, "1": { abre: "00:00", fecha: "24:00" },
+      "2": { abre: "00:00", fecha: "24:00" }, "3": { abre: "00:00", fecha: "24:00" },
+      "4": { abre: "00:00", fecha: "24:00" }, "5": { abre: "00:00", fecha: "24:00" },
+      "6": { abre: "00:00", fecha: "24:00" }
     };
     var CARREGOU = false; // a ÚLTIMA consulta de reservas deu certo
     var EM_VOO = false;   // já existe uma releitura em andamento
