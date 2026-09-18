@@ -132,6 +132,27 @@
     };
     function selo(st){ var m=STATUS[st]||{t:st,c:"cinza"}; return '<span class="st st-'+m.c+'">'+esc(m.t)+"</span>"; }
 
+    // ---- cadastro EMPACADO (18/09/2026) ------------------------------------
+    // Estes estados esperam uma ação do CLIENTE (pagar a taxa). Ninguém é
+    // avisado quando alguém para aí: a Dra. Lilian ficou 8 dias parada em
+    // `docs_enviados` e só se descobriu por acaso. Quem tem de perceber é a
+    // gestão, e o lugar natural é esta lista — daí o contador de dias parados.
+    var ESPERANDO_CLIENTE = ["docs_enviados", "aguardando_pagamento", "rascunho", "em_aprovacao"];
+    var DIAS_ALERTA = 2;
+    function diasParado(p) {
+      if (ESPERANDO_CLIENTE.indexOf(p.status) === -1) return 0;
+      var base = new Date(p.atualizado_em || p.criado_em).getTime();
+      if (isNaN(base)) return 0;
+      return Math.floor((Date.now() - base) / 86400000);
+    }
+    function seloParado(p) {
+      var d = diasParado(p);
+      if (d < DIAS_ALERTA) return "";
+      return ' <span class="st st-vermelho" title="Esperando o pagamento da taxa. ' +
+        'Vale chamar no WhatsApp com o link de pagamento.">parado há ' +
+        d + (d === 1 ? " dia" : " dias") + "</span>";
+    }
+
     async function iniciar() {
       if (!(DB && DB.pronto)) { document.getElementById("aviso-demo").style.display="block"; app.hidden=false; return; }
       var perfil = await DB.exigirLogin({ exigirGestao: true });
@@ -161,7 +182,7 @@
       document.getElementById("roster-vazio").style.display = lista.length ? "none" : "block";
       corpo.innerHTML = lista.map(function (p) {
         return '<tr data-id="'+p.id+'"><td><strong>'+esc(p.nome||"—")+"</strong></td>"+
-          "<td>"+esc(p.cro||"—")+"</td><td>"+selo(p.status)+"</td><td>"+dia(p.criado_em)+"</td></tr>";
+          "<td>"+esc(p.cro||"—")+"</td><td>"+selo(p.status)+seloParado(p)+"</td><td>"+dia(p.criado_em)+"</td></tr>";
       }).join("");
       Array.prototype.forEach.call(corpo.querySelectorAll("tr"), function (tr) {
         tr.addEventListener("click", function () { abrirFicha(tr.dataset.id); });
