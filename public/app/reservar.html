@@ -413,11 +413,24 @@
           }
         }
       } catch (e) { console.warn("aviso de contrato pendente:", e); }
+      // Mesma régua da home (18/09/2026): quando a bola está com o cliente, o
+      // aviso diz o que FALTA ELE FAZER e traz o botão; "aguarde a gestão" só
+      // aparece quando a gestão é mesmo quem tem de agir.
       if (!APROVADO) {
         var a = document.getElementById("aviso-status");
-        a.textContent = perfil && perfil.status === "em_aprovacao"
-          ? "Seu cadastro está em análise — você poderá reservar assim que a gestão aprovar."
-          : "Seu acesso não permite reservar no momento. Fale com a gestão.";
+        var st = perfil && perfil.status;
+        if (["docs_enviados", "aguardando_pagamento", "rascunho", "em_aprovacao"].indexOf(st) !== -1) {
+          a.innerHTML = "<strong>Falta um passo seu:</strong> pagar a taxa de cadastro, que vale 12 meses. " +
+            "Depois dela seus dados são conferidos e o contrato digital fica pronto para assinar — aí as reservas liberam. " +
+            '<div style="margin-top:12px"><a class="btn btn-primario" href="pagamento-cadastro.html">Pagar a taxa de cadastro</a></div>';
+        } else if (["pago_em_verificacao", "fila_revisao_humana"].indexOf(st) !== -1) {
+          a.textContent = "Taxa recebida — estamos conferindo seus documentos. Assim que a gestão liberar, o contrato aparece para você assinar.";
+        } else if (st === "contrato_assinado") {
+          a.innerHTML = "<strong>Falta só aceitar o contrato</strong> para liberar as reservas. " +
+            '<div style="margin-top:12px"><a class="btn btn-primario" href="contrato.html">Ver o contrato</a></div>';
+        } else {
+          a.textContent = "Seu acesso não permite reservar no momento. Fale com a gestão.";
+        }
         a.style.display = "block";
       }
 
