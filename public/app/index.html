@@ -158,18 +158,36 @@
 
       // pode reservar quando aprovado ou ativo (pós-contrato); demais estados bloqueiam
       if (perfil.status !== "aprovado" && perfil.status !== "ativo") {
-        var msg;
-        if (["em_aprovacao", "fila_revisao_humana", "pago_em_verificacao", "docs_enviados"].indexOf(perfil.status) !== -1)
-          msg = "Seu cadastro está em análise. Assim que a gestão aprovar, você poderá reservar consultórios.";
-        else if (perfil.status === "contrato_assinado")
-          msg = "Falta só aceitar o contrato para liberar as reservas. Veja em Contrato.";
-        else if (perfil.status === "aguardando_pagamento")
-          msg = "Conclua o pagamento da taxa de cadastro para continuar.";
+        // ⚠️ A DIFERENÇA QUE IMPORTA: "esperando a gente" × "esperando você".
+        // Até 18/09/2026 `docs_enviados` lia "seu cadastro está em análise,
+        // assim que a gestão aprovar…" — e isso era FALSO. Nesse estado ninguém
+        // vai analisar nada: o sistema está esperando o pagamento da taxa, que
+        // é do cliente. A Dra. Lilian ficou 8 dias esperando uma aprovação que
+        // nunca viria, porque a tela do Pix só é linkada na hora do cadastro e
+        // some para sempre de quem fecha o navegador. Quando a bola está com o
+        // cliente, o aviso tem de DIZER isso e trazer o botão junto.
+        var msg, ehHtml = false;
+        var botao = function (texto, href) {
+          return '<div style="margin-top:12px"><a class="btn btn-primario" href="' + href + '">' + texto + '</a></div>';
+        };
+        if (["docs_enviados", "aguardando_pagamento", "rascunho", "em_aprovacao"].indexOf(perfil.status) !== -1) {
+          msg = "<strong>Falta um passo seu:</strong> pagar a taxa de cadastro, que vale 12 meses. " +
+                "Assim que o Pix cair, seus dados são conferidos e o contrato digital fica pronto para você assinar." +
+                botao("Pagar a taxa de cadastro", "pagamento-cadastro.html");
+          ehHtml = true;
+        }
+        else if (["fila_revisao_humana", "pago_em_verificacao"].indexOf(perfil.status) !== -1)
+          msg = "Taxa recebida — estamos conferindo seus documentos. Assim que a gestão liberar, o contrato digital aparece aqui para você assinar.";
+        else if (perfil.status === "contrato_assinado") {
+          msg = "<strong>Falta só aceitar o contrato</strong> para liberar as reservas e a compra de horas." +
+                botao("Ver o contrato", "contrato.html");
+          ehHtml = true;
+        }
         else if (perfil.status === "recusado")
           msg = "Seu cadastro não foi aprovado. Fale com a gestão.";
         else
           msg = "Seu acesso ainda não está ativo. Fale com a gestão.";
-        bloquearReserva(msg);
+        bloquearReserva(msg, ehHtml);
       }
 
       var agoraISO = new Date().toISOString();
@@ -236,9 +254,13 @@
       document.getElementById("ac-com-gratis").style.display = "inline";
     }
 
-    function bloquearReserva(msg) {
+    // `ehHtml` existe porque o aviso precisa levar o BOTÃO junto quando a ação
+    // é do cliente — mandar a pessoa procurar o caminho sozinha foi justamente
+    // o que prendeu a Dra. Lilian por 8 dias.
+    function bloquearReserva(msg, ehHtml) {
       var a = document.getElementById("aviso-status");
-      a.textContent = msg; a.style.display = "block";
+      if (ehHtml) a.innerHTML = msg; else a.textContent = msg;
+      a.style.display = "block";
       ["btn-reservar-topo","atalho-reservar"].forEach(function (id) {
         var el = document.getElementById(id);
         el.classList.add("btn-neutro"); el.setAttribute("aria-disabled","true");
