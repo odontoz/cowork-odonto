@@ -161,6 +161,7 @@
     var VALOR_HORA = 75;
     var FATURAS = [];
     var CONTRATO_PENDENTE = false;   // contrato gerado e ainda não assinado → não compra
+    var CADASTRO_INCOMPLETO = false; // perfil fora de aprovado/ativo → não compra (18/09/2026)
     var HORA_GRATIS = false;         // só quem PAGOU a taxa de cadastro tem a 1ª hora grátis
 
     // A 1ª hora grátis é a contrapartida de quem PAGOU a taxa de cadastro. Quem
@@ -218,6 +219,9 @@
     // ============ REAL ============
     async function carregar(perfil) {
       PERFIL = perfil;
+      // Só quem já concluiu o cadastro compra horas (ver barradoPeloContrato).
+      CADASTRO_INCOMPLETO = !!perfil &&
+        ["aprovado", "ativo"].indexOf(perfil.status) === -1;
       var profTxt = { odonto:"Odontologia", hof:"HOF", estetica:"Estética" }[perfil && perfil.profissao] || "Profissional";
       var assP = DB.client.from("assinaturas").select("produto_id,status,produtos_preco(nome,valor,regras)").in("status",["ativa","inadimplente"]).limit(1);
       var horaP = DB.client.from("produtos_preco").select("valor").eq("tipo","hora").eq("ativo",true).limit(1);
@@ -419,6 +423,21 @@
 
       // trava dura: sem contrato assinado não compra (07/08/2026)
       function barradoPeloContrato() {
+        // CADASTRO AINDA NÃO CONCLUÍDO barra antes de tudo (18/09/2026).
+        // A trava do contrato só pega quem JÁ TEM contrato gerado — quem ainda
+        // nem pagou a taxa não tem contrato nenhum, e por isso passava direto.
+        // Foi assim que a Dra. Lilian, parada em `docs_enviados`, conseguiu
+        // gerar um Pix de R$ 590 do Plano 10h que não a liberava para nada.
+        // A ordem é: taxa → contrato → liberação → compra de horas.
+        if (CADASTRO_INCOMPLETO) {
+          av.className = "aviso aviso-atencao";
+          av.innerHTML = "Seu cadastro ainda não está concluído, então a compra de horas " +
+            "fica para depois. Falta pagar a <strong>taxa de cadastro</strong> e assinar o " +
+            "contrato digital — aí a gestão libera e você compra suas horas aqui. " +
+            '<a href="pagamento-cadastro.html">Concluir meu cadastro</a>.';
+          av.style.display = "block";
+          return true;
+        }
         if (!CONTRATO_PENDENTE) return false;
         av.className = "aviso aviso-atencao";
         av.innerHTML = "Assine o contrato para liberar a contratação de plano" +
@@ -427,10 +446,15 @@
         av.style.display = "block";
         return true;
       }
-      if (CONTRATO_PENDENTE) {
+      if (CADASTRO_INCOMPLETO || CONTRATO_PENDENTE) {
         Array.prototype.forEach.call(
           box.querySelectorAll(".btn-plano-pix,.btn-plano-cartao,.btn-plano-recorrente"),
-          function (b) { b.disabled = true; b.title = "Assine o contrato para liberar a compra."; }
+          function (b) {
+            b.disabled = true;
+            b.title = CADASTRO_INCOMPLETO
+              ? "Conclua o cadastro (taxa + contrato) para liberar a compra."
+              : "Assine o contrato para liberar a compra.";
+          }
         );
       }
 
