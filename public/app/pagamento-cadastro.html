@@ -93,6 +93,10 @@
       <h1 style="margin:0">Cadastro em análise</h1>
       <p class="muted">Seu pagamento foi confirmado e seus dados estão com a nossa equipe
         para uma checagem rápida. Você recebe o retorno em breve — pode fechar esta página.</p>
+      <p class="muted" style="font-size:.88rem">Assim que for liberado, o seu contrato digital
+        aparece em <strong>Contrato</strong>, no menu do aplicativo. Se esta tela ficar parada
+        aqui, é só atualizar a página.</p>
+      <a class="btn btn-primario btn-bloco" href="contrato.html">Ver meu contrato</a>
       <a class="btn btn-neutro btn-bloco" href="index.html">Voltar ao início</a>
     </section>
 
@@ -187,6 +191,18 @@
       if (pollTimer) return;
       pollTimer = setInterval(atualizarPerfil, POLL_MS);
     }
+
+    // ⚠️ O POLL SOZINHO NÃO BASTA NO CELULAR (18/09/2026). Quando a aba vai para
+    // segundo plano, o navegador do celular CONGELA os timers: a pessoa volta
+    // horas depois e continua lendo "Cadastro em análise" — mesmo já aprovada e
+    // com o contrato pronto. Foi o que aconteceu com a Dra. Lilian: aprovada às
+    // 13h42, ela seguia vendo a tela de análise de 13h35 e disse "está em
+    // análise de novo, e não saiu o contrato para eu ler". Revalidar quando a
+    // aba volta ao primeiro plano custa uma consulta e mata o congelamento.
+    document.addEventListener("visibilitychange", function () {
+      if (!document.hidden) atualizarPerfil();
+    });
+    window.addEventListener("focus", function () { atualizarPerfil(); });
     function pararPoll() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
 
     // ---- gerar QR ----------------------------------------------------------
