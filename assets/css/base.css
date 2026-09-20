@@ -161,3 +161,55 @@ input:focus, select:focus, textarea:focus {
 @media (min-width: 640px) {
   .container { padding: 0 24px; }
 }
+
+/* ---- galeria de fotos da sala (20/09/2026) ----------------------------
+   Carrossel simples: a faixa rola na horizontal com scroll-snap, então no
+   celular o dedo já arrasta sem JS nenhum. As setas e os pontinhos são um
+   extra para quem está no mouse — por isso nascem escondidos e só aparecem
+   quando o galeria.js liga a classe .tem-js. Sem JS, continua funcionando
+   como uma faixa rolável: nunca some foto. */
+.galeria { position: relative; overflow: hidden; }
+.galeria-faixa {
+  display: flex; overflow-x: auto; scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  /* ⚠️ SEM `scroll-behavior: smooth` de propósito (20/09/2026): com ele
+     ligado, a rolagem programática das setas simplesmente NÃO acontece
+     no Chrome — o carrossel fica morto. A suavidade é feita no JS, com
+     requestAnimationFrame, que funciona em todo navegador. */
+  scrollbar-width: none; margin: 0;
+}
+.galeria-faixa::-webkit-scrollbar { display: none; }
+.galeria-faixa > img {
+  flex: 0 0 100%; width: 100%; height: 240px; object-fit: cover;
+  scroll-snap-align: center; display: block; background: var(--fundo);
+}
+.galeria-seta {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  width: 38px; height: 38px; border-radius: 50%; border: 0; cursor: pointer;
+  background: rgba(255,255,255,.92); color: var(--tinta);
+  box-shadow: 0 1px 6px rgba(16,32,43,.22);
+  font-size: 19px; line-height: 1; display: none;
+  align-items: center; justify-content: center; padding: 0;
+}
+.galeria.tem-js .galeria-seta { display: flex; }
+.galeria-seta:hover { background: #fff; }
+.galeria-seta:disabled { opacity: .35; cursor: default; }
+.galeria-seta.ant { left: 10px; }
+.galeria-seta.prox { right: 10px; }
+.galeria-pontos {
+  position: absolute; left: 0; right: 0; bottom: 10px;
+  display: none; gap: 6px; justify-content: center;
+}
+.galeria.tem-js .galeria-pontos { display: flex; }
+.galeria-ponto {
+  width: 7px; height: 7px; border-radius: 50%; border: 0; padding: 0;
+  background: rgba(255,255,255,.55); cursor: pointer;
+  box-shadow: 0 0 3px rgba(16,32,43,.35);
+}
+.galeria-ponto[aria-current="true"] { background: #fff; width: 18px; border-radius: 99px; }
+.galeria-conta {
+  position: absolute; top: 10px; right: 10px; display: none;
+  background: rgba(16,32,43,.62); color: #fff; font-size: .72rem; font-weight: 700;
+  padding: 3px 9px; border-radius: 99px; letter-spacing: .02em;
+}
+.galeria.tem-js .galeria-conta { display: block; }
