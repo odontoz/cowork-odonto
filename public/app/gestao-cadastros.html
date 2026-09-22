@@ -32,8 +32,9 @@
     .ficha-corpo { padding:22px }
     .ficha-corpo h3 { font-size:.82rem; text-transform:uppercase; letter-spacing:.05em; color:var(--cinza); margin:22px 0 10px }
     .ficha-corpo h3:first-child { margin-top:0 }
-    .kv { display:grid; grid-template-columns:130px 1fr; gap:6px 12px; font-size:.95rem }
+    .kv { display:grid; grid-template-columns:130px minmax(0,1fr); gap:6px 12px; font-size:.95rem }
     .kv .k { color:var(--cinza) }
+    .kv > * { min-width: 0; overflow-wrap: anywhere }   /* L5: filho de grid só encolhe com isto */
     .docs-linha { display:flex; gap:8px; flex-wrap:wrap }
     .docs-linha a { display:inline-block; padding:8px 12px; border:1px solid var(--linha); border-radius:9px; font-weight:600; font-size:.9rem }
     .tl { list-style:none; padding:0; margin:0 }
@@ -66,7 +67,7 @@
     </div>
 
     <div class="filtros">
-      <input type="search" id="busca" placeholder="Buscar por nome, CRO ou CPF…">
+      <input type="search" id="busca" placeholder="Buscar por nome, conselho ou CPF…">
       <select id="f-status">
         <option value="">Todos os status</option>
         <option value="ativo">Ativos</option>
@@ -82,7 +83,7 @@
     <div class="card" style="padding:0;overflow:hidden">
       <div class="scroll-x">
         <table class="roster">
-          <thead><tr><th>Nome</th><th>CRO</th><th>Status</th><th>Cadastro</th></tr></thead>
+          <thead><tr><th>Nome</th><th>Conselho</th><th>Status</th><th>Cadastro</th></tr></thead>
           <tbody id="corpo-roster"></tbody>
         </table>
       </div>
@@ -121,6 +122,10 @@
     function fBRL(n){ return "R$ " + Number(n||0).toFixed(2).replace(".",","); }
     function dt(s){ if(!s) return "—"; var d=new Date(s); return d.toLocaleDateString("pt-BR")+" "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"); }
     function dia(s){ if(!s) return "—"; return new Date(s).toLocaleDateString("pt-BR"); }
+    // Conselho de classe (migration 0035): a coluna `cro` guarda só o NÚMERO —
+    // de qualquer conselho. A sigla vem de `conselho` (default 'CRO').
+    function sigla(p){ var s = (p && p.conselho) || "CRO"; return s === "OUTRO" ? "Registro" : s; }
+    function registro(p){ return p && p.cro ? sigla(p) + " " + p.cro : "—"; }
 
     // status → rótulo + classe de cor
     var STATUS = {
@@ -159,7 +164,7 @@
       if (!perfil) return;
       app.hidden = false;
       var r = await DB.client.from("perfis")
-        .select("id,user_id,nome,telefone,cro,cpf,profissao,status,docs,selfie_url,criado_em,atualizado_em,motivo_rejeicao")
+        .select("id,user_id,nome,telefone,conselho,cro,cpf,profissao,status,docs,selfie_url,criado_em,atualizado_em,motivo_rejeicao")
         .neq("tipo", "gestao").order("criado_em", { ascending: false });
       TODOS = r.data || [];
       render();
@@ -171,7 +176,7 @@
       return TODOS.filter(function (p) {
         if (st && p.status !== st) return false;
         if (!q) return true;
-        return (String(p.nome||"")+" "+String(p.cro||"")+" "+String(p.cpf||"")).toLowerCase().indexOf(q) !== -1;
+        return (String(p.nome||"")+" "+String(p.conselho||"")+" "+String(p.cro||"")+" "+String(p.cpf||"")).toLowerCase().indexOf(q) !== -1;
       });
     }
 
@@ -182,7 +187,7 @@
       document.getElementById("roster-vazio").style.display = lista.length ? "none" : "block";
       corpo.innerHTML = lista.map(function (p) {
         return '<tr data-id="'+p.id+'"><td><strong>'+esc(p.nome||"—")+"</strong></td>"+
-          "<td>"+esc(p.cro||"—")+"</td><td>"+selo(p.status)+seloParado(p)+"</td><td>"+dia(p.criado_em)+"</td></tr>";
+          "<td>"+esc(registro(p))+"</td><td>"+selo(p.status)+seloParado(p)+"</td><td>"+dia(p.criado_em)+"</td></tr>";
       }).join("");
       Array.prototype.forEach.call(corpo.querySelectorAll("tr"), function (tr) {
         tr.addEventListener("click", function () { abrirFicha(tr.dataset.id); });
@@ -228,7 +233,7 @@
       var contratos = res[0].data||[], pagamentos = res[1].data||[], reservas = res[2].data||[], verifs = res[3].data||[];
 
       // documentos assinados
-      var docs = p.docs || {}, mapa = { rg_url:"RG", cro_url:"Carteirinha CRO", comprovante_url:"Comprovante" }, linksDoc = [];
+      var docs = p.docs || {}, mapa = { rg_url:"RG", cro_url:"Carteirinha do conselho", comprovante_url:"Comprovante" }, linksDoc = [];
       for (var k in mapa) { if (docs[k]) { var u = await DB.urlAssinada("documentos", docs[k], 3600); if (u) linksDoc.push('<a href="'+u+'" target="_blank" rel="noopener">'+mapa[k]+" ↗</a>"); } }
       if (p.selfie_url) { var us = await DB.urlAssinada("documentos", p.selfie_url, 3600); if (us) linksDoc.push('<a href="'+us+'" target="_blank" rel="noopener">Selfie ↗</a>'); }
 
@@ -236,7 +241,7 @@
       // dados
       h += "<h3>Dados cadastrais</h3><div class='kv'>"+
         "<span class='k'>Nome</span><span>"+esc(p.nome||"—")+"</span>"+
-        "<span class='k'>CRO</span><span>"+esc(p.cro||"—")+"</span>"+
+        "<span class='k'>"+esc(sigla(p))+"</span><span>"+esc(p.cro||"—")+"</span>"+
         "<span class='k'>CPF</span><span>"+esc(p.cpf||"—")+"</span>"+
         "<span class='k'>Telefone</span><span>"+esc(p.telefone||"—")+"</span>"+
         "<span class='k'>Profissão</span><span>"+esc(p.profissao||"—")+"</span>"+
@@ -263,7 +268,7 @@
       h += "<h3>Pagamentos</h3>";
       if (pagamentos.length) {
         var totPago = 0, totHoras = 0;
-        h += "<table class='mini'><tr><th>Data</th><th>Método</th><th>Refere-se a</th><th>Horas</th><th>Valor</th><th>Status</th></tr>"+
+        h += "<div class='scroll-x'><table class='mini'><tr><th>Data</th><th>Método</th><th>Refere-se a</th><th>Horas</th><th>Valor</th><th>Status</th></tr>"+
         pagamentos.map(function(x){
           var real = x.gateway !== "creditos";           // consumo de saldo nao e dinheiro novo
           var pago = x.status === "pago";
@@ -276,7 +281,7 @@
                  "</td><td>"+ref+"</td><td>"+(hs?fH(hs):"—")+"</td><td>"+fBRL(x.valor)+
                  "</td><td>"+esc(x.status||"—")+"</td></tr>"; }).join("")+
         "<tr><td colspan='3'><strong>Total (dinheiro real)</strong></td><td><strong>"+fH(totHoras)+
-        "</strong></td><td><strong>"+fBRL(totPago)+"</strong></td><td></td></tr></table>";
+        "</strong></td><td><strong>"+fBRL(totPago)+"</strong></td><td></td></tr></table></div>";
       } else h += '<p class="vazio">Nenhum pagamento.</p>';
 
       // reservas
@@ -284,14 +289,14 @@
       if (reservas.length) {
         var VALE = ["confirmada","concluida"];   // canceladas/expiradas nao entram no total
         var totH = 0, totV = 0;
-        h += "<table class='mini'><tr><th>Início</th><th>Fim</th><th>Horas</th><th>Valor</th><th>Status</th></tr>"+
+        h += "<div class='scroll-x'><table class='mini'><tr><th>Início</th><th>Fim</th><th>Horas</th><th>Valor</th><th>Status</th></tr>"+
         reservas.map(function(x){
           var hs = (x.inicio && x.fim) ? (new Date(x.fim)-new Date(x.inicio))/3600000 : 0;
           if (VALE.indexOf(x.status)!==-1) { totH += hs; totV += Number(x.valor)||0; }
           return "<tr><td>"+dt(x.inicio)+"</td><td>"+(x.fim?new Date(x.fim).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}):"—")+
                  "</td><td>"+fH(hs)+"</td><td>"+fBRL(x.valor)+"</td><td>"+esc(x.status||"—")+"</td></tr>"; }).join("")+
         "<tr><td colspan='2'><strong>Total reservado</strong></td><td><strong>"+fH(totH)+
-        "</strong></td><td><strong>"+fBRL(totV)+"</strong></td><td></td></tr></table>";
+        "</strong></td><td><strong>"+fBRL(totV)+"</strong></td><td></td></tr></table></div>";
       } else h += '<p class="vazio">Nenhuma reserva.</p>';
 
       // histórico de verificações
