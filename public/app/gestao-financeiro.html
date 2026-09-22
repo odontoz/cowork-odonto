@@ -197,15 +197,35 @@
           <div class="campo">
             <label for="f-categoria">Categoria</label>
             <select id="f-categoria">
-              <option value="aluguel_sala">Aluguel de sala</option>
-              <option value="mensalidade">Mensalidade</option>
-              <option value="insumo">Insumo</option>
-              <option value="manutencao">Manutenção</option>
-              <option value="condominio">Condomínio</option>
-              <option value="energia">Energia</option>
-              <option value="repasse_socio">Repasse de sócio</option>
-              <option value="outro">Outro</option>
+              <optgroup label="Custo do mês (recorrente)">
+                <option value="aluguel_imovel">Aluguel do imóvel</option>
+                <option value="condominio">Condomínio</option>
+                <option value="iptu">IPTU</option>
+                <option value="energia">Energia</option>
+                <option value="internet">Internet / telefone</option>
+                <option value="lixo">Coleta de lixo</option>
+                <option value="limpeza">Limpeza</option>
+                <option value="taxa_gateway">Taxa do gateway</option>
+              </optgroup>
+              <optgroup label="Eventual">
+                <option value="manutencao">Manutenção</option>
+                <option value="insumo">Insumo</option>
+                <option value="telefonia">Chip / recarga</option>
+                <option value="transporte">Estacionamento / transporte</option>
+                <option value="repasse_socio">Repasse de sócio</option>
+                <option value="outro">Outro</option>
+              </optgroup>
+              <optgroup label="Entrada">
+                <option value="aluguel_sala">Aluguel de sala</option>
+                <option value="mensalidade">Mensalidade</option>
+              </optgroup>
             </select>
+          </div>
+          <div class="campo">
+            <label for="f-recorrente">Repete todo mês?</label>
+            <label style="display:flex;align-items:center;gap:8px;font-weight:400">
+              <input id="f-recorrente" type="checkbox" style="width:auto"> Custo recorrente
+            </label>
           </div>
           <div class="campo full">
             <label for="f-descricao">Descrição</label>
@@ -444,7 +464,9 @@
     function uid() { return "cx_" + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
     function esc(s) { return String(s==null?"":s).replace(/[&<>"]/g, function (c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
     var CATEGORIAS = { aluguel_sala:"Aluguel de sala", mensalidade:"Mensalidade", insumo:"Insumo", manutencao:"Manutenção",
-      condominio:"Condomínio", energia:"Energia", repasse_socio:"Repasse de sócio", outro:"Outro" };
+      condominio:"Condomínio", energia:"Energia", repasse_socio:"Repasse de sócio", outro:"Outro",
+      aluguel_imovel:"Aluguel do imóvel", internet:"Internet / telefone", iptu:"IPTU", lixo:"Coleta de lixo",
+      limpeza:"Limpeza", telefonia:"Chip / recarga", transporte:"Estacionamento", taxa_gateway:"Taxa do gateway" };
     function catLabel(k) { return CATEGORIAS[k] || k; }
 
     // ---- store: DB real ou localStorage ----
@@ -461,7 +483,7 @@
 
     async function listar(de, ate, tipo) {
       if (USA_DB) {
-        var q = DB.client.from("lancamentos_caixa").select("id,tipo,valor,descricao,categoria,data_lancamento,comprovante_url,cliente_id,perfis:cliente_id(nome)")
+        var q = DB.client.from("lancamentos_caixa").select("id,tipo,valor,descricao,categoria,data_lancamento,comprovante_url,cliente_id,recorrente,perfis:cliente_id(nome)")
           .order("data_lancamento", { ascending: false });
         if (de) q = q.gte("data_lancamento", de);
         if (ate) q = q.lte("data_lancamento", ate);
@@ -471,7 +493,7 @@
         var manuais = (r.data || []).map(function (l) { return {
           id: l.id, tipo: l.tipo, valor: Number(l.valor), descricao: l.descricao, categoria: l.categoria,
           data_lancamento: String(l.data_lancamento).slice(0,10), comprovante_url: l.comprovante_url,
-          cliente: l.perfis ? l.perfis.nome : "", auto: false }; });
+          cliente: l.perfis ? l.perfis.nome : "", recorrente: !!l.recorrente, auto: false }; });
         // ENTRADAS AUTOMÁTICAS: dinheiro real recebido pelo gateway (Pix/cartão) — exclui crédito (consumo) e conta teste
         var pg = DB.client.from("pagamentos")
           .select("id,valor,pago_em,fatura_id,reserva_id,perfis:cliente_id(nome)")
@@ -514,14 +536,14 @@
         }
         var r = await DB.client.from("lancamentos_caixa").insert({
           tipo: obj.tipo, valor: obj.valor, descricao: obj.descricao, categoria: obj.categoria,
-          data_lancamento: obj.data_lancamento, comprovante_url: caminho, criado_por: PERFIL_ID
+          data_lancamento: obj.data_lancamento, comprovante_url: caminho, recorrente: !!obj.recorrente, criado_por: PERFIL_ID
         });
         if (r.error) throw r.error;
         return;
       }
       var lista = lsCarregar();
       lista.push({ id: uid(), tipo: obj.tipo, valor: obj.valor, descricao: obj.descricao, categoria: obj.categoria,
-        data_lancamento: obj.data_lancamento, cliente: "", comprovante_url: file ? "(mock)" : null });
+        data_lancamento: obj.data_lancamento, cliente: "", recorrente: !!obj.recorrente, comprovante_url: file ? "(mock)" : null });
       lsSalvar(lista);
     }
 
@@ -531,7 +553,7 @@
     }
 
     // ---- elementos ----
-    var elDe, elAte, elTipo, form, fTipo, fValor, fData, fCat, fDesc, fComp, elAutosave;
+    var elDe, elAte, elTipo, form, fTipo, fValor, fData, fCat, fDesc, fRec, fComp, elAutosave;
 
     async function render() {
       var lista = await listar(elDe.value, elAte.value, elTipo.value);
@@ -552,7 +574,7 @@
         tb.innerHTML = lista.map(function (l) {
           var comp = l.comprovante_url ? ('<a href="#" class="ver-comp" data-path="' + esc(l.comprovante_url) + '">📎</a>') : '<span class="muted">—</span>';
           return "<tr>" +
-            "<td>" + fmtData(l.data_lancamento) + "</td><td>" + esc(l.descricao) + "</td><td>" + catLabel(l.categoria) + "</td>" +
+            "<td>" + fmtData(l.data_lancamento) + "</td><td>" + esc(l.descricao) + "</td><td>" + catLabel(l.categoria) + (l.recorrente ? ' <span title="Custo recorrente — repete todo mês">🔁</span>' : "") + "</td>" +
             "<td>" + (l.cliente ? esc(l.cliente) : '<span class="muted">—</span>') + "</td>" +
             '<td class="num">' + (l.tipo === "entrada" ? '<span style="color:var(--verde)">' + brl(l.valor) + "</span>" : "—") + "</td>" +
             '<td class="num">' + (l.tipo === "saida" ? '<span style="color:var(--vermelho)">' + brl(l.valor) + "</span>" : "—") + "</td>" +
@@ -569,7 +591,7 @@
       PERFIL_ID = perfilId;
       elDe = document.getElementById("cx-de"); elAte = document.getElementById("cx-ate"); elTipo = document.getElementById("cx-tipo");
       form = document.getElementById("form-caixa"); fTipo = document.getElementById("f-tipo"); fValor = document.getElementById("f-valor");
-      fData = document.getElementById("f-data"); fCat = document.getElementById("f-categoria"); fDesc = document.getElementById("f-descricao");
+      fData = document.getElementById("f-data"); fCat = document.getElementById("f-categoria"); fDesc = document.getElementById("f-descricao"); fRec = document.getElementById("f-recorrente");
       fComp = document.getElementById("f-comprovante"); elAutosave = document.getElementById("autosave-caixa");
 
       document.getElementById("f-comprovante-nota").textContent = USA_DB
@@ -589,14 +611,14 @@
       // auto-save do formulário
       var tmr = null;
       function salvarRascunho() {
-        try { localStorage.setItem(LS_RASCUNHO, JSON.stringify({ tipo:fTipo.value, valor:fValor.value, data:fData.value, categoria:fCat.value, descricao:fDesc.value })); } catch (e) {}
+        try { localStorage.setItem(LS_RASCUNHO, JSON.stringify({ tipo:fTipo.value, valor:fValor.value, data:fData.value, categoria:fCat.value, descricao:fDesc.value, recorrente:!!(fRec && fRec.checked) })); } catch (e) {}
         elAutosave.textContent = "rascunho salvo";
       }
       function agendar() { elAutosave.textContent = "salvando…"; clearTimeout(tmr); tmr = setTimeout(salvarRascunho, 1000); }
       (function restaurar() { try { var d = JSON.parse(localStorage.getItem(LS_RASCUNHO) || "null"); if (!d) return;
         if (d.tipo) fTipo.value = d.tipo; if (d.valor) fValor.value = d.valor; if (d.data) fData.value = d.data;
-        if (d.categoria) fCat.value = d.categoria; if (d.descricao) fDesc.value = d.descricao; } catch (e) {} })();
-      [fTipo, fValor, fData, fCat, fDesc].forEach(function (el) { el.addEventListener("input", agendar); el.addEventListener("change", agendar); });
+        if (d.categoria) fCat.value = d.categoria; if (d.descricao) fDesc.value = d.descricao; if (fRec) fRec.checked = !!d.recorrente; } catch (e) {} })();
+      [fTipo, fValor, fData, fCat, fDesc, fRec].forEach(function (el) { if (!el) return; el.addEventListener("input", agendar); el.addEventListener("change", agendar); });
 
       form.addEventListener("submit", async function (e) {
         e.preventDefault();
@@ -606,7 +628,7 @@
         if (!fData.value) { alert("Informe a data."); fData.focus(); return; }
         var btn = document.getElementById("btn-add-caixa"); btn.disabled = true; btn.textContent = "Salvando…";
         try {
-          await inserir({ tipo: fTipo.value, valor: Math.round(valor*100)/100, descricao: fDesc.value.trim(), categoria: fCat.value, data_lancamento: fData.value }, fComp.files[0] || null);
+          await inserir({ tipo: fTipo.value, valor: Math.round(valor*100)/100, descricao: fDesc.value.trim(), categoria: fCat.value, data_lancamento: fData.value, recorrente: !!(fRec && fRec.checked) }, fComp.files[0] || null);
           fValor.value = ""; fDesc.value = ""; fData.value = getHoje(); fComp.value = "";
           try { localStorage.removeItem(LS_RASCUNHO); } catch (e) {}
           elAutosave.textContent = "lançamento adicionado";
