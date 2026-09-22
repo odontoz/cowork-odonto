@@ -19,7 +19,8 @@
     .extrato td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
     .extrato .desc small { display: block; color: var(--cinza); font-weight: 400; font-size: .8rem; }
     .extrato tfoot td { font-weight: 800; border-top: 2px solid var(--linha); border-bottom: none; }
-    .prev-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+    .prev-grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 12px; margin-top: 12px; }
+    .prev-grid > * { min-width: 0; }   /* filho de grid nao encolhe sem isso */
     .prev-grid .bloco .rotulo { font-size: .78rem; color: var(--cinza); margin: 0 0 2px; }
     .prev-grid .bloco .dado { font-size: 1.15rem; font-weight: 800; margin: 0; }
   </style>
@@ -91,7 +92,9 @@
         <h2 style="margin:0">Extrato do mês</h2>
         <span class="muted" id="extrato-comp">—</span>
       </div>
-      <table class="extrato" id="tab-extrato" style="margin-top:12px"><tbody></tbody><tfoot></tfoot></table>
+      <div class="scroll-x">
+        <table class="extrato" id="tab-extrato" style="margin-top:12px"><tbody></tbody><tfoot></tfoot></table>
+      </div>
     </section>
 
     <section class="card">
