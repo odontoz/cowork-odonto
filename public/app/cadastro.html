@@ -57,9 +57,25 @@
             <input id="cpf" type="text" required inputmode="numeric" placeholder="000.000.000-00" maxlength="14">
             <small class="muted">Usado na verificação e na emissão do seu pagamento.</small>
           </div>
+          <div class="campo" style="flex:0 0 150px">
+            <label for="conselho">Conselho *</label>
+            <select id="conselho" required>
+              <option value="CRO" selected>CRO</option>
+              <option value="CREFITO">CREFITO</option>
+              <option value="CRM">CRM</option>
+              <option value="CRF">CRF</option>
+              <option value="COREN">COREN</option>
+              <option value="CRBM">CRBM</option>
+              <option value="CRP">CRP</option>
+              <option value="CRN">CRN</option>
+              <option value="CRFa">CRFa</option>
+              <option value="OUTRO">Outro</option>
+            </select>
+          </div>
           <div class="grow campo">
-            <label for="cro">Nº do conselho (CRO / outro) *</label>
-            <input id="cro" type="text" required placeholder="Ex.: CRO-DF 00000">
+            <label for="cro" id="rotulo-cro">CRO nº *</label>
+            <input id="cro" type="text" required placeholder="Ex.: 00000">
+            <small class="muted" id="cro-hint">Só o número da sua inscrição.</small>
           </div>
         </div>
         <div class="row">
@@ -225,6 +241,25 @@
       }
     });
 
+    // ---- conselho de classe (migration 0035) ----
+    // O espaço não é só de dentista: a Dra. Lilian é da estética e tem CREFITO.
+    // A coluna do banco continua chamando `cro`, mas guarda só o NÚMERO — quem
+    // diz qual conselho é a coluna `conselho`. Por isso o rótulo é dinâmico.
+    // Só o CRO-DF tem consulta automática (Infosimples); qualquer outro segue
+    // normalmente e cai na conferência humana da gestão — nada trava aqui.
+    var selConselho = document.getElementById("conselho");
+    var rotuloCro = document.getElementById("rotulo-cro");
+    var hintCro = document.getElementById("cro-hint");
+    function atualizarRotuloConselho() {
+      var s = selConselho.value || "CRO";
+      rotuloCro.textContent = (s === "OUTRO" ? "Nº do registro" : s + " nº") + " *";
+      hintCro.textContent = s === "CRO"
+        ? "Só o número da sua inscrição."
+        : "Só o número da sua inscrição. Conselhos fora do CRO são conferidos por uma pessoa da gestão — o cadastro segue normalmente.";
+    }
+    selConselho.addEventListener("change", atualizarRotuloConselho);
+    atualizarRotuloConselho();
+
     // ---- cupom de desconto (valida pela RPC validar_cupom) ----
     var CUPOM_OK = null; // guarda o código aplicado
     document.getElementById("btn-cupom").addEventListener("click", async function () {
@@ -274,7 +309,13 @@
       var profissao = document.getElementById("profissao").value;
       var especialidade = document.getElementById("especialidade").value || null;
       var cpf = document.getElementById("cpf").value.replace(/\D/g, "");
-      var cro = document.getElementById("cro").value.trim();
+      var conselho = document.getElementById("conselho").value || "CRO";
+      // D4 (conferência 22/09): o campo guarda só o NÚMERO do registro. Quem digita
+      // "CREFITO 142150" fazia o contrato sair com "no CREFITO sob o nº CREFITO 142150".
+      // Tira a sigla e a UF que a pessoa repetir na frente do número.
+      var cro = document.getElementById("cro").value
+        .replace(/^[A-Za-zÀ-ÿ]+(?:\s*[-\/]\s*[A-Za-z]{2})?\s*[:\-]?\s*/, "")
+        .trim();
       if (cpf.length !== 11) { mostrar("CPF inválido — digite os 11 números."); return; }
       var email = document.getElementById("email").value.trim();
       var senha = document.getElementById("senha").value;
@@ -284,7 +325,7 @@
       var elSelfieFile = document.getElementById("doc-selfie");
       var fSelfie = selfieFile || (elSelfieFile && elSelfieFile.files[0]);
 
-      if (!nome || !telefone || !profissao || !cro || !email || !senha) { mostrar("Preencha todos os campos obrigatórios."); return; }
+      if (!nome || !telefone || !profissao || !conselho || !cro || !email || !senha) { mostrar("Preencha todos os campos obrigatórios."); return; }
       if (!fRg || !fComp) { mostrar("Envie o documento oficial (RG/CNH) e o comprovante de residência."); return; }
       if (!fSelfie) { mostrar("Tire a sua selfie (toque em \"Tirar foto\") para continuar."); return; }
 
@@ -338,7 +379,8 @@
           telefone: telefone,
           tipo: "cliente",
           status: "docs_enviados",
-          cro: cro,
+          conselho: conselho,   // sigla (migration 0035)
+          cro: cro,             // ⚠️ só o NÚMERO — o nome da coluna é histórico
           cpf: cpf,
           profissao: profissao,
           especialidade: especialidade,
