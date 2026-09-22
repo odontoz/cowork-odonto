@@ -110,8 +110,8 @@
               <input id="whatsapp" name="whatsapp" type="tel" required autocomplete="tel" inputmode="tel" placeholder="(61) 90000-0000">
             </div>
             <div class="campo">
-              <label for="cro">CRO (opcional)</label>
-              <input id="cro" name="cro" type="text" placeholder="CRO-DF 00000">
+              <label for="cro">Conselho de classe — nº (opcional)</label>
+              <input id="cro" name="cro" type="text" placeholder="Ex.: 00000 (só o número)">
             </div>
             <div class="campo">
               <label for="momento">Momento de carreira</label>
@@ -266,7 +266,7 @@
       // 2) Fallback SEM banco: abre WhatsApp com mensagem pré-preenchida
       var msg = "Olá! Quero agendar uma visita à ClinicShare.\n" +
                 "Nome: " + nome + "\nWhatsApp: " + whatsapp +
-                (cro ? "\nCRO: " + cro : "") +
+                (cro ? "\nConselho: " + cro : "") +
                 (momento ? "\nMomento: " + momento : "");
       window.open(window.ENJOY_BRAND.waLink(msg), "_blank");
       btn.disabled = false; btn.textContent = "Agendar visita";
