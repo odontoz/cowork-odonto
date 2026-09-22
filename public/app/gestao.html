@@ -11,8 +11,9 @@
   <link rel="stylesheet" href="../../assets/css/base.css">
   <script src="../../assets/js/brand.js" defer></script>
   <style>
-    .form-inline { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 12px; }
-    @media (min-width: 640px) { .form-inline { grid-template-columns: repeat(3, 1fr); } .form-inline .full { grid-column: 1 / -1; } }
+    .form-inline { display: grid; grid-template-columns: minmax(0,1fr); gap: 10px; margin-top: 12px; }
+    .form-inline > * { min-width: 0; }   /* filho de grid nao encolhe sem isso */
+    @media (min-width: 640px) { .form-inline { grid-template-columns: repeat(3, minmax(0,1fr)); } .form-inline .full { grid-column: 1 / -1; } }
     .pend { border: 1px solid var(--linha); border-radius: var(--raio); padding: 14px; margin-bottom: 12px; }
     .pend .docs a { display: inline-block; margin-right: 10px; font-size: .9rem; }
     .pend .acoes { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
@@ -175,6 +176,10 @@
     function normHora(hstr) { var p = hstr.split(":"); return pad(+p[0]) + ":" + pad(+p[1]); } // "9:00"->"09:00"
     function hojeISO() { var d = new Date(); return d.getFullYear() + "-" + pad(d.getMonth()+1) + "-" + pad(d.getDate()); }
     function esc(s) { return String(s==null?"":s).replace(/[&<>"]/g, function (c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
+    // Conselho de classe (migration 0035): `cro` é só o NÚMERO — de qualquer
+    // conselho. A sigla vem de `conselho` (default 'CRO' para quem já existia).
+    function sigla(p) { var s = (p && p.conselho) || "CRO"; return s === "OUTRO" ? "Registro" : s; }
+    function registro(p) { return p && p.cro ? sigla(p) + " " + p.cro : "sem nº"; }
     function at(dataISO, hhmmStr) { var p = dataISO.split("-"), t = hhmmStr.split(":"); return new Date(+p[0], +p[1]-1, +p[2], +t[0], +t[1]||0, 0, 0); }
 
     // ============ RENDER DA GRADE ============
@@ -237,7 +242,7 @@
     async function carregarPendentes() {
       if (!(DB && DB.pronto)) { document.getElementById("lista-pendentes").innerHTML = '<p class="muted">Disponível com o banco conectado.</p>'; return; }
       var r = await DB.client.from("perfis")
-        .select("id,nome,telefone,cro,profissao,docs,status,criado_em")
+        .select("id,nome,telefone,conselho,cro,profissao,docs,status,criado_em")
         .eq("status", "em_aprovacao").order("criado_em", { ascending: true });
       var lista = r.data || [];
       document.getElementById("pend-count").textContent = lista.length;
@@ -253,14 +258,14 @@
       div.className = "pend";
       var docs = p.docs || {};
       var links = [];
-      var mapa = { rg_url: "RG", cro_url: "Carteirinha", comprovante_url: "Comprovante" };
+      var mapa = { rg_url: "RG", cro_url: "Carteirinha do conselho", comprovante_url: "Comprovante" };
       for (var k in mapa) {
         if (docs[k]) { var url = await DB.urlAssinada("documentos", docs[k], 3600);
           if (url) links.push('<a href="' + url + '" target="_blank" rel="noopener">' + mapa[k] + " ↗</a>"); }
       }
       div.innerHTML =
         '<div class="row-between"><strong>' + esc(p.nome) + '</strong><span class="muted">' + esc(p.profissao || "") + "</span></div>" +
-        '<p class="muted" style="margin:4px 0">' + esc(p.cro || "sem nº") + " · " + esc(p.telefone || "") + "</p>" +
+        '<p class="muted" style="margin:4px 0">' + esc(registro(p)) + " · " + esc(p.telefone || "") + "</p>" +
         '<div class="docs">' + (links.length ? links.join("") : '<span class="muted">sem documentos anexados</span>') + "</div>" +
         '<div class="acoes"><button class="btn btn-primario btn-aprovar">Aprovar</button>' +
         '<button class="btn btn-neutro btn-rejeitar">Rejeitar</button></div>';
@@ -298,7 +303,7 @@
       var box = document.getElementById("lista-fila");
       if (!(DB && DB.pronto)) { box.innerHTML = '<p class="muted">Disponível com o banco conectado.</p>'; return; }
       var r = await DB.client.from("perfis")
-        .select("id,nome,telefone,cro,profissao,docs,selfie_url,status,criado_em")
+        .select("id,nome,telefone,conselho,cro,profissao,docs,selfie_url,status,criado_em")
         .in("status", ["fila_revisao_humana","pago_em_verificacao"])
         .order("criado_em", { ascending: true });
       var lista = r.data || [];
@@ -328,7 +333,7 @@
 
       // links de documentos + selfie
       var links = [];
-      var mapa = { rg_url: "RG", cro_url: "Carteirinha", comprovante_url: "Comprovante" };
+      var mapa = { rg_url: "RG", cro_url: "Carteirinha do conselho", comprovante_url: "Comprovante" };
       var docs = p.docs || {};
       for (var k in mapa) {
         if (docs[k]) { var u = await DB.urlAssinada("documentos", docs[k], 3600);
@@ -349,23 +354,30 @@
       }
       var tabela = "";
       if (sis) {
-        tabela = '<table class="comp"><tr><th></th><th>Formulário</th><th>Conselho (API)</th><th>Documento (IA)</th></tr>' +
+        tabela = '<div class="scroll-x"><table class="comp"><tr><th></th><th>Formulário</th><th>Conselho (API)</th><th>Documento (IA)</th></tr>' +
           linha("Nome", pay.nome_form, pay.nome_oficial, pay.nome_doc) +
-          linha("Inscrição", pay.inscricao_form, null, pay.inscricao_doc) +
+          linha(esc(sigla(p)) + " (inscrição)", pay.inscricao_form, null, pay.inscricao_doc) +
           "<tr><th>CPF (doc)</th><td class='muted'>—</td><td class='muted'>—</td><td>" + esc(pay.cpf_doc || "—") + "</td></tr>" +
           "<tr><th>Situação no conselho</th><td class='muted'>—</td><td>" + esc(pay.situacao || "—") + "</td><td class='muted'>—</td></tr>" +
-          "<tr><th>Score</th><td colspan='3'>" + (sis.score != null ? Number(sis.score).toFixed(2) + " (mínimo 0,85)" : "—") + "</td></tr></table>";
+          "<tr><th>Score</th><td colspan='3'>" + (sis.score != null ? Number(sis.score).toFixed(2) + " (mínimo 0,85)" : "—") + "</td></tr></table></div>";
       } else if (pendCfg) {
         tabela = '<p class="aviso aviso-info" style="margin:10px 0 0">Verificação automática ainda sem APIs configuradas — revisar manualmente pelos documentos.</p>';
+      }
+      // Conselho sem consulta automática (só CRO-DF tem Infosimples): avisa a
+      // gestão que a conferência é 100% na mão — e onde conferir.
+      if ((p.conselho || "CRO") !== "CRO") {
+        tabela = '<p class="aviso aviso-atencao" style="margin:10px 0 0"><strong>' + esc(sigla(p)) +
+          '</strong> não tem consulta automática — confira a inscrição <strong>' + esc(p.cro || "—") +
+          '</strong> no site do conselho e compare com a carteirinha antes de aprovar.</p>' + tabela;
       }
 
       div.innerHTML =
         '<div class="row-between"><strong>' + esc(p.nome) + '</strong><span class="badge ' +
           (p.status === "pago_em_verificacao" ? "badge-cinza" : "badge-amarelo") + '">' +
           (p.status === "pago_em_verificacao" ? "verificando" : "revisão humana") + "</span></div>" +
-        '<p class="muted" style="margin:4px 0">' + esc(p.cro || "sem nº") + " · " + esc(p.profissao || "") + " · " + esc(p.telefone || "") + " · <strong>taxa PAGA</strong></p>" +
+        '<p class="muted" style="margin:4px 0">' + esc(registro(p)) + " · " + esc(p.profissao || "") + " · " + esc(p.telefone || "") + " · <strong>taxa PAGA</strong></p>" +
         '<div class="docs">' + (links.length ? links.join("") : '<span class="muted">sem documentos</span>') + "</div>" +
-        tabela +
+        (tabela ? '<div class="scroll-x">' + tabela + "</div>" : "") +
         '<div class="acoes">' +
           '<button class="btn btn-primario btn-aprovar">Aprovar + gerar contrato</button>' +
           '<button class="btn btn-neutro btn-reverificar">Re-verificar</button>' +
