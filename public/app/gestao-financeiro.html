@@ -85,6 +85,17 @@
       h1 { font-size: 1.35rem; }
       .abas a { padding: 7px 12px; font-size: .85rem; }
     }
+    /* cabeçalho de tabela que ordena ao clicar */
+    .fin-tab th.ord { cursor: pointer; user-select: none; white-space: nowrap; }
+    .fin-tab th.ord:hover { color: var(--tinta); }
+    .fin-tab th.ord .seta { font-size: .72em; opacity: .45; margin-left: 2px; }
+    .fin-tab th.ord.ativa { color: var(--tinta); }
+    .fin-tab th.ord.ativa .seta { opacity: 1; }
+    /* resumo por categoria */
+    #bloco-categorias { margin-top: 6px; }
+    #bloco-categorias .barra { display: block; width: 100%; min-width: 60px; height: 7px; border-radius: 4px;
+                               background: var(--linha); overflow: hidden; }
+    #bloco-categorias .barra i { display: block; height: 100%; border-radius: 3px; }
     /* rótulo de seção acima de blocos */
     .sec-rotulo { font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--cinza); margin: 20px 0 8px; }
   </style>
@@ -269,6 +280,16 @@
         <div class="campo"><label for="cx-tipo">Tipo</label>
           <select id="cx-tipo"><option value="todos">Todos</option><option value="entrada">Só entradas</option><option value="saida">Só saídas</option></select>
         </div>
+        <div class="campo"><label for="cx-cat">Categoria</label>
+          <select id="cx-cat"><option value="todas">Todas</option></select>
+        </div>
+        <div class="campo"><label for="cx-rec">Repetição</label>
+          <select id="cx-rec">
+            <option value="todos">Fixos e eventuais</option>
+            <option value="sim">Só o que repete todo mês</option>
+            <option value="nao">Só gastos eventuais</option>
+          </select>
+        </div>
       </div>
 
       <div class="caixa-tot">
@@ -277,12 +298,33 @@
         <div class="box resultado" id="cx-box-res"><p class="rotulo">Resultado</p><p class="valor" id="cx-tot-res">—</p></div>
       </div>
 
+      <section class="card" id="bloco-categorias" style="margin-top:16px">
+        <div class="row-between" style="align-items:baseline;gap:10px;flex-wrap:wrap">
+          <h2 style="margin:0">Por categoria</h2>
+          <span class="muted" style="font-size:.8rem">clique numa linha para filtrar a lista abaixo</span>
+        </div>
+        <div class="scroll-x" style="margin-top:10px">
+          <table class="fin-tab" id="tab-categorias">
+            <thead>
+              <tr><th>Categoria</th><th>Tipo</th><th class="num">Lançamentos</th><th class="num">Total</th><th>Peso</th></tr>
+            </thead>
+            <tbody></tbody>
+            <tfoot></tfoot>
+          </table>
+        </div>
+      </section>
+
       <p class="sec-rotulo">Lançamentos do período</p>
       <div class="scroll-x">
         <table class="fin-tab" id="tab-caixa">
           <thead>
-            <tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Cliente</th>
-                <th class="num">Entrada</th><th class="num">Saída</th><th>Comprov.</th><th></th></tr>
+            <tr><th class="ord" data-ord="data">Data<span class="seta"></span></th>
+                <th class="ord" data-ord="descricao">Descrição<span class="seta"></span></th>
+                <th class="ord" data-ord="categoria">Categoria<span class="seta"></span></th>
+                <th class="ord" data-ord="cliente">Cliente<span class="seta"></span></th>
+                <th class="ord num" data-ord="entrada">Entrada<span class="seta"></span></th>
+                <th class="ord num" data-ord="saida">Saída<span class="seta"></span></th>
+                <th>Comprov.</th><th></th></tr>
           </thead>
           <tbody></tbody><tfoot></tfoot>
         </table>
@@ -571,10 +613,80 @@
     }
 
     // ---- elementos ----
-    var elDe, elAte, elTipo, form, fTipo, fValor, fData, fCat, fDesc, fRec, fComp, elAutosave;
+    var elDe, elAte, elTipo, elCat, elRec, form, fTipo, fValor, fData, fCat, fDesc, fRec, fComp, elAutosave;
+    // ordenação da lista: campo + direção. Começa pela data, mais recente primeiro.
+    var ORD = { campo: "data", dir: "desc" };
+    function ordenarLista(lista) {
+      var c = ORD.campo, s = (ORD.dir === "asc" ? 1 : -1);
+      function chave(l) {
+        if (c === "descricao") return String(l.descricao || "").toLowerCase();
+        if (c === "categoria") return catLabel(l.categoria || "").toLowerCase();
+        if (c === "cliente")   return String(l.cliente || "").toLowerCase();
+        if (c === "entrada")   return l.tipo === "entrada" ? Number(l.valor) : -1;
+        if (c === "saida")     return l.tipo === "saida"   ? Number(l.valor) : -1;
+        return String(l.data_lancamento || "");
+      }
+      return lista.slice().sort(function (a, b) {
+        var x = chave(a), y = chave(b);
+        if (x < y) return -s;
+        if (x > y) return s;
+        return String(b.data_lancamento).localeCompare(String(a.data_lancamento));
+      });
+    }
+    function pintarSetas() {
+      [].forEach.call(document.querySelectorAll("#tab-caixa th.ord"), function (th) {
+        var meu = th.getAttribute("data-ord") === ORD.campo;
+        th.classList.toggle("ativa", meu);
+        th.querySelector(".seta").textContent = meu ? (ORD.dir === "asc" ? "▲" : "▼") : "↕";
+      });
+    }
+
+    // Resumo por categoria do que está na tela — some quando não há nada.
+    function pintarCategorias(lista) {
+      var sec = document.getElementById("bloco-categorias");
+      var tb = sec.querySelector("tbody"), tf = sec.querySelector("tfoot");
+      if (!lista.length) { sec.style.display = "none"; return; }
+      sec.style.display = "";
+      var por = {};
+      lista.forEach(function (l) {
+        var k = (l.categoria || "outro") + "|" + l.tipo;
+        if (!por[k]) por[k] = { cat: l.categoria || "outro", tipo: l.tipo, n: 0, total: 0, fixo: 0 };
+        por[k].n++; por[k].total += Number(l.valor) || 0;
+        if (l.recorrente) por[k].fixo++;
+      });
+      var linhas = Object.keys(por).map(function (k) { return por[k]; })
+        .sort(function (a, b) { return b.total - a.total; });
+      var maior = linhas.reduce(function (m, l) { return Math.max(m, l.total); }, 0) || 1;
+      tb.innerHTML = linhas.map(function (l) {
+        var cor = l.tipo === "entrada" ? "var(--verde)" : "var(--vermelho)";
+        var marca = l.fixo === l.n ? ' <span title="repete todo mês">🔁</span>'
+                  : (l.fixo ? ' <span class="muted" style="font-size:.75rem">(' + l.fixo + ' fixo)</span>' : "");
+        return '<tr class="linha-cat" data-cat="' + esc(l.cat) + '" style="cursor:pointer">' +
+          "<td>" + catLabel(l.cat) + marca + "</td>" +
+          '<td class="muted">' + (l.tipo === "entrada" ? "entrada" : "saída") + "</td>" +
+          '<td class="num">' + l.n + "</td>" +
+          '<td class="num" style="color:' + cor + ';font-weight:700">' + brl(l.total) + "</td>" +
+          '<td><span class="barra"><i style="width:' + Math.max(4, Math.round(l.total / maior * 100)) +
+          '%;background:' + cor + '"></i></span></td></tr>';
+      }).join("");
+      var somaSai = linhas.filter(function (l) { return l.tipo === "saida"; })
+                          .reduce(function (a, b) { return a + b.total; }, 0);
+      tf.innerHTML = '<tr><td colspan="3">' + linhas.length + " categoria(s) no período</td>" +
+        '<td class="num">' + brl(somaSai) + " em saídas</td><td></td></tr>";
+    }
 
     async function render() {
       var lista = await listar(elDe.value, elAte.value, elTipo.value);
+      if (elCat && elCat.value !== "todas") {
+        lista = lista.filter(function (l) { return (l.categoria || "") === elCat.value; });
+      }
+      if (elRec && elRec.value !== "todos") {
+        var querFixo = elRec.value === "sim";
+        lista = lista.filter(function (l) { return !!l.recorrente === querFixo; });
+      }
+      pintarCategorias(lista);
+      lista = ordenarLista(lista);
+      pintarSetas();
       var totEnt = 0, totSai = 0;
       lista.forEach(function (l) { if (l.tipo === "entrada") totEnt += l.valor; else totSai += l.valor; });
       var res = totEnt - totSai;
@@ -608,6 +720,49 @@
     async function boot(perfilId) {
       PERFIL_ID = perfilId;
       elDe = document.getElementById("cx-de"); elAte = document.getElementById("cx-ate"); elTipo = document.getElementById("cx-tipo");
+      elCat = document.getElementById("cx-cat"); elRec = document.getElementById("cx-rec");
+
+      // o seletor de categoria nasce da MESMA lista do formulário — nunca desencontra
+      (function montarFiltroCategoria() {
+        if (!elCat) return;
+        var grupos = { "Custo do mês (recorrente)": [], "Eventual": [], "Entrada": [] };
+        [].forEach.call(document.querySelectorAll("#f-categoria optgroup"), function (g) {
+          var nome = g.getAttribute("label");
+          if (!grupos[nome]) grupos[nome] = [];
+          [].forEach.call(g.querySelectorAll("option"), function (o) {
+            grupos[nome].push({ v: o.value, t: o.textContent });
+          });
+        });
+        Object.keys(grupos).forEach(function (nome) {
+          if (!grupos[nome].length) return;
+          var og = document.createElement("optgroup");
+          og.label = nome;
+          grupos[nome].forEach(function (c) {
+            var o = document.createElement("option");
+            o.value = c.v; o.textContent = c.t;
+            og.appendChild(o);
+          });
+          elCat.appendChild(og);
+        });
+      })();
+
+      // clique no cabeçalho ordena; clicar de novo inverte
+      document.querySelector("#tab-caixa thead").addEventListener("click", function (e) {
+        var th = e.target.closest("th.ord"); if (!th) return;
+        var campo = th.getAttribute("data-ord");
+        if (ORD.campo === campo) { ORD.dir = (ORD.dir === "asc" ? "desc" : "asc"); }
+        else { ORD.campo = campo; ORD.dir = (campo === "data" ? "desc" : "asc"); }
+        render();
+      });
+
+      // clicar numa linha do resumo filtra a lista por aquela categoria
+      document.querySelector("#tab-categorias tbody").addEventListener("click", function (e) {
+        var tr = e.target.closest(".linha-cat"); if (!tr || !elCat) return;
+        var cat = tr.getAttribute("data-cat");
+        elCat.value = (elCat.value === cat) ? "todas" : cat;
+        render();
+        document.querySelector("#tab-caixa").scrollIntoView({ behavior: "smooth", block: "start" });
+      });
       form = document.getElementById("form-caixa"); fTipo = document.getElementById("f-tipo"); fValor = document.getElementById("f-valor");
       fData = document.getElementById("f-data"); fCat = document.getElementById("f-categoria"); fDesc = document.getElementById("f-descricao"); fRec = document.getElementById("f-recorrente");
       fComp = document.getElementById("f-comprovante"); elAutosave = document.getElementById("autosave-caixa");
@@ -684,7 +839,7 @@
       });
 
       elDe.value = "2026-04-01"; elAte.value = getHoje(); fData.value = getHoje();
-      [elDe, elAte, elTipo].forEach(function (el) { el.addEventListener("change", render); });
+      [elDe, elAte, elTipo, elCat, elRec].forEach(function (el) { if (el) el.addEventListener("change", render); });
       await render();
     }
 
@@ -730,7 +885,7 @@
     function brl(n) {
       return (Number(n) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
     }
-    btn.addEventListener("click", async function () {
+    async function consultarSaldo(automatico) {
       btn.disabled = true; btn.textContent = "Consultando…";
       det.textContent = "consultando…";
       try {
@@ -752,10 +907,28 @@
           + "atualizado às " + hora;
       } catch (e) {
         vlr.textContent = "—";
-        det.textContent = (e && e.message === "sem sessao") ? "faça login novamente" : "não deu para consultar agora";
+        det.textContent = (e && e.message === "sem sessao")
+          ? "faça login novamente"
+          : (automatico ? "toque em Atualizar para consultar" : "não deu para consultar agora");
       }
       btn.disabled = false; btn.textContent = "Atualizar";
-    });
+    }
+
+    btn.addEventListener("click", function () { consultarSaldo(false); });
+
+    // Consulta sozinha ao abrir a tela — antes o card ficava em "não consultado"
+    // até alguém clicar, e o saldo simplesmente não aparecia (22/09/2026).
+    // Espera a sessão existir: sem token a função devolve 401.
+    (async function aoAbrir() {
+      for (var i = 0; i < 40; i++) {                 // até ~10s esperando o login resolver
+        try {
+          var ses = await DB.client.auth.getSession();
+          if (ses && ses.data && ses.data.session) { await consultarSaldo(true); return; }
+        } catch (e) {}
+        await new Promise(function (r) { setTimeout(r, 250); });
+      }
+      det.textContent = "toque em Atualizar para consultar";
+    })();
   })();
   </script>
 </body>
