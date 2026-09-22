@@ -139,10 +139,20 @@
            escrito fixo: vem de config.reserva_pagamento_timeout_min. -->
       <div id="aviso-prazo" class="aviso aviso-atencao" style="display:none;font-size:.88rem;margin:0"></div>
 
+      <!-- Aceite expresso da política de cancelamento (CDC art. 46: só obriga o que foi
+           dado a conhecer). O texto tem de ser IGUAL à cláusula 5.3 do contrato e à
+           régua que a RPC `cancelar_reserva` executa. Os números NÃO ficam chumbados:
+           pintarPolitica() reescreve este span com os valores de `config`
+           (cancel_janela_min, cancel_arrependimento_min, cancel_validade_curta_ate_horas,
+           cancel_validade_curta_dias). O texto abaixo é só o fallback do modo
+           demonstração / config fora do ar, escrito com os defaults dessas chaves. -->
       <label style="display:flex;gap:10px;align-items:flex-start;font-size:.82rem;margin:6px 0;color:var(--cinza);cursor:pointer">
         <input type="checkbox" id="aceite-cancel" style="width:20px;height:20px;min-width:20px;flex:0 0 20px;margin:1px 0 0;padding:0;border-radius:5px;accent-color:var(--azul)">
-        <span>Li e aceito a <strong>política de cancelamento</strong>: 7+ dias de antecedência = 100% em horas de crédito ·
-        entre 7 dias e 48h = 50% · menos de 48h ou não comparecimento = sem devolução (horas de crédito valem 90 dias).</span>
+        <span id="txt-aceite">Li e aceito a <strong>política de cancelamento</strong>: 1 hora ou mais de antecedência = 100%
+        em horas de crédito · menos de 1 hora, não comparecimento (no-show) ou reserva já iniciada = sem devolução ·
+        arrependimento: cancelar em até 1 hora depois de criar a reserva devolve 100%, mesmo em cima da hora.
+        As horas de crédito valem 90 dias (30 dias quando o cancelamento for a menos de 24 horas do início) e
+        abatem novas reservas.</span>
       </label>
       <button id="btn-confirmar" class="btn btn-primario btn-bloco">Confirmar reserva</button>
 
@@ -174,8 +184,11 @@
       <p class="muted" style="font-size:.82rem;margin:0">
         Você paga primeiro (Pix) e o horário é confirmado na hora · duração mínima 1h ·
         higienização de 30 min entre profissionais diferentes. <strong>Cancelamento:</strong>
-        7+ dias de antecedência = 100% em horas de crédito · entre 7 dias e 48h = 50% · menos de 48h ou
-        não comparecimento = sem devolução. As horas de crédito valem 90 dias e abatem novas reservas.
+        <!-- mesmo texto do checkbox, repintado por pintarPolitica() a partir de `config` -->
+        <span id="txt-politica-rodape">1 hora ou mais de antecedência = 100% em horas de crédito · menos de 1 hora,
+        não comparecimento (no-show) ou reserva já iniciada = sem devolução · arrependimento: cancelar em até
+        1 hora depois de criar a reserva devolve 100%, mesmo em cima da hora. As horas de crédito valem
+        90 dias (30 dias quando o cancelamento for a menos de 24 horas do início) e abatem novas reservas.</span>
       </p>
     </div>
   </main>
@@ -224,6 +237,61 @@
     // Minutos que se pode voltar para reservar a hora EM CURSO. 0 = comportamento
     // antigo (só futuro). Vem de config.reserva_retroativa_max_min; ver 0030.
     var RETRO_MIN = 60;
+
+    // ---------------------------------------------------------------------
+    // RÉGUA DE CANCELAMENTO — uma só para tela, contrato e banco.
+    // Quem EXECUTA é a RPC `cancelar_reserva` (migrations 0027 e 0028):
+    //   • cancelou com cancel_janela_min OU MAIS de antecedência ...... 100% em crédito
+    //   • menos que isso, no-show, ou reserva já iniciada ............. 0%
+    //   • ARREPENDIMENTO: até cancel_arrependimento_min contados da
+    //     CRIAÇÃO da reserva ....................................... 100% sempre
+    //   • cancelamento feito pela gestão ............................ 100%, prazo normal
+    //   • o crédito vale 90 dias e CAI para cancel_validade_curta_dias
+    //     quando faltavam menos de cancel_validade_curta_ate_horas.
+    // Os números saem da tabela `config` (mesma consulta que já traz horário,
+    // buffer e timeout — nenhuma consulta nova foi criada). Os valores abaixo
+    // são só o fallback do modo demonstração e repetem os defaults do banco.
+    // ⚠️ validadeDias (90) NÃO está em `config`: está chumbado na própria RPC
+    //    (0028, `v_val_dias := 90`) e no contrato (CREDITO_VALIDADE_DIAS).
+    var CANCEL = { janelaMin: 60, arrepMin: 60, validadeDias: 90, curtaAteH: 24, curtaDias: 30 };
+    // Versão da régua que vai carimbada na trilha de aceite. Casa com o
+    // VERSAO_TEMPLATE do contrato (gerar-contrato: "clinicshare-v4.0-2026-09-22").
+    var POLITICA_VERSAO = "clinicshare-v4.0";
+
+    // "60" -> "1 hora"; "90" -> "90 minutos". Mesma função do gerador de contrato,
+    // para a tela e a cláusula 5.3 falarem com as mesmas palavras.
+    function janelaTxt(min) {
+      var m = Number(min) || 0;
+      if (m > 0 && m % 60 === 0) { var h = m / 60; return h + (h === 1 ? " hora" : " horas"); }
+      return m + (m === 1 ? " minuto" : " minutos");
+    }
+    // Texto único da política — usado no checkbox e no rodapé.
+    function textoPolitica() {
+      var j = janelaTxt(CANCEL.janelaMin);
+      return j + " ou mais de antecedência = 100% em horas de crédito · menos de " + j +
+        ", não comparecimento (no-show) ou reserva já iniciada = sem devolução · " +
+        "arrependimento: cancelar em até " + janelaTxt(CANCEL.arrepMin) +
+        " depois de criar a reserva devolve 100%, mesmo em cima da hora. As horas de crédito valem " +
+        CANCEL.validadeDias + " dias (" + CANCEL.curtaDias + " dias quando o cancelamento for a menos de " +
+        janelaTxt(CANCEL.curtaAteH * 60) + " do início) e abatem novas reservas.";
+    }
+    // Carimbo gravado em `reservas.observacao` como trilha do aceite expresso.
+    function politicaCarimbo() {
+      var j = janelaTxt(CANCEL.janelaMin);
+      return "cancelar com " + j + " ou mais de antecedência=100% em horas de crédito · menos de " + j +
+        ", no-show ou reserva já iniciada=0% · arrependimento até " + janelaTxt(CANCEL.arrepMin) +
+        " da criação da reserva=100% · cancelamento pela gestão=100% · crédito vale " +
+        CANCEL.validadeDias + " dias (" + CANCEL.curtaDias + " dias se cancelado a menos de " +
+        janelaTxt(CANCEL.curtaAteH * 60) + " do início) (" + POLITICA_VERSAO + ")";
+    }
+    // Repinta os dois lugares onde a política aparece para o cliente.
+    function pintarPolitica() {
+      var t = textoPolitica();
+      var a = document.getElementById("txt-aceite");
+      if (a) a.innerHTML = "Li e aceito a <strong>política de cancelamento</strong>: " + t;
+      var r = document.getElementById("txt-politica-rodape");
+      if (r) r.textContent = t;
+    }
 
     var elSala = document.getElementById("sala");
     var elData = document.getElementById("data");
@@ -460,7 +528,14 @@
         // (migration 0030). A trava que vale é a da RPC; aqui é para a tela
         // não oferecer o que o banco vai recusar.
         if (c.chave === "reserva_retroativa_max_min") RETRO_MIN = Number(c.valor) || 0;
+        // régua de cancelamento (0027/0028) — o texto da tela e o carimbo do
+        // aceite saem daqui, nunca de número escrito no HTML.
+        if (c.chave === "cancel_janela_min") CANCEL.janelaMin = Number(c.valor) || 60;
+        if (c.chave === "cancel_arrependimento_min") CANCEL.arrepMin = Number(c.valor) || 60;
+        if (c.chave === "cancel_validade_curta_ate_horas") CANCEL.curtaAteH = Number(c.valor) || 24;
+        if (c.chave === "cancel_validade_curta_dias") CANCEL.curtaDias = Number(c.valor) || 30;
       });
+      pintarPolitica();   // com os números do banco já carregados
       // mapa de TODOS os produtos ativos, por tipo (hora, periodo, diaria, etc.)
       (r[2].data || []).forEach(function (p) { PRODUTOS_MAP[p.tipo] = { id: p.id, valor: Number(p.valor), nome: p.nome }; });
       if (PRODUTOS_MAP.hora) {
@@ -835,7 +910,10 @@
       var b = this; b.textContent = "Copiado!"; setTimeout(function () { b.textContent = "Copiar"; }, 2000);
     });
 
-    var POLITICA_CANCEL = "7+ dias=100% horas · 7d-48h=50% · <48h/no-show=0% · horas de crédito 90 dias (clinicshare-v3.3)";
+    // (A política de cancelamento virou politicaCarimbo(), montada a partir de
+    //  `config` lá em cima. A string fixa da régua antiga — 7 dias / 48h / 50% —
+    //  foi removida em 22/09/2026: o cliente estava aceitando uma política que
+    //  o banco não executa mais desde a migration 0027.)
     document.getElementById("btn-confirmar").addEventListener("click", async function () {
       if (!sel.inicio || !sel.fim) return;
       var btn = this;
@@ -931,7 +1009,7 @@
       try {
         await DB.client.rpc("registrar_aceite_politica", {
           p_reserva_id: RESERVA_ATUAL.id,
-          p_texto: "Aceite da política de cancelamento em " + new Date().toISOString() + " — " + POLITICA_CANCEL
+          p_texto: "Aceite da política de cancelamento em " + new Date().toISOString() + " — " + politicaCarimbo()
         });
       } catch (e) { /* não bloqueia a reserva */ }
 
