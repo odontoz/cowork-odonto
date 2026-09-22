@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="../../assets/css/base.css">
   <script src="../../assets/js/brand.js" defer></script>
   <style>
-    .kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .kpis { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
     .kpi { background: var(--branco); border: 1px solid var(--linha); border-radius: var(--raio); padding: 16px; box-shadow: var(--sombra); }
     .kpi .rotulo { font-size: .8rem; color: var(--cinza); margin: 0 0 6px; }
     .kpi .valor { font-size: 1.4rem; font-weight: 800; letter-spacing: -.02em; margin: 0; }
@@ -22,14 +22,15 @@
       border-radius: 7px; padding: 5px 10px; cursor: pointer; }
     .btn-asaas:hover { background: #f2f5f9; }
     .btn-asaas[disabled] { opacity: .55; cursor: default; }
-    @media (min-width: 720px) { .kpis { grid-template-columns: repeat(5, 1fr); } }
+    @media (min-width: 720px) { .kpis { grid-template-columns: repeat(3, minmax(0,1fr)); } }
+    @media (min-width: 1100px) { .kpis { grid-template-columns: repeat(5, minmax(0,1fr)); } }
     .fin-tab { width: 100%; border-collapse: collapse; font-size: .9rem; }
     .fin-tab th, .fin-tab td { border-bottom: 1px solid var(--linha); padding: 10px 8px; text-align: left; }
     .fin-tab th { background: var(--fundo); font-size: .8rem; color: var(--cinza); text-transform: uppercase; letter-spacing: .03em; }
     .fin-tab td.num, .fin-tab th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
     .fin-tab tfoot td { font-weight: 800; border-top: 2px solid var(--linha); border-bottom: none; }
-    .duo { display: grid; grid-template-columns: 1fr; gap: 16px; }
-    @media (min-width: 720px) { .duo { grid-template-columns: 1fr 1fr; } }
+    .duo { display: grid; grid-template-columns: minmax(0,1fr); gap: 16px; }
+    @media (min-width: 900px) { .duo { grid-template-columns: repeat(2, minmax(0,1fr)); } }
     .abas { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
     .abas a { display: inline-block; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--linha);
               background: var(--branco); color: var(--tinta); font-weight: 600; font-size: .9rem; text-decoration: none; }
@@ -37,15 +38,15 @@
     /* painel que envolve o formulário de lançamento */
     .caixa-form-wrap { background: var(--fundo); border: 1px solid var(--linha); border-radius: var(--raio); padding: 16px; margin-top: 14px; }
     .caixa-form-wrap .form-titulo { font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--cinza); margin: 0 0 14px; }
-    .form-caixa { display: grid; grid-template-columns: 1fr; gap: 14px 16px; align-items: start; }
+    .form-caixa { display: grid; grid-template-columns: minmax(0,1fr); gap: 14px 16px; align-items: start; }
     .form-caixa .full { grid-column: 1 / -1; }
     .form-caixa .campo { min-width: 0; }                       /* impede estouro do grid */
     .form-caixa .campo + .campo { margin-top: 0; }             /* anula empurrão do base.css dentro do grid */
     .form-caixa label { margin-bottom: 6px; }
     .form-caixa input, .form-caixa select { width: 100%; }
     .form-caixa input[type=file] { padding: 8px 12px; background: var(--branco); font-size: .9rem; }
-    @media (min-width: 560px) { .form-caixa { grid-template-columns: 1fr 1fr; } }
-    @media (min-width: 900px) { .form-caixa { grid-template-columns: repeat(4, 1fr); } }
+    @media (min-width: 560px) { .form-caixa { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+    @media (min-width: 900px) { .form-caixa { grid-template-columns: repeat(4, minmax(0,1fr)); } }
     /* input de valor com prefixo R$ */
     .input-prefixo { position: relative; }
     .input-prefixo .prefixo { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--cinza); font-weight: 600; pointer-events: none; font-size: .95rem; }
@@ -54,8 +55,8 @@
     .form-acoes { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 2px; }
     .form-acoes .autosave { font-size: .8rem; color: var(--cinza); margin-left: auto; }
     @media (max-width: 559px) { .form-acoes .btn { flex: 1 1 auto; } .form-acoes .autosave { margin-left: 0; width: 100%; } }
-    .caixa-tot { display: grid; grid-template-columns: 1fr; gap: 12px; margin: 16px 0; }
-    @media (min-width: 720px) { .caixa-tot { grid-template-columns: repeat(3, 1fr); } }
+    .caixa-tot { display: grid; grid-template-columns: minmax(0,1fr); gap: 12px; margin: 16px 0; }
+    @media (min-width: 720px) { .caixa-tot { grid-template-columns: repeat(3, minmax(0,1fr)); } }
     .caixa-tot .box { background: var(--branco); border: 1px solid var(--linha); border-radius: var(--raio); padding: 16px; box-shadow: var(--sombra); }
     .caixa-tot .box .rotulo { font-size: .8rem; color: var(--cinza); margin: 0 0 6px; }
     .caixa-tot .box .valor { font-size: 1.5rem; font-weight: 800; letter-spacing: -.02em; margin: 0; font-variant-numeric: tabular-nums; }
@@ -69,6 +70,21 @@
     .filtros-caixa .campo { flex: 1 1 140px; min-width: 120px; }
     .filtros-caixa .campo + .campo { margin-top: 0; }          /* anula empurrão do base.css na linha de filtros */
     .filtros-caixa label { margin-bottom: 6px; }
+    /* --- sem rolagem lateral: a pagina desce, nunca anda para o lado (22/09/2026) --- */
+    html, body { max-width: 100%; overflow-x: hidden; }
+    .container { max-width: min(960px, 100%); }
+    .kpi, .card, .box { min-width: 0; }                        /* deixa o filho encolher dentro do grid */
+    .kpi .rotulo, .kpi .valor, .card h2, .card p { overflow-wrap: anywhere; }
+    .scroll-x { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .scroll-x > table { min-width: 460px; }                    /* a TABELA rola sozinha, a pagina nao */
+    @media (max-width: 559px) {
+      .fin-tab { font-size: .82rem; }
+      .fin-tab th, .fin-tab td { padding: 8px 6px; }
+      .kpi .valor { font-size: 1.15rem; }
+      .container { padding-left: 14px; padding-right: 14px; }
+      h1 { font-size: 1.35rem; }
+      .abas a { padding: 7px 12px; font-size: .85rem; }
+    }
     /* rótulo de seção acima de blocos */
     .sec-rotulo { font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--cinza); margin: 20px 0 8px; }
   </style>
