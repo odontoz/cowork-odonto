@@ -77,9 +77,10 @@
     .ficha-corpo h3{font-size:.8rem;text-transform:uppercase;letter-spacing:.05em;color:var(--cinza);margin:22px 0 10px}
     .ficha-corpo h3:first-child{margin-top:0}
     .fechar{background:none;border:1px solid var(--linha);border-radius:9px;width:38px;height:38px;font-size:20px;cursor:pointer;color:var(--tinta);flex:0 0 auto}
-    .kv{display:grid;grid-template-columns:132px 1fr;gap:7px 12px;font-size:.94rem}
+    .kv{display:grid;grid-template-columns:132px minmax(0,1fr);gap:7px 12px;font-size:.94rem}
     .kv .k{color:var(--cinza)}
-    @media(max-width:520px){ .kv{grid-template-columns:1fr;gap:2px 0} .kv .k{margin-top:8px;font-size:.8rem} }
+    .kv > *{min-width:0;overflow-wrap:anywhere}   /* L5: filho de grid só encolhe com isto */
+    @media(max-width:520px){ .kv{grid-template-columns:minmax(0,1fr);gap:2px 0} .kv .k{margin-top:8px;font-size:.8rem} }
 
     /* régua de estados */
     .regua{display:flex;gap:6px;flex-wrap:wrap}
@@ -187,7 +188,7 @@
       </div>
 
       <div class="filtros">
-        <input type="search" id="busca" placeholder="Buscar por nome, WhatsApp ou CRO…">
+        <input type="search" id="busca" placeholder="Buscar por nome, WhatsApp ou conselho…">
         <select id="f-situacao">
           <option value="">Todas as situações</option>
           <option value="novo">Chegou (ninguém falou)</option>
@@ -213,7 +214,7 @@
         <div class="scroll-x">
           <table class="roster">
             <thead><tr>
-              <th>Nome</th><th>CRO</th><th>Veio de</th>
+              <th>Nome</th><th>Conselho</th><th>Veio de</th>
               <th>Chegou</th><th>Situação</th><th style="text-align:right">Ação</th>
             </tr></thead>
             <tbody id="corpo"></tbody>
@@ -298,7 +299,7 @@
         <div class="campo"><label for="nv-nome">Nome</label><input id="nv-nome" type="text" placeholder="Nome de quem vai visitar"></div>
         <div class="campo"><label for="nv-wpp">WhatsApp</label><input id="nv-wpp" type="tel" placeholder="(61) 9 9999-9999"></div>
         <div class="row">
-          <div class="campo grow"><label for="nv-cro">CRO (opcional)</label><input id="nv-cro" type="text" placeholder="17413"></div>
+          <div class="campo grow"><label for="nv-cro">Conselho — nº (opcional)</label><input id="nv-cro" type="text" placeholder="Ex.: CRO 17413"></div>
           <div class="campo grow"><label for="nv-quem">Quem trouxe</label><select id="nv-quem"></select></div>
         </div>
         <div class="row">
@@ -521,7 +522,7 @@
         return '<tr data-id="' + f.id + '"' + (f.situacao==="novo" ? ' class="nova"' : '') + '>' +
           '<td class="nome-cel"><strong>' + esc(f.nome) + (foraDF(f) ? '<span class="fora">DDD ' + esc(ddd(f.whatsapp_norm)) + '</span>' : "") +
             '</strong><small>' + esc(wppFmt(f.whatsapp_norm)) + (f.momento ? " · " + esc(f.momento) : "") + "</small></td>" +
-          '<td data-r="CRO">' + (f.cro ? esc(f.cro) : '<span class="muted">sem CRO</span>') + "</td>" +
+          '<td data-r="Conselho">' + (f.cro ? esc(f.cro) : '<span class="muted">não informou</span>') + "</td>" +
           '<td data-r="Veio de">' + fonteHTML(f) + "</td>" +
           '<td data-r="Chegou" style="white-space:nowrap;font-size:.86rem">' + haQuanto(f.criado_em) + "</td>" +
           '<td data-r="Situação">' + seloHTML(f) + '<br><small class="muted" style="font-size:.76rem">' +
@@ -594,7 +595,7 @@
       ATUAL = FICHAS.filter(function(f){ return f.id === id; })[0];
       if (!ATUAL) return;
       $("fi-nome").textContent = ATUAL.nome;
-      $("fi-sub").textContent = wppFmt(ATUAL.whatsapp_norm) + (ATUAL.cro ? " · CRO " + ATUAL.cro : " · sem CRO") +
+      $("fi-sub").textContent = wppFmt(ATUAL.whatsapp_norm) + (ATUAL.cro ? " · conselho " + ATUAL.cro : " · sem conselho") +
         " · chegou " + haQuanto(ATUAL.criado_em);
       aba("dados");
       $("ficha-bg").classList.add("on");
