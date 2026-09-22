@@ -521,10 +521,15 @@
     // publicada, rede fora), cai no texto genérico da política — nunca mente.
     function textoPrevia(p) {
       if (!p) {
+        // Aqui os números são fixos DE PROPÓSITO: se a prévia do banco não veio,
+        // não há de onde ler. São os defaults das chaves de `config`
+        // cancel_janela_min (60) e cancel_arrependimento_min (60) — mexeu lá,
+        // mexa aqui também, na mesma leva do contrato e da reservar.html.
         return '<p style="margin:0 0 8px">Não foi possível calcular agora quanto volta. ' +
-               'Pela política: <b>7 dias ou mais</b> de antecedência devolvem <b>100%</b> das horas; ' +
-               'entre <b>7 dias e 48 horas</b>, <b>50%</b>; ' +
-               '<b>menos de 48 horas</b>, sem devolução.</p>';
+               'Pela política: <b>1 hora ou mais</b> de antecedência devolve <b>100%</b> das horas; ' +
+               'com <b>menos de 1 hora</b>, não comparecimento ou reserva já iniciada, ' +
+               '<b>sem devolução</b>; e cancelar em até <b>60 minutos</b> depois de criar a ' +
+               'reserva devolve <b>100%</b>, mesmo em cima da hora.</p>';
       }
       var h = [];
 
@@ -553,6 +558,17 @@
       }
 
       h.push('<p class="muted" style="font-size:.85rem;margin:12px 0 0">' + explicacaoFaixa(p) + "</p>");
+
+      // VALIDADE do que volta. A prévia do banco ainda não devolve esse dado
+      // (previa_cancelamento, 0027), então o texto é genérico e não promete prazo
+      // que a RPC não vai dar. Os números são os de `config`:
+      // cancel_validade_curta_ate_horas = 24 e cancel_validade_curta_dias = 30
+      // (a validade normal de 90 dias está chumbada na própria cancelar_reserva).
+      if (Number(p.horas_devolvidas || 0) > 0) {
+        h.push('<p class="muted" style="font-size:.85rem;margin:8px 0 0">' +
+               'As horas que voltam valem <b>90 dias</b> — e <b>30 dias</b> quando o ' +
+               'cancelamento é feito faltando menos de <b>24 horas</b> para o início.</p>');
+      }
       h.push('<p class="muted" style="font-size:.85rem;margin:8px 0 0">' +
              'Se você só quer <b>mudar de consultório</b> no mesmo horário, feche aqui e use ' +
              '<b>Trocar de sala</b> — a troca não tem custo nenhum.</p>');
@@ -565,24 +581,31 @@
       // Usar ele mantem a REGRA em um lugar so: mudou a politica no banco, a tela acompanha
       // sozinha. O switch abaixo fica como reserva para respostas antigas sem essa chave.
       if (p && p.explicacao) return esc(p.explicacao);
-      var d = p.faixa1_dias, hh = p.faixa2_horas;
+      // Reserva para respostas antigas, sem `explicacao`. As faixas são as da
+      // régua vigente (0027): gestao · nao_pago · arrependimento · antecedencia ·
+      // tardio. A faixa "parcial" (os 50% da régua velha de 7 dias/48h) não existe
+      // mais e saiu daqui — assim como faixa1_dias/faixa2_horas, que a RPC hoje
+      // devolve nulos. Os minutos vêm do próprio banco (config.cancel_janela_min
+      // e config.cancel_arrependimento_min, repassados na prévia).
+      var jm = Number(p.janela_min) || 60;
+      var am = Number(p.arrependimento_min) || 60;
       switch (p.faixa) {
         case "arrependimento":
-          return "Você está dentro da janela de arrependimento, por isso volta 100%.";
+          return "Você está dentro da janela de arrependimento (" + esc(am) +
+                 " minutos a contar de quando criou a reserva), por isso volta 100%.";
         case "antecedencia":
-          return "Cancelamento com " + esc(d) + " dias ou mais de antecedência: volta 100% das horas.";
-        case "parcial":
-          return "Cancelamento entre " + esc(d) + " dias e " + esc(hh) +
-                 " horas do início: volta metade das horas.";
+          return "Cancelamento com " + esc(jm) + " minutos ou mais de antecedência: " +
+                 "volta 100% das horas, sem nenhuma perda.";
         case "tardio":
-          return "Cancelamento com menos de " + esc(hh) + " horas do início: sem devolução — " +
-                 "o horário ficou bloqueado e outra pessoa deixou de usar.";
+          return "Faltam menos de " + esc(jm) + " minutos para o início: sem devolução — " +
+                 "não dá mais tempo de outra pessoa aproveitar o horário.";
         case "gestao":
           return "Cancelamento feito pela gestão: volta 100%.";
         case "nao_pago":
           return "Esta reserva ainda não foi paga — nada foi debitado do seu saldo.";
         default:
-          return "As horas que voltam ficam no seu saldo e valem 90 dias.";
+          return "As horas que voltam ficam no seu saldo e valem 90 dias — 30 dias quando o " +
+                 "cancelamento for a menos de 24 horas do início.";
       }
     }
 
