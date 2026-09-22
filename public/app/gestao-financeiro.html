@@ -875,11 +875,17 @@
   </script>
 
   <script>
-  // Saldo do gateway — só busca quando a gestão clica (não bate na API do Asaas
-  // a cada abertura da tela). A chave fica na Edge Function; aqui só chega o número.
+  // Saldo do gateway. A chave fica na Edge Function; aqui só chega o número.
+  //
+  // 🔴 22/09/2026: este bloco testava `window.DB`, que NUNCA existiu — o objeto
+  // do banco neste sistema é `window.EnjoyDB`. O return da primeira linha
+  // acontecia sempre, então o listener do botão nem era registrado: "Atualizar"
+  // não fazia nada e o card ficava eternamente em "não consultado". Não havia
+  // UMA chamada à função saldo-asaas nos logs do Supabase.
   (function () {
     var btn = document.getElementById("btn-asaas");
-    if (!btn || !window.DB) return;
+    if (!btn) return;
+    function db() { return window.EnjoyDB; }           // pega na hora do uso
     var vlr = document.getElementById("kpi-asaas");
     var det = document.getElementById("asaas-detalhe");
     function brl(n) {
@@ -891,7 +897,9 @@
       try {
         // fetch direto: o supabase.js local e um build reduzido e o modulo
         // functions nao funciona nele — por isso o botao nao respondia.
-        var ses = await DB.client.auth.getSession();
+        var D = db();
+        if (!D || !D.client) throw new Error("sem sessao");
+        var ses = await D.client.auth.getSession();
         var tok = ses && ses.data && ses.data.session && ses.data.session.access_token;
         if (!tok) throw new Error("sem sessao");
         var cfg = window.ENJOY_CONFIG || {};
@@ -922,8 +930,11 @@
     (async function aoAbrir() {
       for (var i = 0; i < 40; i++) {                 // até ~10s esperando o login resolver
         try {
-          var ses = await DB.client.auth.getSession();
-          if (ses && ses.data && ses.data.session) { await consultarSaldo(true); return; }
+          var D = db();
+          if (D && D.client) {
+            var ses = await D.client.auth.getSession();
+            if (ses && ses.data && ses.data.session) { await consultarSaldo(true); return; }
+          }
         } catch (e) {}
         await new Promise(function (r) { setTimeout(r, 250); });
       }
