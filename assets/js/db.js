@@ -73,7 +73,7 @@
         var u = await usuario();
         if (!u) return null;
         var r = await db.from("perfis")
-          .select("id,user_id,nome,telefone,tipo,status,cro,profissao,docs")
+          .select("id,user_id,nome,telefone,tipo,status,conselho,cro,profissao,docs")
           .eq("user_id", u.id)
           .maybeSingle();
         if (r.error) { console.warn("[Enjoy/db] perfil:", r.error.message); return null; }
