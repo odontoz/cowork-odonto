@@ -98,6 +98,54 @@
     #bloco-categorias .barra i { display: block; height: 100%; border-radius: 3px; }
     /* rótulo de seção acima de blocos */
     .sec-rotulo { font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--cinza); margin: 20px 0 8px; }
+
+    /* ===== CONTAS A PAGAR — alerta do topo (22/09/2026) ===================
+       O bloco inteiro fica escondido quando não há NADA aberto: alerta que
+       aparece sem motivo vira ruído e a pessoa para de olhar. */
+    .contas-topo { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; }
+    .contas-topo .total { margin-left: auto; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .contas-faixa { border-radius: 10px; padding: 12px 14px; margin-top: 12px; min-width: 0; }
+    .contas-faixa.vencida { background: #fbe4e4; border: 1px solid #f2c9c9; }
+    .contas-faixa.perto   { background: #fbf1d6; border: 1px solid #eddfae; }
+    .contas-faixa.calma   { background: var(--fundo); border: 1px solid var(--linha); }
+    .contas-faixa h3 { margin: 0; font-size: .82rem; text-transform: uppercase; letter-spacing: .04em; }
+    .contas-faixa.vencida h3 { color: var(--vermelho); }
+    .contas-faixa.perto h3   { color: #7a5a00; }
+    .contas-faixa.calma h3   { color: var(--cinza); }
+    .contas-faixa .sub { font-size: .8rem; color: var(--cinza); margin: 4px 0 0; overflow-wrap: anywhere; }
+    .conta-linha { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; min-width: 0;
+                   background: var(--branco); border: 1px solid var(--linha); border-radius: 9px;
+                   padding: 10px 12px; margin-top: 8px; }
+    .conta-linha .info { flex: 1 1 190px; min-width: 0; }
+    .conta-linha .nome { font-weight: 700; display: block; overflow-wrap: anywhere; }
+    .conta-linha .meta { display: block; font-size: .78rem; color: var(--cinza); overflow-wrap: anywhere; }
+    .conta-linha .obs  { display: block; font-size: .75rem; color: var(--cinza); margin-top: 4px; overflow-wrap: anywhere; }
+    .conta-linha .grana { font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .conta-atraso { color: var(--vermelho); font-weight: 700; }
+    .btn-mini { font: inherit; font-size: .78rem; font-weight: 700; cursor: pointer;
+                background: var(--branco); color: var(--tinta); border: 1px solid var(--linha);
+                border-radius: 8px; padding: 7px 11px; }
+    .btn-mini:hover { background: var(--fundo); }
+    .btn-mini[disabled] { opacity: .55; cursor: default; }
+    @media (max-width: 559px) {
+      .conta-linha { align-items: flex-start; }
+      .conta-linha .btn-mini { flex: 1 1 auto; }
+      .contas-topo .total { margin-left: 0; }
+    }
+    /* ===== RELATÓRIO DE PAGAMENTOS ===== */
+    .rel-tot { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; margin: 14px 0 8px; }
+    @media (min-width: 900px) { .rel-tot { grid-template-columns: repeat(4, minmax(0,1fr)); } }
+    .rel-tot .box { background: var(--branco); border: 1px solid var(--linha); border-radius: var(--raio);
+                    padding: 14px; box-shadow: var(--sombra); min-width: 0; }
+    .rel-tot .box .rotulo { font-size: .76rem; color: var(--cinza); margin: 0 0 6px; overflow-wrap: anywhere; }
+    .rel-tot .box .valor { font-size: 1.2rem; font-weight: 800; letter-spacing: -.02em; margin: 0; font-variant-numeric: tabular-nums; }
+    .rel-tot .valor.pago { color: var(--verde); }
+    .rel-tot .valor.abre { color: var(--amarelo); }
+    .rel-tot .valor.venc { color: var(--vermelho); }
+    /* mesma barrinha de peso do bloco "Por categoria" — o visual é o mesmo de propósito */
+    #sec-relatorio .barra { display: block; width: 100%; min-width: 60px; height: 7px; border-radius: 4px;
+                            background: var(--linha); overflow: hidden; }
+    #sec-relatorio .barra i { display: block; height: 100%; border-radius: 3px; }
   </style>
 </head>
 <body data-no-wpp>
@@ -126,12 +174,102 @@
 
     <nav class="abas">
       <a href="#resumo">Resumo do mês</a>
+      <a href="#bloco-contas">Contas a pagar</a>
+      <a href="#sec-relatorio">Relatório de pagamentos</a>
       <a href="#livro-caixa">Livro Caixa</a>
     </nav>
 
     <div class="aviso aviso-atencao" style="margin-bottom:16px;display:none" id="aviso-demo">
       ⚠️ <strong>Dados de exemplo</strong> — banco não conectado. Os números abaixo são fictícios (não são o faturamento real). Entre como gestão para ver os dados reais.
     </div>
+    <!-- ============ CONTAS A PAGAR — alerta (fica ANTES dos KPIs) ============
+         Só aparece se houver conta aberta de verdade. Sem conta aberta, o bloco
+         inteiro some: alarme inventado é alarme que ninguém mais lê. -->
+    <section class="card" id="bloco-contas" style="margin-bottom:16px;display:none">
+      <div class="contas-topo">
+        <h2 style="margin:0">Contas a pagar</h2>
+        <span class="muted" style="font-size:.82rem" id="contas-resumo"></span>
+        <span class="total" id="contas-total"></span>
+      </div>
+
+      <div class="aviso aviso-atencao" style="margin-top:12px;display:none" id="contas-aviso-mock">
+        ⚠️ <strong>Dados de exemplo</strong> — banco não conectado. As baixas ficam só <strong>neste navegador</strong> (localStorage) — o lançamento que nasce no Livro Caixa aqui também é de mentira.
+      </div>
+
+      <div class="contas-faixa vencida" id="faixa-vencidas" style="display:none">
+        <h3>🔴 Vencidas</h3>
+        <p class="sub" id="sub-vencidas"></p>
+        <div id="lista-vencidas"></div>
+        <p style="margin:10px 0 0;display:none" id="linha-atrasadas">
+          <button class="btn-mini" type="button" id="btn-atrasadas">Registrar parcelas em atraso</button>
+          <span class="muted" style="font-size:.75rem;margin-left:8px">abre as ocorrências dos meses que a conta fixa pulou</span>
+        </p>
+      </div>
+
+      <div class="contas-faixa perto" id="faixa-perto" style="display:none">
+        <h3>🟡 Vence em até 7 dias</h3>
+        <p class="sub" id="sub-perto"></p>
+        <div id="lista-perto"></div>
+      </div>
+
+      <div class="contas-faixa calma" id="faixa-proximas" style="display:none">
+        <h3>Próximas</h3>
+        <p class="sub" id="sub-proximas"></p>
+        <div id="lista-proximas"></div>
+      </div>
+
+      <div class="contas-faixa calma" id="faixa-semdata" style="display:none">
+        <h3>Sem data definida</h3>
+        <p class="sub">Conta fixa cujo dia de vencimento ainda não foi confirmado — por isso ela <strong>não</strong> entra no alerta de vencidas.</p>
+        <div id="lista-semdata"></div>
+      </div>
+
+      <!-- painel de baixa: abre preenchido, a pessoa só confere e anexa -->
+      <div class="caixa-form-wrap" id="pagar-wrap" style="display:none">
+        <p class="form-titulo">Confirmar pagamento — <span id="pg-titulo"></span></p>
+        <form class="form-caixa" id="form-pagar" autocomplete="off">
+          <div class="campo">
+            <label for="pg-valor">Valor pago</label>
+            <div class="input-prefixo">
+              <span class="prefixo">R$</span>
+              <input id="pg-valor" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00">
+            </div>
+          </div>
+          <div class="campo">
+            <label for="pg-data">Data do pagamento</label>
+            <input id="pg-data" type="date" onclick="this.showPicker?.()">
+          </div>
+          <div class="campo">
+            <label for="pg-cat">Categoria</label>
+            <input id="pg-cat" type="text" readonly>
+          </div>
+          <div class="campo">
+            <label for="pg-prev">Previsto</label>
+            <input id="pg-prev" type="text" readonly>
+          </div>
+          <div class="campo full">
+            <label for="pg-desc">Descrição do lançamento no caixa</label>
+            <input id="pg-desc" type="text" maxlength="200">
+          </div>
+          <div class="campo full">
+            <label for="pg-comprovante">Comprovante <span class="muted" style="font-weight:400">(opcional)</span></label>
+            <input id="pg-comprovante" type="file" accept="image/*,application/pdf">
+          </div>
+          <div class="campo full">
+            <label for="pg-obs">Observação <span class="muted" style="font-weight:400">(opcional)</span></label>
+            <input id="pg-obs" type="text" maxlength="300" placeholder="Ex.: pago com multa de 5%">
+          </div>
+          <div class="form-acoes">
+            <button class="btn btn-primario" type="submit" id="btn-pg-confirmar">Confirmar e lançar no caixa</button>
+            <button class="btn btn-neutro" type="button" id="btn-pg-cancelar">Cancelar</button>
+            <span class="autosave" id="pg-aviso"></span>
+          </div>
+        </form>
+      </div>
+
+      <p class="muted" style="font-size:.78rem;margin:12px 0 0" id="contas-rodape"></p>
+    </section>
+
     <span id="resumo"></span>
 
     <!-- Resumo do mês -->
@@ -187,6 +325,62 @@
         <table class="fin-tab" id="tab-produtos">
           <thead><tr><th>Tipo de venda</th><th class="num">Valor</th><th class="num">%</th></tr></thead>
           <tbody></tbody><tfoot></tfoot>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============ RELATÓRIO DE PAGAMENTOS ============
+         Previsto (contas_pagar) × realizado (lancamentos_caixa) no período.
+         Mesmo visual do bloco "Por categoria" do livro caixa, de propósito. -->
+    <section class="card" id="sec-relatorio" style="margin-top:24px">
+      <div class="row-between" style="align-items:flex-start;flex-wrap:wrap;gap:8px">
+        <div>
+          <h2 style="margin:0">Relatório de pagamentos</h2>
+          <p class="muted" style="margin:4px 0 0">O que estava <b>previsto</b>, o que foi <b>pago</b>, o que segue <b>em aberto</b> e o que <b>venceu</b> — pela data de vencimento.</p>
+        </div>
+        <button class="btn btn-neutro" id="btn-csv-rel">Exportar CSV</button>
+      </div>
+
+      <div class="aviso aviso-atencao" style="margin:12px 0;display:none" id="rel-aviso-off">
+        ⚠️ <strong>Módulo ainda não ativado no banco.</strong> A tabela <code>contas_pagar</code> não respondeu — aplicar a migration <code>0036_contas_a_pagar.sql</code> e recarregar.
+      </div>
+
+      <p class="sec-rotulo">Período (pela data de vencimento)</p>
+      <div class="filtros-caixa">
+        <div class="campo"><label for="rel-de">De</label><input id="rel-de" type="date" onclick="this.showPicker?.()"></div>
+        <div class="campo"><label for="rel-ate">Até</label><input id="rel-ate" type="date" onclick="this.showPicker?.()"></div>
+        <div class="campo"><label for="rel-cat">Categoria</label><select id="rel-cat"><option value="todas">Todas</option></select></div>
+      </div>
+
+      <div class="rel-tot">
+        <div class="box"><p class="rotulo">Previsto no período</p><p class="valor" id="rel-previsto">—</p></div>
+        <div class="box"><p class="rotulo">Pago (saiu do caixa)</p><p class="valor pago" id="rel-pago">—</p></div>
+        <div class="box"><p class="rotulo">Em aberto (ainda a vencer)</p><p class="valor abre" id="rel-aberto">—</p></div>
+        <div class="box"><p class="rotulo">Vencido e não pago</p><p class="valor venc" id="rel-vencido">—</p></div>
+      </div>
+      <p class="muted" style="font-size:.8rem;margin:0" id="rel-nota"></p>
+
+      <p class="sec-rotulo">Por categoria</p>
+      <div class="scroll-x">
+        <table class="fin-tab" id="tab-rel-cat">
+          <thead>
+            <tr><th>Categoria</th><th class="num">Contas</th><th class="num">Previsto</th><th class="num">Pago</th>
+                <th class="num">Em aberto</th><th class="num">Vencido</th><th class="num">Previsto − pago</th><th>Peso</th></tr>
+          </thead>
+          <tbody></tbody>
+          <tfoot></tfoot>
+        </table>
+      </div>
+
+      <p class="sec-rotulo">Contas do período</p>
+      <div class="scroll-x">
+        <table class="fin-tab" id="tab-rel-contas">
+          <thead>
+            <tr><th>Vencimento</th><th>Conta</th><th>Categoria</th><th class="num">Previsto</th>
+                <th class="num">Pago</th><th>Pago em</th><th>Situação</th></tr>
+          </thead>
+          <tbody></tbody>
+          <tfoot></tfoot>
         </table>
       </div>
     </section>
@@ -843,7 +1037,443 @@
       await render();
     }
 
-    return { boot: boot };
+    // catLabel e recarregar saem daqui para o módulo CONTAS não manter uma
+    // SEGUNDA lista de categorias (duas listas sempre desencontram).
+    // lancar só existe para o modo demonstração das CONTAS A PAGAR: com banco
+    // real quem cria o lançamento é a função pagar_conta, dentro da transação.
+    return { boot: boot, recarregar: render, catLabel: catLabel, lancar: inserir };
+  })();
+  </script>
+
+  <script>
+  // ======================= CONTAS A PAGAR =======================
+  // O PREVISTO (tabela contas_pagar) × o REALIZADO (lancamentos_caixa).
+  //
+  // Recorrência: cada conta fixa é UMA linha por mês (a ocorrência daquele mês).
+  // Quem abre a próxima é a própria função pagar_conta, dentro da transação do
+  // pagamento — não há cron novo e não há linha fantasma na tela: tudo que
+  // aparece aqui existe no banco, então "Marcar como paga" nunca inventa registro.
+  var CONTAS = (function () {
+    var DB = window.EnjoyDB;
+    var USA_DB = !!(DB && DB.pronto);
+    var LS = "enjoy_contas_mock";
+    var PERFIL_ID = null;
+    var TODAS = [];            // tudo que veio do banco (abertas, pagas, canceladas)
+    var SEM_TABELA = false;    // migration 0036 ainda não aplicada
+    var EM_VOO = false;        // trava de duplo clique no "Confirmar"
+    var ALVO = null;           // conta que está no painel de baixa
+
+    var fBRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+    function brl(n) { return fBRL.format(n || 0); }
+    function esc(s) { return String(s==null?"":s).replace(/[&<>"]/g, function (c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
+    function pad(n) { return String(n).padStart(2,"0"); }
+    function getHoje() { var d = new Date(); return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
+    // datas SEMPRE locais: new Date("2026-09-16") nasce em UTC e volta um dia
+    function dLocal(iso) { var p = String(iso).slice(0,10).split("-"); return new Date(+p[0], (+p[1])-1, +p[2]); }
+    function isoDe(d) { return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
+    function fmtData(iso) { if (!iso) return "—"; var p = String(iso).slice(0,10).split("-"); return p.length===3 ? p[2]+"/"+p[1]+"/"+p[0] : iso; }
+    function somaDias(iso, n) { var d = dLocal(iso); d.setDate(d.getDate()+n); return isoDe(d); }
+    function diasEntre(aISO, bISO) { return Math.round((dLocal(bISO) - dLocal(aISO)) / 86400000); }
+    function catLabel(k) { return CAIXA.catLabel(k); }
+    function plural(n, um, muitos) { return n + " " + (n === 1 ? um : muitos); }
+
+    // ---- elementos (todos existem no HTML; nada é criado no ar) ----
+    var bloco, elResumo, elTotal, elRodape;
+    var fxVenc, fxPerto, fxProx, fxSem, ltVenc, ltPerto, ltProx, ltSem, sbVenc, sbPerto, sbProx;
+    var linhaAtras, btnAtras, wrap, formPg, pgTit, pgValor, pgData, pgCat, pgPrev, pgDesc, pgComp, pgObs, pgAviso, btnPg;
+    var relDe, relAte, relCat, relAvisoOff;
+
+    // ---------------- store: banco real ou localStorage ----------------
+    function seedMock() {
+      // mesmos valores REAIS da migration 0036 — o modo demonstração não
+      // inventa número, só não grava em lugar nenhum.
+      return [
+        { id:"cp1", descricao:"Aluguel do imóvel", categoria:"aluguel_imovel", valor:2200.00, vencimento:"2026-10-20", recorrente:true, dia_vencimento:20, status:"aberta", observacao:"Aluguel mensal da operação. Vence todo dia 20.", lancamento_id:null, pago_valor:null, pago_em:null },
+        { id:"cp2", descricao:"Tiago — limpeza e apoio operacional", categoria:"limpeza", valor:1000.00, vencimento:"2026-10-15", recorrente:true, dia_vencimento:15, status:"aberta", observacao:"Limpeza e apoio operacional. Vence todo dia 15.", lancamento_id:null, pago_valor:null, pago_em:null },
+        { id:"cp3", descricao:"Condomínio sala 1302", categoria:"condominio", valor:848.80, vencimento:"2026-10-10", recorrente:true, dia_vencimento:10, status:"aberta", observacao:"R$ 848,80 COM desconto de pontualidade. Fora do prazo, o cheio é R$ 943,11.", lancamento_id:null, pago_valor:null, pago_em:null },
+        { id:"cp4", descricao:"Internet/telefone Vivo", categoria:"internet", valor:152.96, vencimento:null, recorrente:true, dia_vencimento:null, status:"aberta", observacao:"DIA DE VENCIMENTO A CONFIRMAR na fatura da Vivo.", lancamento_id:null, pago_valor:null, pago_em:null },
+        { id:"cp5", descricao:"Energia Neoenergia", categoria:"energia", valor:34.44, vencimento:"2026-10-08", recorrente:true, dia_vencimento:8, status:"aberta", observacao:"O valor VARIA todo mês (~R$ 34,44 de referência). Conferir a fatura.", lancamento_id:null, pago_valor:null, pago_em:null },
+        { id:"cp6", descricao:"IPTU/TLP 2026 — cota 5 de 6", categoria:"iptu", valor:488.87, vencimento:"2026-09-16", recorrente:false, dia_vencimento:null, status:"aberta", observacao:"cota 5 de 6; paga ainda em setembro custa R$ 513,31 com 5% de multa; a partir de outubro vai a 10% + juros", lancamento_id:null, pago_valor:null, pago_em:null },
+        { id:"cp7", descricao:"IPTU/TLP 2026 — cota 6 de 6", categoria:"iptu", valor:488.97, vencimento:"2026-10-15", recorrente:false, dia_vencimento:null, status:"aberta", observacao:"última cota do carnê 2026; o IPTU só volta em 2027", lancamento_id:null, pago_valor:null, pago_em:null }
+      ];
+    }
+    function lsCarregar() { try { var r = localStorage.getItem(LS); if (r) return JSON.parse(r); } catch (e) {} var s = seedMock(); lsSalvar(s); return s; }
+    function lsSalvar(l) { try { localStorage.setItem(LS, JSON.stringify(l)); } catch (e) {} }
+
+    function normaliza(c) {
+      var l = c.lancamentos_caixa || null;
+      return {
+        id: c.id, descricao: c.descricao, categoria: c.categoria || "outro",
+        valor: Number(c.valor) || 0,
+        vencimento: c.vencimento ? String(c.vencimento).slice(0,10) : null,
+        recorrente: !!c.recorrente, dia_vencimento: c.dia_vencimento,
+        status: c.status, lancamento_id: c.lancamento_id || null,
+        observacao: c.observacao || "",
+        pago_valor: l ? (Number(l.valor) || 0) : null,
+        pago_em: l ? String(l.data_lancamento).slice(0,10) : null
+      };
+    }
+
+    async function buscar() {
+      if (!USA_DB) { SEM_TABELA = false; return lsCarregar(); }
+      var r = await DB.client.from("contas_pagar")
+        .select("id,descricao,categoria,valor,vencimento,recorrente,dia_vencimento,status,lancamento_id,observacao,lancamentos_caixa:lancamento_id(valor,data_lancamento)")
+        .order("vencimento", { ascending: true });
+      if (r.error) {
+        console.warn("contas_pagar:", r.error.message);
+        SEM_TABELA = true;                       // migration 0036 ainda não aplicada
+        return [];
+      }
+      SEM_TABELA = false;
+      return (r.data || []).map(normaliza);
+    }
+
+    // ---------------- pagamento ponta a ponta ----------------
+    async function pagar(c, dados, file) {
+      if (!USA_DB) {                              // modo demonstração
+        var lista = lsCarregar();
+        var achou = false;
+        lista.forEach(function (x) {
+          if (x.id !== c.id || x.status !== "aberta") return;
+          achou = true;
+          x.status = "paga"; x.lancamento_id = "mock"; x.pago_valor = dados.valor; x.pago_em = dados.data;
+          if (dados.observacao) x.observacao = dados.observacao;
+        });
+        if (!achou) throw new Error("CONTA_JA_BAIXADA");
+        // no demo o lançamento também nasce no livro caixa (de mentira, local)
+        await CAIXA.lancar({ tipo: "saida", valor: dados.valor, descricao: dados.descricao,
+          categoria: c.categoria, data_lancamento: dados.data, recorrente: !!c.recorrente }, null);
+        if (c.recorrente && c.dia_vencimento && c.vencimento) {
+          var d = dLocal(c.vencimento);
+          for (var i = 0; i < 36; i++) {
+            d = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+            var ult = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+            var prox = isoDe(new Date(d.getFullYear(), d.getMonth(), Math.min(c.dia_vencimento, ult)));
+            var jaTem = lista.some(function (x) { return x.recorrente && x.descricao === c.descricao && String(x.vencimento||"").slice(0,7) === prox.slice(0,7); });
+            if (!jaTem) lista.push({ id: "cp_" + Date.now().toString(36) + i, descricao: c.descricao, categoria: c.categoria,
+              valor: c.valor, vencimento: prox, recorrente: true, dia_vencimento: c.dia_vencimento,
+              status: "aberta", observacao: c.observacao, lancamento_id: null, pago_valor: null, pago_em: null });
+            d = dLocal(prox);
+            if (prox >= getHoje()) break;
+          }
+        }
+        lsSalvar(lista);
+        return;
+      }
+      // 1) comprovante primeiro (se falhar, nada foi gravado no banco)
+      var caminho = null;
+      if (file) {
+        var ext = (/\.([a-z0-9]+)$/i.exec(file.name || "") || [, "dat"])[1];
+        var pasta = dados.data.slice(0,7).replace("-", "/");
+        caminho = pasta + "/cp_" + Date.now().toString(36) + Math.random().toString(36).slice(2,7) + "." + ext;
+        var up = await DB.client.storage.from("comprovantes").upload(caminho, file, { upsert: true, contentType: file.type || undefined });
+        if (up.error) throw new Error("Falha no comprovante: " + up.error.message);
+      }
+      // 2) UMA chamada: lançamento + baixa + próxima ocorrência, na mesma transação
+      var r = await DB.client.rpc("pagar_conta", {
+        p_conta: c.id, p_valor: dados.valor, p_data: dados.data,
+        p_descricao: dados.descricao, p_comprovante: caminho,
+        p_observacao: dados.observacao || null
+      });
+      if (r.error) throw new Error(r.error.message || "falhou");
+    }
+
+    // ---------------- alerta do topo ----------------
+    function linhaHTML(c, hoje, modo) {
+      var atraso = (modo === "vencida" && c.vencimento) ? diasEntre(c.vencimento, hoje) : 0;
+      var quando = c.vencimento
+        ? (modo === "vencida"
+            ? 'venceu ' + fmtData(c.vencimento) + ' · <span class="conta-atraso">' + plural(atraso, "dia", "dias") + ' de atraso</span>'
+            : 'vence ' + fmtData(c.vencimento) + (modo === "perto" ? " · em " + plural(Math.max(0, diasEntre(hoje, c.vencimento)), "dia", "dias") : ""))
+        : "sem data definida";
+      return '<div class="conta-linha">' +
+        '<span class="info">' +
+          '<span class="nome">' + esc(c.descricao) + (c.recorrente ? ' <span title="repete todo mês">🔁</span>' : "") + "</span>" +
+          '<span class="meta">' + esc(catLabel(c.categoria)) + " · " + quando + "</span>" +
+          (c.observacao ? '<span class="obs">' + esc(c.observacao) + "</span>" : "") +
+        "</span>" +
+        '<span class="grana">' + brl(c.valor) + "</span>" +
+        '<button class="btn-mini btn-pagar" type="button" data-id="' + esc(c.id) + '">Marcar como paga</button>' +
+        "</div>";
+    }
+    function soma(arr) { return arr.reduce(function (a, c) { return a + (c.valor || 0); }, 0); }
+
+    function pintarAlerta() {
+      var hoje = getHoje(), lim7 = somaDias(hoje, 7);
+      var abertas = TODAS.filter(function (c) { return c.status === "aberta"; });
+      var g = { venc: [], perto: [], prox: [], sem: [] };
+      abertas.forEach(function (c) {
+        if (!c.vencimento) { g.sem.push(c); return; }
+        if (c.vencimento < hoje) g.venc.push(c);
+        else if (c.vencimento <= lim7) g.perto.push(c);
+        else g.prox.push(c);
+      });
+      function porData(a, b) { return String(a.vencimento).localeCompare(String(b.vencimento)); }
+      g.venc.sort(porData); g.perto.sort(porData); g.prox.sort(porData);
+
+      // nada aberto = bloco some inteiro. Alerta honesto: sem conta, sem alarme.
+      if (!abertas.length) { bloco.style.display = "none"; return; }
+      bloco.style.display = "";
+
+      fxVenc.style.display = g.venc.length ? "" : "none";
+      if (g.venc.length) {
+        sbVenc.innerHTML = plural(g.venc.length, "conta vencida", "contas vencidas") + " · <strong>" + brl(soma(g.venc)) + "</strong> em atraso";
+        ltVenc.innerHTML = g.venc.map(function (c) { return linhaHTML(c, hoje, "vencida"); }).join("");
+        // a corrente de uma conta fixa parou? oferece fechar o buraco (por clique)
+        var temFixaParada = USA_DB && g.venc.some(function (c) { return c.recorrente && c.dia_vencimento; });
+        linhaAtras.style.display = temFixaParada ? "" : "none";
+      } else {
+        linhaAtras.style.display = "none";
+      }
+
+      fxPerto.style.display = g.perto.length ? "" : "none";
+      if (g.perto.length) {
+        sbPerto.innerHTML = plural(g.perto.length, "conta", "contas") + " até " + fmtData(lim7) + " · <strong>" + brl(soma(g.perto)) + "</strong>";
+        ltPerto.innerHTML = g.perto.map(function (c) { return linhaHTML(c, hoje, "perto"); }).join("");
+      }
+
+      fxProx.style.display = g.prox.length ? "" : "none";
+      if (g.prox.length) {
+        sbProx.innerHTML = plural(g.prox.length, "conta vence", "contas vencem") + " depois de " + fmtData(lim7) + " · <strong>" + brl(soma(g.prox)) + "</strong>";
+        ltProx.innerHTML = g.prox.map(function (c) { return linhaHTML(c, hoje, "prox"); }).join("");
+      }
+
+      fxSem.style.display = g.sem.length ? "" : "none";
+      if (g.sem.length) ltSem.innerHTML = g.sem.map(function (c) { return linhaHTML(c, hoje, "sem"); }).join("");
+
+      elTotal.textContent = brl(soma(abertas)) + " em aberto";
+      elResumo.textContent = g.venc.length
+        ? plural(g.venc.length, "vencida", "vencidas") + " · " + plural(g.perto.length, "vence", "vencem") + " em até 7 dias"
+        : (g.perto.length ? "nada vencido · " + plural(g.perto.length, "conta vence", "contas vencem") + " em até 7 dias"
+                          : "nada vencido e nada vencendo nos próximos 7 dias");
+      elRodape.textContent = "Ao marcar como paga, o lançamento de saída nasce no Livro Caixa com o comprovante — não precisa digitar de novo lá embaixo.";
+    }
+
+    // ---------------- relatório de pagamentos ----------------
+    function pintarRelatorio() {
+      relAvisoOff.style.display = SEM_TABELA ? "" : "none";
+      var hoje = getHoje(), de = relDe.value, ate = relAte.value, cat = relCat.value;
+      var lista = TODAS.filter(function (c) {
+        if (c.status === "cancelada") return false;
+        if (!c.vencimento) return false;                       // sem data: contada à parte
+        if (cat && cat !== "todas" && c.categoria !== cat) return false;
+        if (de && c.vencimento < de) return false;
+        if (ate && c.vencimento > ate) return false;
+        return true;
+      }).sort(function (a, b) { return String(a.vencimento).localeCompare(String(b.vencimento)); });
+
+      var tot = { prev: 0, pago: 0, aberto: 0, venc: 0 }, por = {};
+      lista.forEach(function (c) {
+        var prev = c.valor || 0;
+        var pago = c.status === "paga" ? (c.pago_valor != null ? c.pago_valor : prev) : 0;
+        var emAberto = 0, vencido = 0;
+        if (c.status === "aberta") { if (c.vencimento < hoje) vencido = prev; else emAberto = prev; }
+        tot.prev += prev; tot.pago += pago; tot.aberto += emAberto; tot.venc += vencido;
+        var k = c.categoria || "outro";
+        por[k] = por[k] || { cat: k, n: 0, prev: 0, pago: 0, aberto: 0, venc: 0 };
+        por[k].n++; por[k].prev += prev; por[k].pago += pago; por[k].aberto += emAberto; por[k].venc += vencido;
+      });
+
+      document.getElementById("rel-previsto").textContent = brl(tot.prev);
+      document.getElementById("rel-pago").textContent = brl(tot.pago);
+      document.getElementById("rel-aberto").textContent = brl(tot.aberto);
+      document.getElementById("rel-vencido").textContent = brl(tot.venc);
+
+      var semData = TODAS.filter(function (c) { return c.status === "aberta" && !c.vencimento; });
+      var notas = ["Previsto = contas com vencimento no período (pagas + em aberto; canceladas ficam de fora). Pago = o valor que realmente saiu no Livro Caixa."];
+      if (semData.length) notas.push("⚠️ " + plural(semData.length, "conta fixa está", "contas fixas estão") + " sem data de vencimento (" + brl(soma(semData)) + ") e por isso fora deste período.");
+      document.getElementById("rel-nota").textContent = notas.join(" ");
+
+      // por categoria — mesma barra de peso do bloco "Por categoria"
+      var linhas = Object.keys(por).map(function (k) { return por[k]; }).sort(function (a, b) { return b.prev - a.prev; });
+      var maior = linhas.reduce(function (m, l) { return Math.max(m, l.prev); }, 0) || 1;
+      var tbCat = document.querySelector("#tab-rel-cat tbody");
+      tbCat.innerHTML = linhas.length ? linhas.map(function (l) {
+        var dif = l.prev - l.pago;
+        return "<tr><td>" + esc(catLabel(l.cat)) + "</td>" +
+          '<td class="num">' + l.n + "</td>" +
+          '<td class="num">' + brl(l.prev) + "</td>" +
+          '<td class="num" style="color:var(--verde)">' + brl(l.pago) + "</td>" +
+          '<td class="num" style="color:var(--amarelo)">' + (l.aberto ? brl(l.aberto) : "—") + "</td>" +
+          '<td class="num" style="color:var(--vermelho)">' + (l.venc ? brl(l.venc) : "—") + "</td>" +
+          '<td class="num"' + (dif > 0 ? ' style="font-weight:700"' : "") + ">" + (dif ? brl(dif) : "—") + "</td>" +
+          '<td><span class="barra"><i style="width:' + Math.max(4, Math.round(l.prev / maior * 100)) + '%;background:var(--azul,#1f6feb)"></i></span></td></tr>';
+      }).join("") : '<tr><td colspan="8" class="muted" style="text-align:center;padding:16px">Nenhuma conta com vencimento neste período.</td></tr>';
+      document.querySelector("#tab-rel-cat tfoot").innerHTML =
+        '<tr><td>Total</td><td class="num">' + lista.length + '</td><td class="num">' + brl(tot.prev) +
+        '</td><td class="num">' + brl(tot.pago) + '</td><td class="num">' + brl(tot.aberto) +
+        '</td><td class="num">' + brl(tot.venc) + '</td><td class="num">' + brl(tot.prev - tot.pago) + "</td><td></td></tr>";
+
+      // lista conta a conta
+      var tbC = document.querySelector("#tab-rel-contas tbody");
+      tbC.innerHTML = lista.length ? lista.map(function (c) {
+        var sit, cls;
+        if (c.status === "paga") { sit = "paga"; cls = "badge-verde"; }
+        else if (c.vencimento < hoje) { sit = "vencida · " + plural(diasEntre(c.vencimento, hoje), "dia", "dias"); cls = "badge-vermelho"; }
+        else { sit = "em aberto"; cls = "badge-amarelo"; }
+        return "<tr><td>" + fmtData(c.vencimento) + "</td>" +
+          "<td>" + esc(c.descricao) + (c.recorrente ? ' <span title="repete todo mês">🔁</span>' : "") + "</td>" +
+          "<td>" + esc(catLabel(c.categoria)) + "</td>" +
+          '<td class="num">' + brl(c.valor) + "</td>" +
+          '<td class="num">' + (c.status === "paga" ? brl(c.pago_valor != null ? c.pago_valor : c.valor) : "—") + "</td>" +
+          "<td>" + (c.pago_em ? fmtData(c.pago_em) : '<span class="muted">—</span>') + "</td>" +
+          '<td><span class="badge ' + cls + '">' + sit + "</span></td></tr>";
+      }).join("") : '<tr><td colspan="7" class="muted" style="text-align:center;padding:16px">Nenhuma conta com vencimento neste período.</td></tr>';
+      document.querySelector("#tab-rel-contas tfoot").innerHTML =
+        '<tr><td colspan="3">' + plural(lista.length, "conta", "contas") + " no período</td>" +
+        '<td class="num">' + brl(tot.prev) + '</td><td class="num">' + brl(tot.pago) + "</td><td colspan=\"2\"></td></tr>";
+
+      window.__contasRel = lista;       // p/ CSV
+    }
+
+    async function render() {
+      TODAS = await buscar();
+      pintarAlerta();
+      pintarRelatorio();
+    }
+
+    // ---------------- painel de baixa ----------------
+    function abrirPainel(conta) {
+      ALVO = conta;
+      pgTit.textContent = conta.descricao;
+      pgValor.value = (conta.valor || 0).toFixed(2);
+      pgData.value = getHoje();
+      pgCat.value = catLabel(conta.categoria);
+      pgPrev.value = brl(conta.valor) + (conta.vencimento ? " · vence " + fmtData(conta.vencimento) : " · sem data");
+      pgDesc.value = conta.descricao + (conta.vencimento ? " — venc. " + fmtData(conta.vencimento) : "");
+      pgComp.value = ""; pgObs.value = "";
+      pgAviso.textContent = USA_DB
+        ? "Confira o valor — energia e IPTU fora do prazo saem diferente do previsto."
+        : "Modo demonstração: nada vai para o banco.";
+      wrap.style.display = "";
+      wrap.scrollIntoView({ behavior: "smooth", block: "center" });
+      pgValor.focus();
+    }
+    function fecharPainel() { ALVO = null; wrap.style.display = "none"; pgAviso.textContent = ""; }
+
+    // ---------------- boot ----------------
+    async function boot(perfilId) {
+      PERFIL_ID = perfilId;
+      bloco = document.getElementById("bloco-contas");
+      elResumo = document.getElementById("contas-resumo");
+      elTotal = document.getElementById("contas-total");
+      elRodape = document.getElementById("contas-rodape");
+      fxVenc = document.getElementById("faixa-vencidas"); ltVenc = document.getElementById("lista-vencidas"); sbVenc = document.getElementById("sub-vencidas");
+      fxPerto = document.getElementById("faixa-perto");   ltPerto = document.getElementById("lista-perto");   sbPerto = document.getElementById("sub-perto");
+      fxProx = document.getElementById("faixa-proximas"); ltProx = document.getElementById("lista-proximas"); sbProx = document.getElementById("sub-proximas");
+      fxSem = document.getElementById("faixa-semdata");   ltSem = document.getElementById("lista-semdata");
+      linhaAtras = document.getElementById("linha-atrasadas"); btnAtras = document.getElementById("btn-atrasadas");
+      wrap = document.getElementById("pagar-wrap"); formPg = document.getElementById("form-pagar");
+      pgTit = document.getElementById("pg-titulo"); pgValor = document.getElementById("pg-valor");
+      pgData = document.getElementById("pg-data"); pgCat = document.getElementById("pg-cat");
+      pgPrev = document.getElementById("pg-prev"); pgDesc = document.getElementById("pg-desc");
+      pgComp = document.getElementById("pg-comprovante"); pgObs = document.getElementById("pg-obs");
+      pgAviso = document.getElementById("pg-aviso"); btnPg = document.getElementById("btn-pg-confirmar");
+      relDe = document.getElementById("rel-de"); relAte = document.getElementById("rel-ate");
+      relCat = document.getElementById("rel-cat"); relAvisoOff = document.getElementById("rel-aviso-off");
+
+      if (!USA_DB) document.getElementById("contas-aviso-mock").style.display = "block";
+
+      // filtro de categoria do relatório nasce da MESMA lista do formulário
+      [].forEach.call(document.querySelectorAll("#f-categoria optgroup"), function (g) {
+        var og = document.createElement("optgroup");
+        og.label = g.getAttribute("label");
+        [].forEach.call(g.querySelectorAll("option"), function (o) {
+          var n = document.createElement("option"); n.value = o.value; n.textContent = o.textContent; og.appendChild(n);
+        });
+        relCat.appendChild(og);
+      });
+
+      // período padrão do relatório: o mês corrente inteiro
+      var h = new Date();
+      relDe.value = h.getFullYear() + "-" + pad(h.getMonth()+1) + "-01";
+      relAte.value = isoDe(new Date(h.getFullYear(), h.getMonth()+1, 0));
+      [relDe, relAte, relCat].forEach(function (el) { el.addEventListener("change", pintarRelatorio); });
+
+      // "Marcar como paga" (delegação — as 4 faixas de uma vez)
+      bloco.addEventListener("click", function (e) {
+        var b = e.target.closest(".btn-pagar"); if (!b) return;
+        var id = b.getAttribute("data-id");
+        var c = TODAS.filter(function (x) { return String(x.id) === id; })[0];
+        if (!c) return;
+        if (c.status !== "aberta") { alert("Essa conta já foi baixada."); render(); return; }
+        abrirPainel(c);
+      });
+
+      document.getElementById("btn-pg-cancelar").addEventListener("click", fecharPainel);
+
+      formPg.addEventListener("submit", async function (e) {
+        e.preventDefault();
+        if (EM_VOO) return;                       // 2º clique não vira 2º lançamento
+        var c = ALVO; if (!c) return;
+        var valor = parseFloat(pgValor.value);
+        if (!(valor > 0)) { alert("Informe o valor pago."); pgValor.focus(); return; }
+        if (!pgData.value) { alert("Informe a data do pagamento."); pgData.focus(); return; }
+        if (!pgDesc.value.trim()) { alert("Informe a descrição do lançamento."); pgDesc.focus(); return; }
+        EM_VOO = true; btnPg.disabled = true; btnPg.textContent = "Lançando…";
+        var erro = null;
+        try {
+          await pagar(c, { valor: Math.round(valor*100)/100, data: pgData.value,
+                           descricao: pgDesc.value.trim(), observacao: pgObs.value.trim() },
+                      pgComp.files[0] || null);
+          fecharPainel();
+        } catch (err) { erro = err; }
+        EM_VOO = false; btnPg.disabled = false; btnPg.textContent = "Confirmar e lançar no caixa";
+        // recarrega SEMPRE — inclusive no erro, para a tela mostrar o estado real
+        await render();
+        if (CAIXA && CAIXA.recarregar) { try { await CAIXA.recarregar(); } catch (e2) {} }
+        if (erro) {
+          alert(/CONTA_JA_BAIXADA/.test(erro.message || "")
+            ? "Essa conta já tinha sido baixada (outra aba ou outra pessoa). NADA foi lançado em duplicidade — a lista acabou de ser atualizada."
+            : "Não foi possível dar baixa: " + (erro.message || erro));
+        }
+      });
+
+      // fecha o buraco da conta fixa que ficou parada (escrita só por clique)
+      btnAtras.addEventListener("click", async function () {
+        if (!USA_DB) return;
+        btnAtras.disabled = true; btnAtras.textContent = "Registrando…";
+        try {
+          var r = await DB.client.rpc("contas_pagar_abrir_atrasadas");
+          if (r.error) throw new Error(r.error.message);
+          await render();
+          alert(Number(r.data) > 0
+            ? plural(Number(r.data), "parcela foi aberta", "parcelas foram abertas") + " para os meses que estavam faltando."
+            : "Nenhuma parcela faltando — as contas fixas já estão em dia com os meses.");
+        } catch (err) { alert("Não deu para registrar: " + (err.message || err)); }
+        btnAtras.disabled = false; btnAtras.textContent = "Registrar parcelas em atraso";
+      });
+
+      document.getElementById("btn-csv-rel").addEventListener("click", function () {
+        var lista = window.__contasRel || [], sep = ";", hoje = getHoje();
+        function n(v) { return String((Number(v)||0).toFixed(2)).replace(".", ","); }
+        function q(s) { return '"' + String(s==null?"":s).replace(/"/g, '""') + '"'; }
+        var cab = ["Vencimento","Conta","Categoria","Repete todo mês","Previsto","Pago","Pago em","Situação","Observação"];
+        var linhas = [cab.map(q).join(sep)], tp = 0, tg = 0, ta = 0, tv = 0;
+        lista.forEach(function (c) {
+          var pago = c.status === "paga" ? (c.pago_valor != null ? c.pago_valor : c.valor) : 0;
+          var sit = c.status === "paga" ? "paga" : (c.vencimento < hoje ? "vencida" : "em aberto");
+          tp += c.valor || 0; tg += pago;
+          if (c.status === "aberta") { if (c.vencimento < hoje) tv += c.valor || 0; else ta += c.valor || 0; }
+          linhas.push([fmtData(c.vencimento), c.descricao, catLabel(c.categoria), c.recorrente ? "Sim" : "Não",
+                       n(c.valor), c.status === "paga" ? n(pago) : "", c.pago_em ? fmtData(c.pago_em) : "",
+                       sit, c.observacao || ""].map(q).join(sep));
+        });
+        linhas.push(["","","","TOTAIS", n(tp), n(tg), "", "", ""].map(q).join(sep));
+        linhas.push(["","","","EM ABERTO", n(ta), "", "", "", ""].map(q).join(sep));
+        linhas.push(["","","","VENCIDO", n(tv), "", "", "", ""].map(q).join(sep));
+        linhas.push(["","","","PREVISTO − PAGO", n(tp - tg), "", "", "", ""].map(q).join(sep));
+        var blob = new Blob(["﻿" + linhas.join("\r\n")], { type: "text/csv;charset=utf-8;" });
+        var url = URL.createObjectURL(blob), a = document.createElement("a");
+        a.href = url; a.download = "contas-a-pagar-" + (relDe.value || "inicio") + "_a_" + (relAte.value || hoje) + ".csv";
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+      });
+
+      await render();
+    }
+
+    return { boot: boot, recarregar: render };
   })();
   </script>
 
@@ -870,6 +1500,7 @@
       app.hidden = false;
       await recarregarResumo();
       await CAIXA.boot(perfil ? perfil.id : null);
+      await CONTAS.boot(perfil ? perfil.id : null);   // alerta + relatório de pagamentos
     })();
   })();
   </script>
