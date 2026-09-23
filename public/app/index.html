@@ -162,10 +162,16 @@
       document.getElementById("sub-perfil").textContent = profTxt + " · Águas Claras";
 
       await avisarContratoPendente(perfil);
-      avisarDocsFaltando(perfil);
+      var faltaDocs = await avisarDocsFaltando(perfil);
 
+      // 0038 (23/09/2026): documentação → contrato → reservas. Documento faltando
+      // trava a reserva de qualquer um, inclusive quem já está ativo.
+      if (faltaDocs.length) {
+        bloquearReserva("<strong>Reservas bloqueadas até completar a documentação.</strong> " +
+          "Envie o que falta e as reservas voltam a funcionar.", true);
+      }
       // pode reservar quando aprovado ou ativo (pós-contrato); demais estados bloqueiam
-      if (perfil.status !== "aprovado" && perfil.status !== "ativo") {
+      else if (perfil.status !== "aprovado" && perfil.status !== "ativo") {
         // ⚠️ A DIFERENÇA QUE IMPORTA: "esperando a gente" × "esperando você".
         // Até 18/09/2026 `docs_enviados` lia "seu cadastro está em análise,
         // assim que a gestão aprovar…" — e isso era FALSO. Nesse estado ninguém
@@ -231,17 +237,18 @@
     // Documento faltando enquanto o cadastro está em análise → aviso com botão.
     // Quem já foi aprovado não é cobrado aqui (clientes antigos entraram quando a
     // carteirinha era opcional).
-    function avisarDocsFaltando(perfil) {
-      var emAnalise = ["rascunho", "docs_enviados", "aguardando_pagamento", "em_aprovacao", "pago_em_verificacao", "fila_revisao_humana"];
-      if (emAnalise.indexOf(perfil.status) === -1) return;
-      var d = perfil.docs || {}, falta = [];
-      if (!d.cro_url) falta.push("carteirinha do conselho");
-      if (!d.rg_url) falta.push("RG ou CNH");
-      if (!d.comprovante_url) falta.push("comprovante de residência");
-      if (!perfil.conselho || !perfil.cro) falta.push("conselho e número do registro");
-      if (!falta.length) return;
-      document.getElementById("aviso-docs-lista").textContent = "Falta enviar: " + falta.join(", ") + ". Sem isso não conseguimos concluir a análise.";
+    // Fonte única: RPC docs_pendentes (0037) — a mesma régua que o banco usa para
+    // recusar contrato e reserva. Em erro, não mostra nada (o banco segue travando).
+    async function avisarDocsFaltando(perfil) {
+      var falta = [];
+      try {
+        var dp = await DB.client.rpc("docs_pendentes", { p_perfil_id: perfil.id });
+        falta = (!dp.error && dp.data) || [];
+      } catch (e) { console.warn("docs_pendentes:", e); }
+      if (!falta.length) return [];
+      document.getElementById("aviso-docs-lista").textContent = "Falta enviar: " + falta.join(", ") + ". A ordem é: documentos → contrato → reservas.";
       document.getElementById("aviso-docs").style.display = "block";
+      return falta;
     }
 
     // Existe contrato aguardando assinatura? Mostra o aviso do topo. Puramente
