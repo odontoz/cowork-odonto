@@ -122,9 +122,9 @@
           <small class="muted" id="selfie-hint">Confere com seu documento (prova de vida) e libera seu acesso ao espaço.</small>
         </div>
         <div class="campo">
-          <label for="doc-carteirinha">Carteirinha do conselho <span class="muted">(opcional)</span></label>
-          <input id="doc-carteirinha" type="file" accept="image/*,application/pdf">
-          <small class="muted">Não é obrigatória: confirmamos seu registro pelo número, direto na base do conselho. Envie só se quiser agilizar.</small>
+          <label for="doc-carteirinha">Carteirinha do conselho *</label>
+          <input id="doc-carteirinha" type="file" accept="image/*,application/pdf" required>
+          <small class="muted">Foto nítida da carteirinha do seu conselho (frente). Sem ela o cadastro não é analisado.</small>
         </div>
 
         <hr style="border:none;border-top:1px solid var(--linha);margin:4px 0">
@@ -327,6 +327,9 @@
 
       if (!nome || !telefone || !profissao || !conselho || !cro || !email || !senha) { mostrar("Preencha todos os campos obrigatórios."); return; }
       if (!fRg || !fComp) { mostrar("Envie o documento oficial (RG/CNH) e o comprovante de residência."); return; }
+      // 23/09/2026 — caso Patrícia: biomédica, cadastrou sem a carteirinha e ficou sem
+      // como conferir o registro (só o CRO-DF tem consulta automática). Agora é obrigatória.
+      if (!fCart) { mostrar("Envie a foto da carteirinha do seu conselho."); return; }
       if (!fSelfie) { mostrar("Tire a sua selfie (toque em \"Tirar foto\") para continuar."); return; }
 
       if (!DB || !DB.pronto) { mostrar("Sem banco conectado — cadastro indisponível no modo demonstração."); return; }
@@ -364,7 +367,7 @@
           return;
         }
 
-        // 3) sobe os documentos + selfie na pasta do usuário (carteirinha é opcional)
+        // 3) sobe os documentos + selfie na pasta do usuário (carteirinha obrigatória desde 23/09)
         var rgUrl = await subirDoc(user.id, "rg", fRg);
         var croUrl = fCart ? await subirDoc(user.id, "carteirinha", fCart) : null;
         var compUrl = await subirDoc(user.id, "comprovante", fComp);
