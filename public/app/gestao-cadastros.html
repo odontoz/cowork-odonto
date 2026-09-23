@@ -251,6 +251,10 @@
 
       // documentos
       h += "<h3>Documentos</h3>"+(linksDoc.length?'<div class="docs-linha">'+linksDoc.join("")+"</div>":'<p class="vazio">Nenhum documento enviado.</p>');
+      // 23/09/2026 — caso Patrícia: o que FALTA precisa aparecer, não só o que veio.
+      // A pessoa envia o que faltou em documentos.html (aviso na home dela).
+      var faltaDoc = []; for (var kf in mapa) { if (!docs[kf]) faltaDoc.push(mapa[kf]); }
+      if (faltaDoc.length) h += '<p style="margin:8px 0 0;color:#8a5a00"><strong>⚠ Falta:</strong> '+esc(faltaDoc.join(", "))+' — a pessoa vê o aviso no app e envia em "Meus documentos".</p>';
 
       // contrato
       h += "<h3>Contrato</h3>";
