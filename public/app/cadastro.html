@@ -57,23 +57,26 @@
             <input id="cpf" type="text" required inputmode="numeric" placeholder="000.000.000-00" maxlength="14">
             <small class="muted">Usado na verificação e na emissão do seu pagamento.</small>
           </div>
-          <div class="campo" style="flex:0 0 150px">
-            <label for="conselho">Conselho *</label>
+        </div>
+        <div class="row">
+          <div class="grow campo" style="min-width:220px">
+            <label for="conselho">Conselho de classe *</label>
             <select id="conselho" required>
-              <option value="CRO" selected>CRO</option>
-              <option value="CREFITO">CREFITO</option>
-              <option value="CRM">CRM</option>
-              <option value="CRF">CRF</option>
-              <option value="COREN">COREN</option>
-              <option value="CRBM">CRBM</option>
-              <option value="CRP">CRP</option>
-              <option value="CRN">CRN</option>
-              <option value="CRFa">CRFa</option>
-              <option value="OUTRO">Outro</option>
+              <option value="">Selecione…</option>
+              <option value="CRO">CRO — Odontologia</option>
+              <option value="CRBM">CRBM — Biomedicina</option>
+              <option value="CREFITO">CREFITO — Fisioterapia</option>
+              <option value="CRM">CRM — Medicina</option>
+              <option value="CRF">CRF — Farmácia</option>
+              <option value="COREN">COREN — Enfermagem</option>
+              <option value="CRP">CRP — Psicologia</option>
+              <option value="CRN">CRN — Nutrição</option>
+              <option value="CRFa">CRFa — Fonoaudiologia</option>
+              <option value="OUTRO">Outro conselho</option>
             </select>
           </div>
           <div class="grow campo">
-            <label for="cro" id="rotulo-cro">CRO nº *</label>
+            <label for="cro" id="rotulo-cro">Nº do registro *</label>
             <input id="cro" type="text" required placeholder="Ex.: 00000">
             <small class="muted" id="cro-hint">Só o número da sua inscrição.</small>
           </div>
@@ -250,10 +253,22 @@
     var selConselho = document.getElementById("conselho");
     var rotuloCro = document.getElementById("rotulo-cro");
     var hintCro = document.getElementById("cro-hint");
+    // 23/09/2026 — o select vinha com "CRO" JÁ MARCADO: a Patrícia (biomédica)
+    // entrou gravada como CRO. Agora nasce vazio (obrigatório escolher) e é
+    // sugerido pela profissão; a pessoa pode trocar.
+    var CONSELHO_DA_PROFISSAO = {
+      dentista: "CRO", odonto: "CRO", biomedico_esteta: "CRBM", medico: "CRM",
+      fisioterapeuta: "CREFITO", farmaceutico: "CRF", enfermeiro: "COREN",
+      psicologo: "CRP", nutricionista: "CRN", fonoaudiologo: "CRFa"
+    };
+    selProf.addEventListener("change", function () {
+      var c = CONSELHO_DA_PROFISSAO[selProf.value];
+      if (c) { selConselho.value = c; atualizarRotuloConselho(); }
+    });
     function atualizarRotuloConselho() {
-      var s = selConselho.value || "CRO";
-      rotuloCro.textContent = (s === "OUTRO" ? "Nº do registro" : s + " nº") + " *";
-      hintCro.textContent = s === "CRO"
+      var s = selConselho.value;
+      rotuloCro.textContent = (!s || s === "OUTRO" ? "Nº do registro" : s + " nº") + " *";
+      hintCro.textContent = !s || s === "CRO"
         ? "Só o número da sua inscrição."
         : "Só o número da sua inscrição. Conselhos fora do CRO são conferidos por uma pessoa da gestão — o cadastro segue normalmente.";
     }
@@ -309,7 +324,7 @@
       var profissao = document.getElementById("profissao").value;
       var especialidade = document.getElementById("especialidade").value || null;
       var cpf = document.getElementById("cpf").value.replace(/\D/g, "");
-      var conselho = document.getElementById("conselho").value || "CRO";
+      var conselho = document.getElementById("conselho").value;
       // D4 (conferência 22/09): o campo guarda só o NÚMERO do registro. Quem digita
       // "CREFITO 142150" fazia o contrato sair com "no CREFITO sob o nº CREFITO 142150".
       // Tira a sigla e a UF que a pessoa repetir na frente do número.
@@ -325,7 +340,8 @@
       var elSelfieFile = document.getElementById("doc-selfie");
       var fSelfie = selfieFile || (elSelfieFile && elSelfieFile.files[0]);
 
-      if (!nome || !telefone || !profissao || !conselho || !cro || !email || !senha) { mostrar("Preencha todos os campos obrigatórios."); return; }
+      if (!conselho) { mostrar("Escolha o seu conselho de classe (CRO, CRBM, CREFITO, CRM…)."); return; }
+      if (!nome || !telefone || !profissao || !cro || !email || !senha) { mostrar("Preencha todos os campos obrigatórios."); return; }
       if (!fRg || !fComp) { mostrar("Envie o documento oficial (RG/CNH) e o comprovante de residência."); return; }
       // 23/09/2026 — caso Patrícia: biomédica, cadastrou sem a carteirinha e ficou sem
       // como conferir o registro (só o CRO-DF tem consulta automática). Agora é obrigatória.
