@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Meus documentos — ClinicShare</title>
+  <meta name="theme-color" content="#0E2A47">
+  <link rel="icon" type="image/png" sizes="32x32" href="../../assets/img/favicon-32.png">
+  <link rel="apple-touch-icon" href="../../assets/img/favicon-clinicshare.png">
+  <link rel="manifest" href="../../manifest.webmanifest">
+  <link rel="stylesheet" href="../../assets/css/base.css">
+  <script src="../../assets/js/brand.js" defer></script>
+  <style>
+    .doc { border: 1px solid var(--linha); border-radius: var(--raio); padding: 14px; }
+    .doc input[type=file] { margin-top: 10px; width: 100%; }
+    .doc .acoes { margin-top: 10px; }
+  </style>
+</head>
+<body data-no-wpp>
+  <header class="topbar">
+    <div class="container">
+      <a class="marca" href="index.html">Coworking <span>Odontológico</span></a>
+      <a class="muted" href="index.html">← Início</a>
+    </div>
+  </header>
+
+  <!-- 23/09/2026 — caso Patrícia: cadastrou sem a carteirinha do conselho e não
+       havia NENHUM caminho no app para mandar o que faltou depois; só WhatsApp.
+       Esta tela é esse caminho: mostra o que está faltando e sobe o arquivo na
+       mesma pasta/chave que o cadastro usa (documentos/<user_id>/<chave>.<ext>),
+       gravando o caminho em perfis.docs — a gestão vê na hora em Cadastros. -->
+  <main class="container container-sm" style="padding:32px 16px" id="app" hidden>
+    <section class="card stack">
+      <div>
+        <h1 style="margin:0">Meus documentos</h1>
+        <p class="muted" style="margin:4px 0 0">Envie o que estiver faltando. Foto ou PDF nítido.</p>
+      </div>
+      <div id="aviso" class="aviso aviso-atencao" style="display:none"></div>
+      <div id="ok" class="aviso aviso-info" style="display:none"></div>
+
+      <div class="doc" id="box-conselho">
+        <div class="row-between">
+          <strong>Conselho de classe</strong>
+          <span class="badge" id="badge-conselho">—</span>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <div class="grow campo" style="min-width:200px">
+            <label for="conselho">Conselho</label>
+            <select id="conselho">
+              <option value="">Selecione…</option>
+              <option value="CRO">CRO — Odontologia</option>
+              <option value="CRBM">CRBM — Biomedicina</option>
+              <option value="CREFITO">CREFITO — Fisioterapia</option>
+              <option value="CRM">CRM — Medicina</option>
+              <option value="CRF">CRF — Farmácia</option>
+              <option value="COREN">COREN — Enfermagem</option>
+              <option value="CRP">CRP — Psicologia</option>
+              <option value="CRN">CRN — Nutrição</option>
+              <option value="CRFa">CRFa — Fonoaudiologia</option>
+              <option value="OUTRO">Outro conselho</option>
+            </select>
+          </div>
+          <div class="grow campo">
+            <label for="cro">Nº do registro</label>
+            <input id="cro" type="text" placeholder="Ex.: 00000">
+          </div>
+        </div>
+        <div class="acoes"><button type="button" class="btn btn-neutro" id="salvar-conselho">Salvar conselho</button></div>
+      </div>
+
+      <div id="lista-docs" class="stack"></div>
+    </section>
+  </main>
+
+  <script src="../../config/config.js" onerror="console.warn('config.js ausente — modo demonstração')"></script>
+  <script src="../../assets/vendor/supabase.js"></script>
+  <script src="../../assets/js/db.js"></script>
+  <script>
+    // chave em perfis.docs → nome do arquivo no bucket (o mesmo do cadastro.html)
+    var DOCS = [
+      { campo: "cro_url",         arquivo: "carteirinha", titulo: "Carteirinha do conselho", dica: "Frente da carteirinha, com nome e número legíveis." },
+      { campo: "rg_url",          arquivo: "rg",          titulo: "RG ou CNH",               dica: "Documento oficial com foto." },
+      { campo: "comprovante_url", arquivo: "comprovante", titulo: "Comprovante de residência", dica: "Conta de luz, água, internet ou similar." }
+    ];
+    // quem já foi aprovado não troca conselho/documento sozinho — fala com a gestão
+    var EM_ANALISE = ["rascunho", "docs_enviados", "aguardando_pagamento", "em_aprovacao", "pago_em_verificacao", "fila_revisao_humana"];
+    var PERFIL = null;
+
+    function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+    function aviso(msg) { var a = document.getElementById("aviso"); a.textContent = msg; a.style.display = msg ? "block" : "none"; document.getElementById("ok").style.display = "none"; }
+    function ok(msg) { var a = document.getElementById("ok"); a.textContent = msg; a.style.display = "block"; document.getElementById("aviso").style.display = "none"; }
+    function extensao(file) {
+      var m = /\.([a-z0-9]+)$/i.exec(file.name || "");
+      return m ? m[1].toLowerCase() : (file.type === "application/pdf" ? "pdf" : "jpg");
+    }
+
+    function podeEditar() { return EM_ANALISE.indexOf(PERFIL.status) !== -1; }
+
+    function render() {
+      var docs = PERFIL.docs || {};
+      var editar = podeEditar();
+
+      var sel = document.getElementById("conselho"), cro = document.getElementById("cro");
+      sel.value = PERFIL.conselho || ""; cro.value = PERFIL.cro || "";
+      sel.disabled = cro.disabled = !editar;
+      document.getElementById("salvar-conselho").style.display = editar ? "" : "none";
+      var bc = document.getElementById("badge-conselho");
+      var temConselho = PERFIL.conselho && PERFIL.cro;
+      bc.textContent = temConselho ? "preenchido" : "falta";
+      bc.className = "badge " + (temConselho ? "badge-verde" : "badge-amarelo");
+
+      document.getElementById("lista-docs").innerHTML = DOCS.map(function (d) {
+        var tem = !!docs[d.campo];
+        return '<div class="doc">' +
+          '<div class="row-between"><strong>' + esc(d.titulo) + '</strong>' +
+          '<span class="badge ' + (tem ? "badge-verde" : "badge-amarelo") + '">' + (tem ? "enviado" : "falta enviar") + "</span></div>" +
+          '<small class="muted">' + esc(d.dica) + "</small>" +
+          (editar
+            ? '<input type="file" accept="image/*,application/pdf" id="f-' + d.arquivo + '">' +
+              '<div class="acoes"><button type="button" class="btn ' + (tem ? "btn-neutro" : "btn-primario") + '" data-doc="' + d.arquivo + '">' +
+              (tem ? "Trocar arquivo" : "Enviar") + "</button></div>"
+            : "") +
+          "</div>";
+      }).join("");
+
+      if (!editar) aviso("Seu cadastro já foi analisado. Para trocar algum documento, fale com a gestão.");
+    }
+
+    document.getElementById("lista-docs").addEventListener("click", async function (e) {
+      var b = e.target.closest("button[data-doc]");
+      if (!b) return;
+      var d = DOCS.find(function (x) { return x.arquivo === b.dataset.doc; });
+      var f = document.getElementById("f-" + d.arquivo).files[0];
+      if (!f) { aviso("Escolha o arquivo de " + d.titulo.toLowerCase() + " antes de enviar."); return; }
+      if (f.size > 10 * 1024 * 1024) { aviso("Arquivo muito grande (máx. 10 MB)."); return; }
+      b.disabled = true; b.textContent = "Enviando…";
+      try {
+        var caminho = PERFIL.user_id + "/" + d.arquivo + "." + extensao(f);
+        var up = await DB.client.storage.from("documentos").upload(caminho, f, { upsert: true, contentType: f.type || undefined });
+        if (up.error) throw new Error(up.error.message);
+        // relê docs do banco antes de gravar: não sobrescrever outra chave com cópia velha
+        var cur = await DB.client.from("perfis").select("docs").eq("id", PERFIL.id).maybeSingle();
+        if (cur.error) throw new Error(cur.error.message);
+        var docs = Object.assign({}, (cur.data && cur.data.docs) || {});
+        docs[d.campo] = caminho;
+        var r = await DB.client.from("perfis").update({ docs: docs }).eq("id", PERFIL.id).select("docs");
+        if (r.error) throw new Error(r.error.message);
+        if (!r.data || !r.data.length) throw new Error("não foi possível gravar no seu cadastro");
+        PERFIL.docs = r.data[0].docs;
+        render();
+        ok(d.titulo + " recebido. A gestão confere e dá sequência ao seu cadastro.");
+      } catch (err) {
+        b.disabled = false; b.textContent = "Enviar";
+        aviso("Não foi possível enviar: " + err.message);
+      }
+    });
+
+    document.getElementById("salvar-conselho").addEventListener("click", async function () {
+      var conselho = document.getElementById("conselho").value;
+      var cro = document.getElementById("cro").value.trim();
+      if (!conselho || !cro) { aviso("Escolha o conselho e digite o número do registro."); return; }
+      var r = await DB.client.from("perfis").update({ conselho: conselho, cro: cro }).eq("id", PERFIL.id).select("conselho,cro");
+      if (r.error || !r.data || !r.data.length) { aviso("Não foi possível salvar: " + ((r.error && r.error.message) || "sem permissão")); return; }
+      PERFIL.conselho = r.data[0].conselho; PERFIL.cro = r.data[0].cro;
+      render();
+      ok("Conselho salvo.");
+    });
+
+    (async function init() {
+      if (!(DB && DB.pronto)) { aviso("Sem banco conectado — modo demonstração."); document.getElementById("app").hidden = false; return; }
+      var p = await DB.exigirLogin();
+      if (!p) { aviso("Não encontramos o seu cadastro. Refaça o cadastro para enviar seus dados."); document.getElementById("app").hidden = false; return; }
+      PERFIL = p;
+      render();
+      document.getElementById("app").hidden = false;
+    })();
+  </script>
+</body>
+</html>
