@@ -399,7 +399,7 @@
       var _agora = new Date();
       if (fim <= _agora) { sel = { inicio:null, fim:null }; erroEl.textContent = "Esse período já terminou. Escolha outra data."; erroEl.style.display = "block"; return; }
       if (ini < new Date(_agora.getTime() - RETRO_MIN * 60000)) { sel = { inicio:null, fim:null }; erroEl.textContent = "Esse período já passou. Escolha outra data."; erroEl.style.display = "block"; return; }
-      if (!APROVADO) { erroEl.textContent = "Seu cadastro precisa estar aprovado para reservar."; erroEl.style.display = "block"; return; }
+      if (!APROVADO) { erroEl.textContent = "Seu cadastro precisa estar completo e aprovado para reservar (veja o aviso no topo)."; erroEl.style.display = "block"; return; }
       var oc = await ocupacaoDoDia(elSala.value, dataISO); window.__oc = oc;
       var v = M.podeReservar(oc.reservas, oc.bloqueios, HORARIO, { inicio: ini, fim: fim, profissionalId: MEU_ID }, CFG);
       if (!v.ok) { sel = { inicio:null, fim:null }; erroEl.textContent = "Indisponível: " + v.motivo; erroEl.style.display = "block"; return; }
@@ -458,6 +458,15 @@
     async function carregarReais(perfil) {
       MEU_ID = perfil ? perfil.id : "prof-eu";
       APROVADO = !!perfil && (perfil.status === "aprovado" || perfil.status === "ativo");
+      // 0038 (23/09/2026): documento faltando trava a reserva (o banco também recusa).
+      var FALTA_DOCS = [];
+      if (perfil) {
+        try {
+          var dp = await DB.client.rpc("docs_pendentes", { p_perfil_id: perfil.id });
+          FALTA_DOCS = (!dp.error && dp.data) || [];
+        } catch (e) { console.warn("docs_pendentes:", e); }
+        if (FALTA_DOCS.length) APROVADO = false;
+      }
       // saldo de créditos (abatido automaticamente na Edge; aqui é só informativo)
       try {
         var hoje = new Date().getFullYear() + "-" + String(new Date().getMonth()+1).padStart(2,"0") + "-" + String(new Date().getDate()).padStart(2,"0");
@@ -487,7 +496,11 @@
       if (!APROVADO) {
         var a = document.getElementById("aviso-status");
         var st = perfil && perfil.status;
-        if (["docs_enviados", "aguardando_pagamento", "rascunho", "em_aprovacao"].indexOf(st) !== -1) {
+        if (FALTA_DOCS.length) {
+          a.innerHTML = "<strong>Falta documento no seu cadastro:</strong> " + FALTA_DOCS.join(", ") +
+            ". A ordem é: documentos → contrato → reservas." +
+            '<div style="margin-top:12px"><a class="btn btn-primario" href="documentos.html">Enviar documentos</a></div>';
+        } else if (["docs_enviados", "aguardando_pagamento", "rascunho", "em_aprovacao"].indexOf(st) !== -1) {
           a.innerHTML = "<strong>Falta um passo seu:</strong> pagar a taxa de cadastro, que vale 12 meses. " +
             "Depois dela seus dados são conferidos e o contrato digital fica pronto para assinar — aí as reservas liberam. " +
             '<div style="margin-top:12px"><a class="btn btn-primario" href="pagamento-cadastro.html">Pagar a taxa de cadastro</a></div>';
