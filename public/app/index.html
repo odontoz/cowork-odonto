@@ -50,6 +50,12 @@
       Modo demonstração com dados de exemplo — o banco real da ClinicShare ainda não foi conectado.
     </div>
     <div id="aviso-status" class="aviso aviso-atencao" style="margin-bottom:16px;display:none"></div>
+    <!-- 23/09/2026: documento faltando (caso Patrícia, sem carteirinha) — botão leva à tela de envio -->
+    <div id="aviso-docs" class="aviso aviso-atencao" style="margin-bottom:16px;display:none;border:1px solid #e8cf8a">
+      <strong style="display:block;margin-bottom:4px">📄 Falta documento no seu cadastro</strong>
+      <span id="aviso-docs-lista"></span>
+      <div style="margin-top:12px"><a class="btn btn-primario" href="documentos.html">Enviar documentos</a></div>
+    </div>
     <div id="card-creditos" class="aviso aviso-info" style="margin-bottom:16px;display:none">
       ⏱ Você tem <strong id="saldo-creditos">0h</strong> de crédito — usadas automaticamente ao reservar (validade de 90 dias).
     </div>
@@ -151,10 +157,12 @@
       }
 
       document.getElementById("saudacao").textContent = "Olá, " + esc(perfil.nome);
-      var profTxt = { odonto:"Odontologia", hof:"HOF", estetica:"Estética" }[perfil.profissao] || (perfil.profissao || "Profissional");
+      var profTxt = { odonto:"Odontologia", dentista:"Odontologia", hof:"HOF", estetica:"Estética", esteticista:"Estética",
+                      biomedico_esteta:"Biomedicina", medico:"Medicina", fisioterapeuta:"Fisioterapia" }[perfil.profissao] || (perfil.profissao || "Profissional");
       document.getElementById("sub-perfil").textContent = profTxt + " · Águas Claras";
 
       await avisarContratoPendente(perfil);
+      avisarDocsFaltando(perfil);
 
       // pode reservar quando aprovado ou ativo (pós-contrato); demais estados bloqueiam
       if (perfil.status !== "aprovado" && perfil.status !== "ativo") {
@@ -218,6 +226,22 @@
       renderRecados(res[3].data || []);
       renderCreditos(res[5].data || []);
       app.hidden = false;
+    }
+
+    // Documento faltando enquanto o cadastro está em análise → aviso com botão.
+    // Quem já foi aprovado não é cobrado aqui (clientes antigos entraram quando a
+    // carteirinha era opcional).
+    function avisarDocsFaltando(perfil) {
+      var emAnalise = ["rascunho", "docs_enviados", "aguardando_pagamento", "em_aprovacao", "pago_em_verificacao", "fila_revisao_humana"];
+      if (emAnalise.indexOf(perfil.status) === -1) return;
+      var d = perfil.docs || {}, falta = [];
+      if (!d.cro_url) falta.push("carteirinha do conselho");
+      if (!d.rg_url) falta.push("RG ou CNH");
+      if (!d.comprovante_url) falta.push("comprovante de residência");
+      if (!perfil.conselho || !perfil.cro) falta.push("conselho e número do registro");
+      if (!falta.length) return;
+      document.getElementById("aviso-docs-lista").textContent = "Falta enviar: " + falta.join(", ") + ". Sem isso não conseguimos concluir a análise.";
+      document.getElementById("aviso-docs").style.display = "block";
     }
 
     // Existe contrato aguardando assinatura? Mostra o aviso do topo. Puramente
