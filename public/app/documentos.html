@@ -66,6 +66,7 @@
           </div>
         </div>
         <div class="acoes"><button type="button" class="btn btn-neutro" id="salvar-conselho">Salvar conselho</button></div>
+        <small class="muted" id="conselho-travado" style="display:none">Para corrigir o conselho depois da aprovação, fale com a gestão.</small>
       </div>
 
       <div id="lista-docs" class="stack"></div>
@@ -83,7 +84,8 @@
       { campo: "rg_url",          arquivo: "rg",          titulo: "RG ou CNH",               dica: "Documento oficial com foto." },
       { campo: "comprovante_url", arquivo: "comprovante", titulo: "Comprovante de residência", dica: "Conta de luz, água, internet ou similar." }
     ];
-    // quem já foi aprovado não troca conselho/documento sozinho — fala com a gestão
+    // conselho/número só se corrige em análise; DOCUMENTO pode ser enviado sempre
+    // (reenvio gera arquivo novo — o anterior fica no histórico, nada se apaga)
     var EM_ANALISE = ["rascunho", "docs_enviados", "aguardando_pagamento", "em_aprovacao", "pago_em_verificacao", "fila_revisao_humana"];
     var PERFIL = null;
 
@@ -116,15 +118,16 @@
           '<div class="row-between"><strong>' + esc(d.titulo) + '</strong>' +
           '<span class="badge ' + (tem ? "badge-verde" : "badge-amarelo") + '">' + (tem ? "enviado" : "falta enviar") + "</span></div>" +
           '<small class="muted">' + esc(d.dica) + "</small>" +
-          (editar
+          (true
             ? '<input type="file" accept="image/*,application/pdf" id="f-' + d.arquivo + '">' +
               '<div class="acoes"><button type="button" class="btn ' + (tem ? "btn-neutro" : "btn-primario") + '" data-doc="' + d.arquivo + '">' +
-              (tem ? "Trocar arquivo" : "Enviar") + "</button></div>"
+              (tem ? "Enviar arquivo novo" : "Enviar") + "</button></div>" +
+              (tem ? '<small class="muted">O arquivo anterior fica guardado no histórico.</small>' : "")
             : "") +
           "</div>";
       }).join("");
 
-      if (!editar) aviso("Seu cadastro já foi analisado. Para trocar algum documento, fale com a gestão.");
+      document.getElementById("conselho-travado").style.display = editar ? "none" : "block";
     }
 
     document.getElementById("lista-docs").addEventListener("click", async function (e) {
@@ -136,8 +139,8 @@
       if (f.size > 10 * 1024 * 1024) { aviso("Arquivo muito grande (máx. 10 MB)."); return; }
       b.disabled = true; b.textContent = "Enviando…";
       try {
-        var caminho = PERFIL.user_id + "/" + d.arquivo + "." + extensao(f);
-        var up = await DB.client.storage.from("documentos").upload(caminho, f, { upsert: true, contentType: f.type || undefined });
+        var caminho = PERFIL.user_id + "/" + d.arquivo + "-" + Date.now() + "." + extensao(f);
+        var up = await DB.client.storage.from("documentos").upload(caminho, f, { upsert: false, contentType: f.type || undefined });
         if (up.error) throw new Error(up.error.message);
         // relê docs do banco antes de gravar: não sobrescrever outra chave com cópia velha
         var cur = await DB.client.from("perfis").select("docs").eq("id", PERFIL.id).maybeSingle();
