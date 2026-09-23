@@ -183,6 +183,21 @@
         app.hidden = false; return;
       }
       render(c);
+      // 0037 (23/09/2026): ordem DOCUMENTAÇÃO → CONTRATO → RESERVA. Com documento
+      // faltando, não há botão de assinar (o banco também recusa o aceite).
+      if (c.status === "pendente_aceite") {
+        try {
+          var dp = await DB.client.rpc("docs_pendentes", { p_perfil_id: perfil.id });
+          var falta = (!dp.error && dp.data) || [];
+          if (falta.length) {
+            document.getElementById("box-aceite").style.display = "none";
+            var av = document.getElementById("aviso");
+            av.innerHTML = "<strong>Antes de assinar, falta documento no seu cadastro:</strong> " +
+              falta.join(", ") + '.<div style="margin-top:12px"><a class="btn btn-primario" href="documentos.html">Enviar documentos</a></div>';
+            av.style.display = "block";
+          }
+        } catch (e) { console.warn("docs_pendentes:", e); }
+      }
       app.hidden = false;
     })();
   })();
