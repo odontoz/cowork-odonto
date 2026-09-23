@@ -263,7 +263,8 @@
     };
     selProf.addEventListener("change", function () {
       var c = CONSELHO_DA_PROFISSAO[selProf.value];
-      if (c) { selConselho.value = c; atualizarRotuloConselho(); }
+      // HOF/esteticista não têm conselho único (HOF pode ser CRO, CRBM, CRM…): volta a "Selecione…"
+      selConselho.value = c || ""; atualizarRotuloConselho();
     });
     function atualizarRotuloConselho() {
       var s = selConselho.value;
