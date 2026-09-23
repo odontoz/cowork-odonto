@@ -308,9 +308,11 @@
     }
 
     async function subirDoc(userId, chave, file) {
-      var caminho = userId + "/" + chave + "." + extensao(file);
+      // 0037 (23/09/2026): nome único por envio e SEM upsert — o cliente não pode
+      // sobrescrever nem apagar documento; reenvio vira histórico (anti-fraude).
+      var caminho = userId + "/" + chave + "-" + Date.now() + "." + extensao(file);
       var r = await DB.client.storage.from("documentos").upload(caminho, file, {
-        upsert: true, contentType: file.type || undefined
+        upsert: false, contentType: file.type || undefined
       });
       if (r.error) throw new Error("Falha ao enviar " + chave + ": " + r.error.message);
       return caminho;
