@@ -32,6 +32,11 @@
         <span class="badge" id="badge-status">—</span>
       </div>
       <div id="aviso" class="aviso aviso-atencao" style="display:none"></div>
+      <!-- 24/09/2026: documentação pendente pedida aqui, com envio na própria tela -->
+      <div id="box-docs-ct" class="aviso aviso-atencao" style="display:none;border:1px solid #e8cf8a">
+        <strong>📄 Documentação pendente para liberar a assinatura.</strong> Falta: <span id="ct-falta"></span>.
+        <div id="ct-envio"></div>
+      </div>
 
       <iframe class="doc" id="doc" sandbox="" title="Contrato de uso de consultório"></iframe>
       <p class="hash">Integridade (SHA-256): <span id="hash">—</span></p>
@@ -193,9 +198,7 @@
           if (falta.length) {
             // 24/09: pede o documento aqui mesmo; enviou tudo, o botão de assinar volta
             document.getElementById("box-aceite").style.display = "none";
-            var av = document.getElementById("aviso");
-            av.innerHTML = "<strong>📄 Documentação pendente para liberar a assinatura.</strong> Falta: <span id='ct-falta'></span>." +
-              "<div id='ct-envio'></div>";
+            var av = document.getElementById("box-docs-ct");
             document.getElementById("ct-falta").textContent = falta.join(", ");
             av.style.display = "block";
             await DocsEnvio.montar(document.getElementById("ct-envio"), {
