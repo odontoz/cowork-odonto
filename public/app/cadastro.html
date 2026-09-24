@@ -96,8 +96,13 @@
         <p class="muted" style="margin:0;font-size:.9rem"><strong>Documentos</strong> (foto ou PDF nítido)</p>
 
         <div class="campo">
-          <label for="doc-rg">RG ou CNH *</label>
+          <label for="doc-rg">RG ou CNH — frente *</label>
           <input id="doc-rg" type="file" accept="image/*,application/pdf" required>
+        </div>
+        <div class="campo">
+          <label for="doc-rg-verso">RG ou CNH — verso *</label>
+          <input id="doc-rg-verso" type="file" accept="image/*,application/pdf">
+          <small class="muted">Se enviou um PDF com os dois lados na frente, o verso não é necessário.</small>
         </div>
         <div class="campo">
           <label for="doc-comprovante">Comprovante de residência *</label>
@@ -125,9 +130,13 @@
           <small class="muted" id="selfie-hint">Confere com seu documento (prova de vida) e libera seu acesso ao espaço.</small>
         </div>
         <div class="campo">
-          <label for="doc-carteirinha">Carteirinha do conselho *</label>
+          <label for="doc-carteirinha">Carteirinha do conselho — frente *</label>
           <input id="doc-carteirinha" type="file" accept="image/*,application/pdf" required>
-          <small class="muted">Foto nítida da carteirinha do seu conselho (frente). Sem ela o cadastro não é analisado.</small>
+        </div>
+        <div class="campo">
+          <label for="doc-carteirinha-verso">Carteirinha do conselho — verso *</label>
+          <input id="doc-carteirinha-verso" type="file" accept="image/*,application/pdf">
+          <small class="muted">Foto nítida dos dois lados (ou um PDF com os dois). Sem ela o cadastro não é analisado.</small>
         </div>
 
         <hr style="border:none;border-top:1px solid var(--linha);margin:4px 0">
@@ -339,6 +348,10 @@
       var senha = document.getElementById("senha").value;
       var fRg = document.getElementById("doc-rg").files[0];
       var fCart = document.getElementById("doc-carteirinha").files[0];
+      // 24/09/2026 — frente E verso (caso Amira: só o verso do RG). PDF vale pelos dois.
+      var fRgV = document.getElementById("doc-rg-verso").files[0];
+      var fCartV = document.getElementById("doc-carteirinha-verso").files[0];
+      var ehPdf = function (f) { return !!f && (f.type === "application/pdf" || /\.pdf$/i.test(f.name || "")); };
       var fComp = document.getElementById("doc-comprovante").files[0];
       var elSelfieFile = document.getElementById("doc-selfie");
       var fSelfie = selfieFile || (elSelfieFile && elSelfieFile.files[0]);
@@ -349,6 +362,8 @@
       // 23/09/2026 — caso Patrícia: biomédica, cadastrou sem a carteirinha e ficou sem
       // como conferir o registro (só o CRO-DF tem consulta automática). Agora é obrigatória.
       if (!fCart) { mostrar("Envie a foto da carteirinha do seu conselho."); return; }
+      if (!fRgV && !ehPdf(fRg)) { mostrar("Envie também o verso do RG/CNH (ou um PDF com os dois lados)."); return; }
+      if (!fCartV && !ehPdf(fCart)) { mostrar("Envie também o verso da carteirinha do conselho (ou um PDF com os dois lados)."); return; }
       if (!fSelfie) { mostrar("Tire a sua selfie (toque em \"Tirar foto\") para continuar."); return; }
 
       if (!DB || !DB.pronto) { mostrar("Sem banco conectado — cadastro indisponível no modo demonstração."); return; }
@@ -389,6 +404,8 @@
         // 3) sobe os documentos + selfie na pasta do usuário (carteirinha obrigatória desde 23/09)
         var rgUrl = await subirDoc(user.id, "rg", fRg);
         var croUrl = fCart ? await subirDoc(user.id, "carteirinha", fCart) : null;
+        var rgVersoUrl = fRgV ? await subirDoc(user.id, "rg-verso", fRgV) : null;
+        var croVersoUrl = fCartV ? await subirDoc(user.id, "carteirinha-verso", fCartV) : null;
         var compUrl = await subirDoc(user.id, "comprovante", fComp);
         var selfieUrl = await subirDoc(user.id, "selfie", fSelfie);
 
@@ -408,7 +425,7 @@
           especialidade: especialidade,
           selfie_url: selfieUrl,
           cupom: CUPOM_OK,
-          docs: { rg_url: rgUrl, cro_url: croUrl, comprovante_url: compUrl }
+          docs: { rg_url: rgUrl, rg_verso_url: rgVersoUrl, cro_url: croUrl, cro_verso_url: croVersoUrl, comprovante_url: compUrl }
         }, { onConflict: "user_id" });
         if (up.error) throw up.error;
 
