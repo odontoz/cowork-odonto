@@ -154,6 +154,12 @@
         As horas de crédito valem 90 dias (30 dias quando o cancelamento for a menos de 24 horas do início) e
         abatem novas reservas.</span>
       </label>
+      <!-- 24/09/2026: documentação pendente pedida na hora de confirmar, com envio aqui mesmo -->
+      <div id="box-docs-pend" class="aviso aviso-atencao" style="display:none;border:1px solid #e8cf8a">
+        <strong style="display:block;margin-bottom:4px">📄 Documentação pendente para liberação de novos agendamentos</strong>
+        <span>Falta: <span id="docs-pend-lista"></span>. Envie abaixo e a sua reserva segue na hora.</span>
+        <div id="docs-pend-envio"></div>
+      </div>
       <button id="btn-confirmar" class="btn btn-primario btn-bloco">Confirmar reserva</button>
 
       <!-- Pagamento Pix (paga-e-usa): a reserva confirma só após o pagamento -->
@@ -196,6 +202,7 @@
   <script src="../../config/config.js" onerror="console.warn('config.js ausente — modo demonstração')"></script>
   <script src="../../assets/vendor/supabase.js"></script>
   <script src="../../assets/js/db.js"></script>
+  <script src="../../assets/js/docs-envio.js?v=20260924"></script>
   <script src="../../assets/js/aviso-bloqueante.js" defer></script>
   <script src="../../assets/js/nav-app.js" defer></script>
   <script src="../../assets/js/motor-reservas.js"></script>
@@ -208,6 +215,7 @@
     // estado da tela
     var MEU_ID = "prof-eu";
     var APROVADO = true;
+    var FALTA_DOCS = [];   // documentação pendente (RPC docs_pendentes)
     var CONTRATO_PENDENTE = false;   // contrato gerado e ainda não assinado → não reserva
     var HORA_GRATIS = false;         // só quem PAGOU a taxa de cadastro tem a 1ª hora grátis
     // Prazo para pagar a reserva. NUNCA fixo no código: vem de
@@ -459,13 +467,14 @@
       MEU_ID = perfil ? perfil.id : "prof-eu";
       APROVADO = !!perfil && (perfil.status === "aprovado" || perfil.status === "ativo");
       // 0038 (23/09/2026): documento faltando trava a reserva (o banco também recusa).
-      var FALTA_DOCS = [];
+      FALTA_DOCS = [];
       if (perfil) {
         try {
           var dp = await DB.client.rpc("docs_pendentes", { p_perfil_id: perfil.id });
           FALTA_DOCS = (!dp.error && dp.data) || [];
         } catch (e) { console.warn("docs_pendentes:", e); }
-        if (FALTA_DOCS.length) APROVADO = false;
+        // 24/09: NÃO trava a tela — a pessoa navega e escolhe normal; o pedido do
+        // documento aparece só ao tocar em "Confirmar reserva" (com o envio ali mesmo).
       }
       // saldo de créditos (abatido automaticamente na Edge; aqui é só informativo)
       try {
@@ -496,11 +505,7 @@
       if (!APROVADO) {
         var a = document.getElementById("aviso-status");
         var st = perfil && perfil.status;
-        if (FALTA_DOCS.length) {
-          a.innerHTML = "<strong>Falta documento no seu cadastro:</strong> " + FALTA_DOCS.join(", ") +
-            ". A ordem é: documentos → contrato → reservas." +
-            '<div style="margin-top:12px"><a class="btn btn-primario" href="documentos.html">Enviar documentos</a></div>';
-        } else if (["docs_enviados", "aguardando_pagamento", "rascunho", "em_aprovacao"].indexOf(st) !== -1) {
+        if (["docs_enviados", "aguardando_pagamento", "rascunho", "em_aprovacao"].indexOf(st) !== -1) {
           a.innerHTML = "<strong>Falta um passo seu:</strong> pagar a taxa de cadastro, que vale 12 meses. " +
             "Depois dela seus dados são conferidos e o contrato digital fica pronto para assinar — aí as reservas liberam. " +
             '<div style="margin-top:12px"><a class="btn btn-primario" href="pagamento-cadastro.html">Pagar a taxa de cadastro</a></div>';
@@ -879,6 +884,7 @@
       pararPollReserva();
       pararContadorPrazo();
       document.getElementById("box-qr").style.display = "none";
+      document.getElementById("box-docs-pend").style.display = "none";
       var btn = document.getElementById("btn-confirmar");
       btn.style.display = ""; btn.disabled = CONTRATO_PENDENTE; btn.textContent = "Confirmar reserva";
       var eb = document.getElementById("r-erro");
@@ -941,6 +947,27 @@
             : "Assine o contrato para liberar as reservas e a compra de horas. ") +
           '<a href="contrato.html">Ler e assinar agora</a>.';
         eb.style.display = "block";
+        return;
+      }
+
+      // 24/09/2026: documentação pendente → o pedido aparece AQUI, com o envio na
+      // própria tela; enviou tudo, a reserva segue sozinha (o banco também confere).
+      if (FALTA_DOCS.length) {
+        var boxD = document.getElementById("box-docs-pend");
+        boxD.style.display = "block";
+        document.getElementById("docs-pend-lista").textContent = FALTA_DOCS.join(", ");
+        btn.style.display = "none";
+        await DocsEnvio.montar(document.getElementById("docs-pend-envio"), {
+          DB: DB, perfil: { id: MEU_ID, user_id: (await DB.usuario()).id },
+          aoAtualizar: function (falta) {
+            FALTA_DOCS = falta;
+            if (falta.length) { document.getElementById("docs-pend-lista").textContent = falta.join(", "); return; }
+            boxD.style.display = "none";
+            btn.style.display = "";
+            btn.click();   // documentação completa → continua a reserva
+          }
+        });
+        boxD.scrollIntoView({ behavior: "smooth", block: "center" });
         return;
       }
 
