@@ -60,6 +60,7 @@
   <script src="../../config/config.js" onerror="console.warn('config.js ausente — modo demonstração')"></script>
   <script src="../../assets/vendor/supabase.js"></script>
   <script src="../../assets/js/db.js"></script>
+  <script src="../../assets/js/docs-envio.js?v=20260924"></script>
   <script src="../../assets/js/aviso-bloqueante.js" defer></script>
   <script src="../../assets/js/nav-app.js" defer></script>
   <script>
@@ -190,11 +191,21 @@
           var dp = await DB.client.rpc("docs_pendentes", { p_perfil_id: perfil.id });
           var falta = (!dp.error && dp.data) || [];
           if (falta.length) {
+            // 24/09: pede o documento aqui mesmo; enviou tudo, o botão de assinar volta
             document.getElementById("box-aceite").style.display = "none";
             var av = document.getElementById("aviso");
-            av.innerHTML = "<strong>Antes de assinar, falta documento no seu cadastro:</strong> " +
-              falta.join(", ") + '.<div style="margin-top:12px"><a class="btn btn-primario" href="documentos.html">Enviar documentos</a></div>';
+            av.innerHTML = "<strong>📄 Documentação pendente para liberar a assinatura.</strong> Falta: <span id='ct-falta'></span>." +
+              "<div id='ct-envio'></div>";
+            document.getElementById("ct-falta").textContent = falta.join(", ");
             av.style.display = "block";
+            await DocsEnvio.montar(document.getElementById("ct-envio"), {
+              DB: DB, perfil: perfil,
+              aoAtualizar: function (resta) {
+                if (resta.length) { document.getElementById("ct-falta").textContent = resta.join(", "); return; }
+                av.style.display = "none";
+                document.getElementById("box-aceite").style.display = "block";
+              }
+            });
           }
         } catch (e) { console.warn("docs_pendentes:", e); }
       }
