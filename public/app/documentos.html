@@ -33,7 +33,7 @@
     <section class="card stack">
       <div>
         <h1 style="margin:0">Meus documentos</h1>
-        <p class="muted" style="margin:4px 0 0">Envie o que estiver faltando. Foto ou PDF nítido.</p>
+        <p class="muted" style="margin:4px 0 0">RG/CNH e carteirinha: frente e verso (ou um PDF com os dois lados). Foto ou PDF nítido.</p>
       </div>
       <div id="aviso" class="aviso aviso-atencao" style="display:none"></div>
       <div id="ok" class="aviso aviso-info" style="display:none"></div>
@@ -76,88 +76,39 @@
   <script src="../../config/config.js" onerror="console.warn('config.js ausente — modo demonstração')"></script>
   <script src="../../assets/vendor/supabase.js"></script>
   <script src="../../assets/js/db.js"></script>
+  <script src="../../assets/js/docs-envio.js?v=20260924"></script>
   <script>
     var DB = window.EnjoyDB;
-    // chave em perfis.docs → nome do arquivo no bucket (o mesmo do cadastro.html)
-    var DOCS = [
-      { campo: "cro_url",         arquivo: "carteirinha", titulo: "Carteirinha do conselho", dica: "Frente da carteirinha, com nome e número legíveis." },
-      { campo: "rg_url",          arquivo: "rg",          titulo: "RG ou CNH",               dica: "Documento oficial com foto." },
-      { campo: "comprovante_url", arquivo: "comprovante", titulo: "Comprovante de residência", dica: "Conta de luz, água, internet ou similar." }
-    ];
     // conselho/número só se corrige em análise; DOCUMENTO pode ser enviado sempre
-    // (reenvio gera arquivo novo — o anterior fica no histórico, nada se apaga)
+    // (componente docs-envio.js: frente e verso, cada envio é arquivo novo — nada se apaga)
     var EM_ANALISE = ["rascunho", "docs_enviados", "aguardando_pagamento", "em_aprovacao", "pago_em_verificacao", "fila_revisao_humana"];
     var PERFIL = null;
 
-    function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
     function aviso(msg) { var a = document.getElementById("aviso"); a.textContent = msg; a.style.display = msg ? "block" : "none"; document.getElementById("ok").style.display = "none"; }
     function ok(msg) { var a = document.getElementById("ok"); a.textContent = msg; a.style.display = "block"; document.getElementById("aviso").style.display = "none"; }
-    function extensao(file) {
-      var m = /\.([a-z0-9]+)$/i.exec(file.name || "");
-      return m ? m[1].toLowerCase() : (file.type === "application/pdf" ? "pdf" : "jpg");
-    }
-
     function podeEditar() { return EM_ANALISE.indexOf(PERFIL.status) !== -1; }
 
-    function render() {
-      var docs = PERFIL.docs || {};
+    function renderConselho() {
       var editar = podeEditar();
-
       var sel = document.getElementById("conselho"), cro = document.getElementById("cro");
       sel.value = PERFIL.conselho || ""; cro.value = PERFIL.cro || "";
       sel.disabled = cro.disabled = !editar;
       document.getElementById("salvar-conselho").style.display = editar ? "" : "none";
+      document.getElementById("conselho-travado").style.display = editar ? "none" : "block";
       var bc = document.getElementById("badge-conselho");
       var temConselho = PERFIL.conselho && PERFIL.cro;
       bc.textContent = temConselho ? "preenchido" : "falta";
       bc.className = "badge " + (temConselho ? "badge-verde" : "badge-amarelo");
-
-      document.getElementById("lista-docs").innerHTML = DOCS.map(function (d) {
-        var tem = !!docs[d.campo];
-        return '<div class="doc">' +
-          '<div class="row-between"><strong>' + esc(d.titulo) + '</strong>' +
-          '<span class="badge ' + (tem ? "badge-verde" : "badge-amarelo") + '">' + (tem ? "enviado" : "falta enviar") + "</span></div>" +
-          '<small class="muted">' + esc(d.dica) + "</small>" +
-          (true
-            ? '<input type="file" accept="image/*,application/pdf" id="f-' + d.arquivo + '">' +
-              '<div class="acoes"><button type="button" class="btn ' + (tem ? "btn-neutro" : "btn-primario") + '" data-doc="' + d.arquivo + '">' +
-              (tem ? "Enviar arquivo novo" : "Enviar") + "</button></div>" +
-              (tem ? '<small class="muted">O arquivo anterior fica guardado no histórico.</small>' : "")
-            : "") +
-          "</div>";
-      }).join("");
-
-      document.getElementById("conselho-travado").style.display = editar ? "none" : "block";
     }
 
-    document.getElementById("lista-docs").addEventListener("click", async function (e) {
-      var b = e.target.closest("button[data-doc]");
-      if (!b) return;
-      var d = DOCS.find(function (x) { return x.arquivo === b.dataset.doc; });
-      var f = document.getElementById("f-" + d.arquivo).files[0];
-      if (!f) { aviso("Escolha o arquivo de " + d.titulo.toLowerCase() + " antes de enviar."); return; }
-      if (f.size > 10 * 1024 * 1024) { aviso("Arquivo muito grande (máx. 10 MB)."); return; }
-      b.disabled = true; b.textContent = "Enviando…";
-      try {
-        var caminho = PERFIL.user_id + "/" + d.arquivo + "-" + Date.now() + "." + extensao(f);
-        var up = await DB.client.storage.from("documentos").upload(caminho, f, { upsert: false, contentType: f.type || undefined });
-        if (up.error) throw new Error(up.error.message);
-        // relê docs do banco antes de gravar: não sobrescrever outra chave com cópia velha
-        var cur = await DB.client.from("perfis").select("docs").eq("id", PERFIL.id).maybeSingle();
-        if (cur.error) throw new Error(cur.error.message);
-        var docs = Object.assign({}, (cur.data && cur.data.docs) || {});
-        docs[d.campo] = caminho;
-        var r = await DB.client.from("perfis").update({ docs: docs }).eq("id", PERFIL.id).select("docs");
-        if (r.error) throw new Error(r.error.message);
-        if (!r.data || !r.data.length) throw new Error("não foi possível gravar no seu cadastro");
-        PERFIL.docs = r.data[0].docs;
-        render();
-        ok(d.titulo + " recebido. A gestão confere e dá sequência ao seu cadastro.");
-      } catch (err) {
-        b.disabled = false; b.textContent = "Enviar";
-        aviso("Não foi possível enviar: " + err.message);
-      }
-    });
+    async function montarDocs() {
+      await DocsEnvio.montar(document.getElementById("lista-docs"), {
+        DB: DB, perfil: PERFIL, todos: true,
+        aoAtualizar: function (falta, titulo) {
+          ok(titulo + " recebido." + (falta.length ? " Ainda falta: " + falta.join(", ") + "." : " Documentação completa — obrigado!"));
+        }
+      });
+    }
 
     document.getElementById("salvar-conselho").addEventListener("click", async function () {
       var conselho = document.getElementById("conselho").value;
@@ -166,7 +117,7 @@
       var r = await DB.client.from("perfis").update({ conselho: conselho, cro: cro }).eq("id", PERFIL.id).select("conselho,cro");
       if (r.error || !r.data || !r.data.length) { aviso("Não foi possível salvar: " + ((r.error && r.error.message) || "sem permissão")); return; }
       PERFIL.conselho = r.data[0].conselho; PERFIL.cro = r.data[0].cro;
-      render();
+      renderConselho();
       ok("Conselho salvo.");
     });
 
@@ -175,7 +126,8 @@
       var p = await DB.exigirLogin();
       if (!p) { aviso("Não encontramos o seu cadastro. Refaça o cadastro para enviar seus dados."); document.getElementById("app").hidden = false; return; }
       PERFIL = p;
-      render();
+      renderConselho();
+      await montarDocs();
       document.getElementById("app").hidden = false;
     })();
   </script>
