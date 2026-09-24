@@ -52,7 +52,7 @@
     <div id="aviso-status" class="aviso aviso-atencao" style="margin-bottom:16px;display:none"></div>
     <!-- 23/09/2026: documento faltando (caso Patrícia, sem carteirinha) — botão leva à tela de envio -->
     <div id="aviso-docs" class="aviso aviso-atencao" style="margin-bottom:16px;display:none;border:1px solid #e8cf8a">
-      <strong style="display:block;margin-bottom:4px">📄 Falta documento no seu cadastro</strong>
+      <strong style="display:block;margin-bottom:4px">📄 Documentação pendente para liberação de novos agendamentos</strong>
       <span id="aviso-docs-lista"></span>
       <div style="margin-top:12px"><a class="btn btn-primario" href="documentos.html">Enviar documentos</a></div>
     </div>
@@ -164,14 +164,11 @@
       await avisarContratoPendente(perfil);
       var faltaDocs = await avisarDocsFaltando(perfil);
 
-      // 0038 (23/09/2026): documentação → contrato → reservas. Documento faltando
-      // trava a reserva de qualquer um, inclusive quem já está ativo.
-      if (faltaDocs.length) {
-        bloquearReserva("<strong>Reservas bloqueadas até completar a documentação.</strong> " +
-          "Envie o que falta e as reservas voltam a funcionar.", true);
-      }
+      // 24/09/2026: documentação pendente NÃO aparece como bloqueio — só o aviso
+      // "documentação pendente para liberação de novos agendamentos" (aviso-docs).
+      // O pedido com envio aparece na hora de confirmar a reserva; o banco confere.
       // pode reservar quando aprovado ou ativo (pós-contrato); demais estados bloqueiam
-      else if (perfil.status !== "aprovado" && perfil.status !== "ativo") {
+      if (perfil.status !== "aprovado" && perfil.status !== "ativo") {
         // ⚠️ A DIFERENÇA QUE IMPORTA: "esperando a gente" × "esperando você".
         // Até 18/09/2026 `docs_enviados` lia "seu cadastro está em análise,
         // assim que a gestão aprovar…" — e isso era FALSO. Nesse estado ninguém
@@ -246,7 +243,7 @@
         falta = (!dp.error && dp.data) || [];
       } catch (e) { console.warn("docs_pendentes:", e); }
       if (!falta.length) return [];
-      document.getElementById("aviso-docs-lista").textContent = "Falta enviar: " + falta.join(", ") + ". A ordem é: documentos → contrato → reservas.";
+      document.getElementById("aviso-docs-lista").textContent = "Falta: " + falta.join(", ") + ".";
       document.getElementById("aviso-docs").style.display = "block";
       return falta;
     }
