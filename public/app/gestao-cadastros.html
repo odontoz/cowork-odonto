@@ -233,7 +233,7 @@
       var contratos = res[0].data||[], pagamentos = res[1].data||[], reservas = res[2].data||[], verifs = res[3].data||[];
 
       // documentos assinados
-      var docs = p.docs || {}, mapa = { rg_url:"RG", cro_url:"Carteirinha do conselho", comprovante_url:"Comprovante" }, linksDoc = [];
+      var docs = p.docs || {}, mapa = { rg_url:"RG/CNH frente", rg_verso_url:"RG/CNH verso", cro_url:"Carteirinha frente", cro_verso_url:"Carteirinha verso", comprovante_url:"Comprovante" }, linksDoc = [];
       for (var k in mapa) { if (docs[k]) { var u = await DB.urlAssinada("documentos", docs[k], 3600); if (u) linksDoc.push('<a href="'+u+'" target="_blank" rel="noopener">'+mapa[k]+" ↗</a>"); } }
       if (p.selfie_url) { var us = await DB.urlAssinada("documentos", p.selfie_url, 3600); if (us) linksDoc.push('<a href="'+us+'" target="_blank" rel="noopener">Selfie ↗</a>'); }
 
@@ -253,8 +253,10 @@
       h += "<h3>Documentos</h3>"+(linksDoc.length?'<div class="docs-linha">'+linksDoc.join("")+"</div>":'<p class="vazio">Nenhum documento enviado.</p>');
       // 23/09/2026 — caso Patrícia: o que FALTA precisa aparecer, não só o que veio.
       // A pessoa envia o que faltou em documentos.html (aviso na home dela).
-      var faltaDoc = []; for (var kf in mapa) { if (!docs[kf]) faltaDoc.push(mapa[kf]); }
-      if (faltaDoc.length) h += '<p style="margin:8px 0 0;color:#8a5a00"><strong>⚠ Falta:</strong> '+esc(faltaDoc.join(", "))+' — reservas e assinatura ficam travadas; a pessoa envia em "Meus documentos".</p>';
+      // mesma régua do banco (docs_pendentes, 0039): frente+verso, PDF vale pelos dois
+      var faltaDoc = [];
+      try { var dpG = await DB.client.rpc("docs_pendentes", { p_perfil_id: p.id }); faltaDoc = (!dpG.error && dpG.data) || []; } catch (e) {}
+      if (faltaDoc.length) h += '<p style="margin:8px 0 0;color:#8a5a00"><strong>⚠ Falta:</strong> '+esc(faltaDoc.join(", "))+' — novos agendamentos e assinatura ficam pendentes; a pessoa envia pelo app (Meus documentos, ou na hora de reservar).</p>';
       // 0037: o cliente não apaga nem sobrescreve — cada envio é um arquivo novo.
       // Aqui aparece TUDO o que já foi enviado, com data (histórico anti-fraude).
       if (p.user_id) {
