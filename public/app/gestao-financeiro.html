@@ -429,6 +429,8 @@
                 <option value="lixo">Coleta de lixo</option>
                 <option value="limpeza">Limpeza</option>
                 <option value="taxa_gateway">Taxa do gateway</option>
+                <option value="fundo">Fundo (melhorias / manutenção)</option>
+                <option value="marketing">Anúncios / marketing</option>
               </optgroup>
               <optgroup label="Eventual">
                 <option value="manutencao">Manutenção</option>
@@ -720,7 +722,8 @@
     var CATEGORIAS = { aluguel_sala:"Aluguel de sala", mensalidade:"Mensalidade", insumo:"Insumo", manutencao:"Manutenção",
       condominio:"Condomínio", energia:"Energia", repasse_socio:"Repasse de sócio", outro:"Outro",
       aluguel_imovel:"Aluguel do imóvel", internet:"Internet / telefone", iptu:"IPTU", lixo:"Coleta de lixo",
-      limpeza:"Limpeza", telefonia:"Chip / recarga", transporte:"Estacionamento", taxa_gateway:"Taxa do gateway" };
+      limpeza:"Limpeza", telefonia:"Chip / recarga", transporte:"Estacionamento", taxa_gateway:"Taxa do gateway",
+      fundo:"Fundo (melhorias / manutenção)", marketing:"Anúncios / marketing" };
     function catLabel(k) { return CATEGORIAS[k] || k; }
 
     // ---- store: DB real ou localStorage ----
