@@ -152,7 +152,8 @@
         em horas de crédito · menos de 1 hora, não comparecimento (no-show) ou reserva já iniciada = sem devolução ·
         arrependimento: cancelar em até 1 hora depois de criar a reserva devolve 100%, mesmo em cima da hora.
         As horas de crédito valem 90 dias (30 dias quando o cancelamento for a menos de 24 horas do início) e
-        abatem novas reservas.</span>
+        abatem novas reservas. Uso além do horário reservado é cobrado como hora avulsa (R$ 75,00), com tolerância
+        de 15 minutos — para ficar mais tempo, use "Estender +1h" em Minhas reservas.</span>
       </label>
       <!-- 24/09/2026: documentação pendente pedida na hora de confirmar, com envio aqui mesmo -->
       <div id="box-docs-pend" class="aviso aviso-atencao" style="display:none;border:1px solid #e8cf8a">
@@ -264,7 +265,14 @@
     var CANCEL = { janelaMin: 60, arrepMin: 60, validadeDias: 90, curtaAteH: 24, curtaDias: 30 };
     // Versão da régua que vai carimbada na trilha de aceite. Casa com o
     // VERSAO_TEMPLATE do contrato (gerar-contrato: "clinicshare-v4.0-2026-09-22").
-    var POLITICA_VERSAO = "clinicshare-v4.0";
+    var POLITICA_VERSAO = "clinicshare-v4.1";   // v4.1 (16/10/2026): + regra de uso além do horário
+    // Uso além do horário reservado (aprovado pelo dono 15/10, caso Dra. Rosirleide 14/10):
+    // cobrado como hora avulsa, com tolerância. Mesmos números da cláusula 5.6 do contrato v4.1.
+    var EXCEDENTE = { valorHora: 75, toleranciaMin: 15 };
+    function textoExcedente() {
+      return "Uso além do horário reservado é cobrado como hora avulsa (R$ " + EXCEDENTE.valorHora +
+        ",00), com tolerância de " + EXCEDENTE.toleranciaMin + " minutos — para ficar mais tempo, use \"Estender +1h\" em Minhas reservas.";
+    }
 
     // "60" -> "1 hora"; "90" -> "90 minutos". Mesma função do gerador de contrato,
     // para a tela e a cláusula 5.3 falarem com as mesmas palavras.
@@ -281,7 +289,7 @@
         "arrependimento: cancelar em até " + janelaTxt(CANCEL.arrepMin) +
         " depois de criar a reserva devolve 100%, mesmo em cima da hora. As horas de crédito valem " +
         CANCEL.validadeDias + " dias (" + CANCEL.curtaDias + " dias quando o cancelamento for a menos de " +
-        janelaTxt(CANCEL.curtaAteH * 60) + " do início) e abatem novas reservas.";
+        janelaTxt(CANCEL.curtaAteH * 60) + " do início) e abatem novas reservas. " + textoExcedente();
     }
     // Carimbo gravado em `reservas.observacao` como trilha do aceite expresso.
     function politicaCarimbo() {
@@ -290,7 +298,8 @@
         ", no-show ou reserva já iniciada=0% · arrependimento até " + janelaTxt(CANCEL.arrepMin) +
         " da criação da reserva=100% · cancelamento pela gestão=100% · crédito vale " +
         CANCEL.validadeDias + " dias (" + CANCEL.curtaDias + " dias se cancelado a menos de " +
-        janelaTxt(CANCEL.curtaAteH * 60) + " do início) (" + POLITICA_VERSAO + ")";
+        janelaTxt(CANCEL.curtaAteH * 60) + " do início) · uso além do horário=hora avulsa R$ " + EXCEDENTE.valorHora +
+        " após " + EXCEDENTE.toleranciaMin + " min de tolerância (" + POLITICA_VERSAO + ")";
     }
     // Repinta os dois lugares onde a política aparece para o cliente.
     function pintarPolitica() {
