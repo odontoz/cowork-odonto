@@ -90,7 +90,9 @@
     <div class="dica">
       <div class="aviso aviso-atencao txt">
         <strong>Envie um por um.</strong> Espere 1 a 2 minutos entre um envio e outro.
-        Se alguém responder SAIR, marque “Pediu SAIR”.
+        Se alguém responder SAIR, marque “Pediu SAIR”.<br>
+        <strong>Com imagem:</strong> 1) clique em “Copiar imagem”; 2) “Abrir no WhatsApp” (o texto já vem escrito);
+        3) na conversa aperte Ctrl+V (Mac: Cmd+V), envie a imagem; 4) envie o texto; 5) volte aqui e marque “Sim, enviei”.
       </div>
       <span class="relogio" id="relogio">último envio: —</span>
     </div>
@@ -148,6 +150,18 @@
       return "("+d.slice(0,2)+") "+(corpo.length===9?corpo.slice(0,5)+"-"+corpo.slice(5):corpo.slice(0,4)+"-"+corpo.slice(4));
     }
     var TOAST_T;
+    // Arte da campanha para colar no WhatsApp Web junto com a mensagem (Ctrl/Cmd+V na conversa).
+    async function copiarImagem(pub){
+      var url="/assets/black/arte-"+(pub==="B"?"B":"A")+".png";
+      try {
+        var blob=await (await fetch(url,{cache:"no-store"})).blob();
+        await navigator.clipboard.write([new ClipboardItem({"image/png":blob})]);
+        toast("Imagem copiada. No WhatsApp, cole com Ctrl+V (ou Cmd+V) e envie.");
+      } catch(e){
+        window.open(url,"_blank","noopener");
+        toast("Não consegui copiar. Abri a imagem: clique com o botão direito e 'Copiar imagem'.", true);
+      }
+    }
     function toast(msg, ruim){
       var el=$("toast"); el.textContent=msg; el.className="toast on"+(ruim?" ruim":"");
       clearTimeout(TOAST_T); TOAST_T=setTimeout(function(){ el.className="toast"; }, 3200);
@@ -221,7 +235,8 @@
 
       if (!l.resultado || l.resultado==="pular") {
         h+='<div class="acoes">'+
-           '<button class="btn btn-wpp" data-act="abrir"'+dis+'>Abrir no WhatsApp</button>'+
+           '<button class="btn" data-act="img" title="Copia a arte; no WhatsApp Web aperte Ctrl+V (ou Cmd+V) na conversa">1. Copiar imagem</button>'+
+           '<button class="btn btn-wpp" data-act="abrir"'+dis+'>2. Abrir no WhatsApp</button>'+
            '<a class="alt" data-act="wame" href="#" target="_blank" rel="noopener">abrir pelo app (wa.me)</a></div>';
         if (ABERTOS[l.id]) {
           h+='<div class="confirma"><b>Enviou?</b>'+
@@ -304,6 +319,7 @@
       if (act==="wame") { var cw=b.closest("[data-id]"); if (cw) { ABERTOS[cw.getAttribute("data-id")]=true; setTimeout(pintar, 400); } return; }
       var card=b.closest("[data-id]"); if(!card) return;
       var l=achar(card.getAttribute("data-id")); if(!l) return;
+      if (act==="img") { copiarImagem(l.publico); return; }
       if (act==="abrir") {
         var url="https://web.whatsapp.com/send?phone="+so(l.telefone)+"&text="+encodeURIComponent(textoAtual(l));
         window.open(url,"wa_black");
