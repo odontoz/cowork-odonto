@@ -73,6 +73,9 @@
       }
 
       function irParaApp(perfil) {
+        // Volta para a página do app de onde a pessoa veio (ex.: black-40h.html). Só aceita página do próprio app.
+        var v = new URLSearchParams(location.search).get("voltar");
+        if (v && /^[a-z0-9-]+\.html(\?[a-z0-9=&-]*)?$/i.test(v)) return location.replace(v);
         if (perfil && DB.ehGestao(perfil)) location.replace("gestao.html");
         else location.replace("index.html");
       }
