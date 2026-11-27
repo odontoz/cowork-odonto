@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Black Friday 27/11 — envio pelo WhatsApp — Gestão ClinicShare</title>
+  <meta name="theme-color" content="#0E2A47">
+  <meta name="robots" content="noindex,nofollow">
+  <link rel="icon" type="image/png" sizes="32x32" href="../../assets/img/favicon-32.png">
+  <link rel="apple-touch-icon" href="../../assets/img/favicon-clinicshare.png">
+  <link rel="manifest" href="../../manifest.webmanifest">
+  <link rel="stylesheet" href="../../assets/css/base.css">
+  <script src="../../assets/js/brand.js" defer></script>
+  <style>
+    .hoje{background:#0E2A47;color:#fff;border-radius:var(--raio);padding:16px 20px;margin-bottom:14px;border-left:6px solid #FFC72C;box-shadow:var(--sombra)}
+    .hoje b{color:#FFC72C;font-size:1.15rem;display:block;letter-spacing:-.01em}
+    .hoje span{font-size:.9rem;opacity:.9}
+    .dica{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:16px}
+    .dica .txt{flex:1 1 320px}
+    .relogio{font-size:.82rem;color:var(--cinza);background:var(--branco);border:1px solid var(--linha);border-radius:99px;padding:5px 12px;white-space:nowrap}
+    .relogio.ok{color:#137a41;border-color:#bfe6d0;background:#e4f5ec}
+    .relogio.espere{color:#8a6400;border-color:#f1dfa6;background:#fdf3d8}
+
+    .numeros{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:10px;margin-bottom:10px}
+    .num{background:var(--branco);border:1px solid var(--linha);border-radius:var(--raio);padding:12px 14px;box-shadow:var(--sombra)}
+    .num b{display:block;font-size:1.55rem;line-height:1.1;letter-spacing:-.02em}
+    .num small{color:var(--cinza);font-size:.78rem}
+    .num.destaque{border-color:#c7dcf7;background:#f3f8ff}
+    .porpub{font-size:.85rem;color:var(--cinza);margin:0 0 16px}
+
+    .abas{display:flex;gap:4px;border-bottom:1px solid var(--linha);margin-bottom:12px;overflow-x:auto}
+    .aba{background:none;border:none;border-bottom:3px solid transparent;padding:11px 14px;font-family:inherit;font-size:.95rem;font-weight:700;color:var(--cinza);cursor:pointer;white-space:nowrap}
+    .aba.on{color:var(--azul);border-bottom-color:var(--azul)}
+    .aba small{font-weight:600;margin-left:4px;color:var(--cinza-claro)}
+    .filtros{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+    .chk{display:flex;align-items:center;gap:7px;font-size:.92rem;font-weight:600;color:var(--cinza);cursor:pointer}
+    .chk input{width:auto;height:auto}
+
+    .cartao{background:var(--branco);border:1px solid var(--linha);border-radius:var(--raio);padding:16px;box-shadow:var(--sombra)}
+    .cartao + .cartao{margin-top:12px}
+    .cartao.feito{opacity:.78;background:var(--fundo)}
+    .cab{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap;margin-bottom:10px}
+    .cab strong{font-size:1.05rem;display:block;line-height:1.25}
+    .cab small{color:var(--cinza)}
+    .selos{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+    .st{display:inline-block;padding:3px 10px;border-radius:99px;font-size:.75rem;font-weight:700;white-space:nowrap}
+    .st-verde{background:#e4f5ec;color:#137a41} .st-amarelo{background:#fdf3d8;color:#8a6400}
+    .st-vermelho{background:#fbe4e4;color:#a12d2d} .st-cinza{background:#eef1f5;color:#5b6b7b}
+    .st-azul{background:#e7f0fb;color:#1a539c}
+    textarea.msg{width:100%;min-height:150px;font-family:inherit;font-size:.93rem;line-height:1.45;white-space:pre-wrap;resize:vertical;background:#f4fbf0;border:1px solid #cfe8c4;border-radius:10px;padding:11px 13px}
+    .acoes{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
+    .btn-wpp{background:#25D366;color:#0b3a1d;border-color:#25D366;font-weight:700}
+    .btn-wpp:hover{background:#1eb757;color:#0b3a1d}
+    .btn.peq{padding:7px 12px;font-size:.85rem;border-radius:9px}
+    .alt{font-size:.8rem;color:var(--cinza)}
+    .confirma{margin-top:10px;background:#fdf3d8;border:1px solid #f1dfa6;border-radius:10px;padding:10px 12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .confirma b{margin-right:auto}
+    details.mais{position:relative;display:inline-block}
+    details.mais summary{list-style:none;cursor:pointer;color:var(--cinza);font-size:.85rem;font-weight:600;padding:7px 12px;border:1px solid var(--linha);border-radius:9px;background:var(--branco)}
+    details.mais summary::-webkit-details-marker{display:none}
+    details.mais .menu{position:absolute;z-index:5;left:0;top:100%;margin-top:4px;background:var(--branco);border:1px solid var(--linha);border-radius:10px;box-shadow:var(--sombra);padding:6px;min-width:190px;display:flex;flex-direction:column;gap:2px}
+    details.mais .menu button{background:none;border:none;text-align:left;padding:9px 10px;border-radius:7px;font-family:inherit;font-size:.9rem;cursor:pointer;color:var(--tinta)}
+    details.mais .menu button:hover{background:var(--fundo)}
+    details.mais .menu button.perigo{color:var(--vermelho)}
+    .meta{font-size:.8rem;color:var(--cinza);margin-top:8px}
+    .vazio{color:var(--cinza);padding:22px;text-align:center}
+    .toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,80px);background:var(--tinta);color:#fff;padding:12px 18px;border-radius:99px;font-size:.9rem;font-weight:600;box-shadow:var(--sombra);opacity:0;transition:.25s;z-index:99;max-width:92vw;text-align:center}
+    .toast.on{transform:translate(-50%,0);opacity:1}
+    .toast.ruim{background:var(--vermelho)}
+    #erro{display:none;margin-bottom:14px;background:#fbe4e4;color:#a12d2d;border:1px solid #f0c3c3}
+    @media(max-width:640px){ .acoes .btn-wpp{flex:1 1 100%;padding:13px} }
+  </style>
+</head>
+<body data-no-wpp>
+  <header class="topbar">
+    <div class="container">
+      <a class="marca" href="gestao.html">Coworking <span>Odontológico</span> · Gestão</a>
+      <a class="muted" href="gestao.html">← Agenda</a>
+    </div>
+  </header>
+
+  <main class="container" style="padding:22px 16px 60px" id="app" hidden>
+    <h1 style="margin:0 0 12px">Black Friday 27/11 — envio pelo WhatsApp</h1>
+
+    <div class="hoje">
+      <b>Oferta válida SÓ HOJE, 27/11, até 23h59</b>
+      <span>Depois disso a oferta acaba. Não envie mais nada amanhã.</span>
+    </div>
+
+    <div class="dica">
+      <div class="aviso aviso-atencao txt">
+        <strong>Envie um por um.</strong> Espere 1 a 2 minutos entre um envio e outro.
+        Se alguém responder SAIR, marque “Pediu SAIR”.
+      </div>
+      <span class="relogio" id="relogio">último envio: —</span>
+    </div>
+
+    <div class="aviso" id="erro" role="alert"></div>
+    <div class="aviso aviso-info" id="aviso-demo" style="display:none;margin-bottom:16px">Modo demonstração — conecte o banco para ver a lista.</div>
+
+    <div class="numeros">
+      <div class="num"><b id="n-total">0</b><small>total</small></div>
+      <div class="num destaque"><b id="n-env">0</b><small>enviados</small></div>
+      <div class="num destaque"><b id="n-falta">0</b><small>faltam</small></div>
+      <div class="num"><b id="n-pular">0</b><small>pulados</small></div>
+      <div class="num"><b id="n-sair">0</b><small>pediram SAIR</small></div>
+      <div class="num"><b id="n-inv">0</b><small>número inválido</small></div>
+    </div>
+    <p class="porpub" id="porpub"></p>
+
+    <div class="abas" id="abas">
+      <button class="aba on" data-pub="A">A · Sem cadastro (3 horas)<small id="ab-A"></small></button>
+      <button class="aba" data-pub="B">B · Clientes (40 horas)<small id="ab-B"></small></button>
+    </div>
+    <div class="filtros">
+      <label class="chk"><input type="checkbox" id="f-falta" checked> só os que faltam</label>
+      <button class="btn btn-neutro peq" id="btn-recarregar">Atualizar lista</button>
+    </div>
+
+    <div id="lista"></div>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="../../config/config.js" onerror="console.warn('config.js ausente — modo demonstração')"></script>
+  <script src="../../assets/vendor/supabase.js"></script>
+  <script src="../../assets/js/db.js"></script>
+  <script>
+  (function () {
+    "use strict";
+    var DB = window.EnjoyDB;
+    var CAMPANHA = "black-27-11";
+    var app = document.getElementById("app");
+    var LINHAS = [];            // linhas do banco
+    var EDIT = {};              // id -> texto editado (não se perde ao redesenhar)
+    var ABERTOS = {};           // id -> true (abriu o WhatsApp, aguarda "Enviou?")
+    var OCUPADOS = {};          // id -> true (RPC em andamento)
+    var PUB = "A";
+    var ULTIMO_ENVIO = null;    // Date
+
+    function $(id){ return document.getElementById(id); }
+    function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
+    function so(w){ return String(w==null?"":w).replace(/\D/g,""); }
+    function wppFmt(w){
+      var d=so(w); if(d.indexOf("55")===0&&d.length>11) d=d.slice(2);
+      if(d.length<10) return String(w||"—");
+      var corpo=d.slice(2);
+      return "("+d.slice(0,2)+") "+(corpo.length===9?corpo.slice(0,5)+"-"+corpo.slice(5):corpo.slice(0,4)+"-"+corpo.slice(4));
+    }
+    var TOAST_T;
+    function toast(msg, ruim){
+      var el=$("toast"); el.textContent=msg; el.className="toast on"+(ruim?" ruim":"");
+      clearTimeout(TOAST_T); TOAST_T=setTimeout(function(){ el.className="toast"; }, 3200);
+    }
+    function erro(msg){
+      var el=$("erro");
+      if(!msg){ el.style.display="none"; el.textContent=""; return; }
+      el.textContent=msg; el.style.display="block";
+    }
+    function textoAtual(l){ return EDIT.hasOwnProperty(l.id) ? EDIT[l.id] : (l.mensagem||""); }
+
+    // ---- dados ------------------------------------------------------------
+    async function carregar(){
+      var r = await DB.client.from("campanha_envios").select("*")
+        .eq("campanha", CAMPANHA).order("publico").order("ordem");
+      if (r.error) throw new Error(r.error.message);
+      LINHAS = r.data || [];
+      ULTIMO_ENVIO = null;
+      LINHAS.forEach(function(l){
+        if (l.resultado==="enviado" && l.enviado_em) {
+          var d=new Date(l.enviado_em);
+          if (!ULTIMO_ENVIO || d>ULTIMO_ENVIO) ULTIMO_ENVIO=d;
+        }
+      });
+    }
+
+    // ---- contadores -------------------------------------------------------
+    function conta(arr, f){ return arr.filter(f).length; }
+    function contadores(){
+      var t=LINHAS;
+      $("n-total").textContent=t.length;
+      $("n-env").textContent=conta(t,function(l){return l.resultado==="enviado";});
+      $("n-falta").textContent=conta(t,function(l){return !l.resultado;});
+      $("n-pular").textContent=conta(t,function(l){return l.resultado==="pular";});
+      $("n-sair").textContent=conta(t,function(l){return l.resultado==="sair";});
+      $("n-inv").textContent=conta(t,function(l){return l.resultado==="numero_invalido";});
+      var partes=["A","B"].map(function(p){
+        var s=t.filter(function(l){return l.publico===p;});
+        var env=conta(s,function(l){return l.resultado==="enviado";});
+        var falta=conta(s,function(l){return !l.resultado;});
+        $("ab-"+p).textContent="("+falta+" faltam)";
+        return "Público "+p+": "+s.length+" no total, "+env+" enviados, "+falta+" faltam";
+      });
+      $("porpub").textContent=partes.join(" · ");
+    }
+
+    // ---- relógio ----------------------------------------------------------
+    function relogio(){
+      var el=$("relogio");
+      if(!ULTIMO_ENVIO){ el.textContent="último envio: nenhum ainda"; el.className="relogio"; return; }
+      var min=Math.floor((Date.now()-ULTIMO_ENVIO.getTime())/60000);
+      el.textContent="último envio há "+(min<1?"menos de 1":min)+" min";
+      el.className="relogio "+(min<1?"espere":(min>=1?"ok":""));
+    }
+
+    // ---- cartões ----------------------------------------------------------
+    var ROTULO = { enviado:["st-verde","Enviado"], sair:["st-vermelho","Pediu SAIR"],
+                   numero_invalido:["st-amarelo","Número inválido"], pular:["st-cinza","Pulado"] };
+
+    function cartao(l){
+      var tel=so(l.telefone), txt=textoAtual(l), ocup=!!OCUPADOS[l.id];
+      var dis=ocup?" disabled":"";
+      var feito=!!l.resultado;
+      var h='<article class="cartao'+(feito&&l.resultado!=="pular"?" feito":"")+'" data-id="'+esc(l.id)+'">';
+      h+='<div class="cab"><div><strong>'+esc(l.nome||l.primeiro_nome||"(sem nome)")+'</strong>'+
+         '<small>'+esc(wppFmt(l.telefone))+'</small></div><div class="selos">'+
+         '<span class="st st-azul">'+(l.publico==="B"?"B · Cliente · 40 h":"A · Sem cadastro · 3 h")+'</span>';
+      if (l.resultado && ROTULO[l.resultado]) h+='<span class="st '+ROTULO[l.resultado][0]+'">'+ROTULO[l.resultado][1]+'</span>';
+      h+='</div></div>';
+      h+='<textarea class="msg" data-act="msg" aria-label="Mensagem para '+esc(l.primeiro_nome||l.nome||"")+'"'+(l.resultado==="enviado"?" readonly":"")+'>'+esc(txt)+'</textarea>';
+
+      if (!l.resultado || l.resultado==="pular") {
+        h+='<div class="acoes">'+
+           '<button class="btn btn-wpp" data-act="abrir"'+dis+'>Abrir no WhatsApp</button>'+
+           '<a class="alt" data-act="wame" href="#" target="_blank" rel="noopener">abrir pelo app (wa.me)</a></div>';
+        if (ABERTOS[l.id]) {
+          h+='<div class="confirma"><b>Enviou?</b>'+
+             '<button class="btn btn-primario peq" data-act="enviei"'+dis+'>Sim, enviei</button>'+
+             '<button class="btn btn-neutro peq" data-act="pular"'+dis+'>Pular</button></div>';
+        }
+        h+='<div class="acoes" style="margin-top:8px"><details class="mais"><summary>Mais</summary><div class="menu">'+
+           '<button class="perigo" data-act="sair"'+dis+'>Pediu SAIR</button>'+
+           '<button data-act="invalido"'+dis+'>Número inválido</button>'+
+           (l.resultado==="pular"?'<button data-act="desfazer"'+dis+'>Desfazer</button>':'')+
+           '</div></details></div>';
+      } else {
+        h+='<div class="acoes"><details class="mais"><summary>Mais</summary><div class="menu">'+
+           '<button data-act="desfazer"'+dis+'>Desfazer</button></div></details></div>';
+        if (l.enviado_em) h+='<div class="meta">'+new Date(l.enviado_em).toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"})+
+           (l.observacao?" · "+esc(l.observacao):"")+'</div>';
+      }
+      h+='</article>';
+      return h;
+    }
+
+    function pintar(){
+      contadores(); relogio();
+      var soFalta=$("f-falta").checked;
+      var arr=LINHAS.filter(function(l){
+        if (l.publico!==PUB) return false;
+        if (soFalta && l.resultado && l.resultado!=="pular") return false;
+        return true;
+      });
+      var ativo=document.activeElement, idAtivo=null;
+      var box=$("lista");
+      box.innerHTML = arr.length ? arr.map(cartao).join("") : '<p class="vazio">Ninguém para mostrar com esse filtro.</p>';
+      // links wa.me recebem o texto atual
+      arr.forEach(function(l){
+        var c=box.querySelector('[data-id="'+l.id+'"] [data-act="wame"]');
+        if (c) c.href="https://wa.me/"+so(l.telefone)+"?text="+encodeURIComponent(textoAtual(l));
+      });
+    }
+
+    function achar(id){ return LINHAS.filter(function(l){return String(l.id)===String(id);})[0]; }
+
+    async function marcar(l, resultado){
+      OCUPADOS[l.id]=true; pintar(); erro("");
+      var args={ p_id:l.id, p_resultado:resultado };
+      if (resultado==="enviado") {
+        var t=textoAtual(l);
+        if (t!==(l.mensagem||"")) args.p_mensagem=t;
+      }
+      var r=await DB.client.rpc("campanha_envio_marcar", args);
+      delete OCUPADOS[l.id];
+      if (r.error) {
+        erro("Não consegui gravar ("+(l.nome||"")+"): "+r.error.message+". Nada foi marcado; tente de novo.");
+        pintar(); return;
+      }
+      // otimista + recarrega
+      l.resultado=resultado;
+      if (resultado==="enviado") { l.enviado_em=new Date().toISOString(); ULTIMO_ENVIO=new Date(); }
+      if (resultado===null) { l.enviado_em=null; }
+      delete ABERTOS[l.id];
+      if (resultado==="enviado" && args.p_mensagem) l.mensagem=args.p_mensagem;
+      if (resultado!=="enviado") {}
+      delete EDIT[l.id];
+      pintar();
+      toast(resultado===null?"Desfeito":(resultado==="enviado"?"Marcado como enviado":"Marcado"));
+      try { await carregar(); pintar(); } catch(e){ erro("Gravou, mas não consegui atualizar a lista: "+e.message); }
+    }
+
+    // ---- eventos ----------------------------------------------------------
+    $("lista").addEventListener("input", function(e){
+      if (e.target.getAttribute("data-act")!=="msg") return;
+      var id=e.target.closest("[data-id]").getAttribute("data-id");
+      EDIT[id]=e.target.value;
+      var l=achar(id), a=e.target.closest("[data-id]").querySelector('[data-act="wame"]');
+      if (a&&l) a.href="https://wa.me/"+so(l.telefone)+"?text="+encodeURIComponent(e.target.value);
+    });
+    $("lista").addEventListener("click", function(e){
+      var b=e.target.closest("[data-act]"); if(!b) return;
+      var act=b.getAttribute("data-act");
+      if (act==="msg") return;
+      if (act==="wame") { var cw=b.closest("[data-id]"); if (cw) { ABERTOS[cw.getAttribute("data-id")]=true; setTimeout(pintar, 400); } return; }
+      var card=b.closest("[data-id]"); if(!card) return;
+      var l=achar(card.getAttribute("data-id")); if(!l) return;
+      if (act==="abrir") {
+        var url="https://web.whatsapp.com/send?phone="+so(l.telefone)+"&text="+encodeURIComponent(textoAtual(l));
+        window.open(url,"wa_black");
+        ABERTOS[l.id]=true; pintar();
+      }
+      else if (act==="enviei") marcar(l,"enviado");
+      else if (act==="pular") { delete ABERTOS[l.id]; marcar(l,"pular"); }
+      else if (act==="sair") marcar(l,"sair");
+      else if (act==="invalido") marcar(l,"numero_invalido");
+      else if (act==="desfazer") marcar(l,null);
+    });
+    $("abas").addEventListener("click", function(e){
+      var b=e.target.closest(".aba"); if(!b) return;
+      PUB=b.getAttribute("data-pub");
+      [].forEach.call(document.querySelectorAll(".aba"),function(x){ x.classList.toggle("on",x===b); });
+      pintar();
+    });
+    $("f-falta").addEventListener("change", pintar);
+    $("btn-recarregar").addEventListener("click", async function(){
+      try { erro(""); await carregar(); pintar(); toast("Lista atualizada"); }
+      catch(e){ erro("Não consegui carregar a lista: "+e.message); }
+    });
+    setInterval(relogio, 20000);
+
+    // ---- boot (auth ANTES de renderizar) -----------------------------------
+    (async function(){
+      if (!(DB && DB.pronto)) { $("aviso-demo").style.display="block"; app.hidden=false; return; }
+      var EU = await DB.exigirLogin({ exigirGestao: true });
+      if (!EU) return;
+      app.hidden=false;
+      try { await carregar(); pintar(); }
+      catch(e){ console.error(e); erro("Não consegui carregar a lista: "+e.message); }
+    })();
+  })();
+  </script>
+</body>
+</html>
