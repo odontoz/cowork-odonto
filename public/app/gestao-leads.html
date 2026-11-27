@@ -188,7 +188,7 @@
       </div>
 
       <div class="filtros">
-        <input type="search" id="busca" placeholder="Buscar por nome, WhatsApp ou conselho…">
+        <input type="search" id="busca" placeholder="Buscar por nome, WhatsApp, e-mail ou conselho…">
         <select id="f-situacao">
           <option value="">Todas as situações</option>
           <option value="novo">Chegou (ninguém falou)</option>
@@ -266,6 +266,7 @@
         <div>
           <strong id="fi-nome" style="font-size:1.12rem"></strong>
           <div class="muted" id="fi-sub" style="font-size:.85rem"></div>
+          <div class="muted" id="fi-email" style="font-size:.85rem"></div>
         </div>
         <button class="fechar" id="fi-fechar" aria-label="Fechar">&times;</button>
       </div>
@@ -476,7 +477,7 @@
     async function carregar(){
       var r = await Promise.all([
         DB.client.from("leads_site")
-          .select("id,nome,whatsapp,whatsapp_norm,cro,momento,origem,utm,situacao,motivo_perda,responsavel_id,proximo_contato,observacao,criado_em,atualizado_em")
+          .select("id,nome,whatsapp,whatsapp_norm,email,cro,momento,origem,utm,situacao,motivo_perda,responsavel_id,proximo_contato,observacao,criado_em,atualizado_em")
           .order("criado_em", { ascending:false }),
         DB.client.from("leads_visitas")
           .select("id,lead_id,quando,status,marcada_por,observacao,criado_em")
@@ -510,7 +511,7 @@
         if (sit && f.situacao !== sit) return false;
         if (fon && fonteDe(f) !== fon) return false;
         if (fora && !foraDF(f)) return false;
-        if (q && (f.nome+" "+f.whatsapp+" "+wppFmt(f.whatsapp_norm)+" "+(f.cro||"")).toLowerCase().indexOf(q) === -1) return false;
+        if (q && (f.nome+" "+f.whatsapp+" "+wppFmt(f.whatsapp_norm)+" "+(f.cro||"")+" "+(f.email||"")).toLowerCase().indexOf(q) === -1) return false;
         return true;
       });
     }
@@ -521,7 +522,8 @@
         var dono = nomeDe(f.responsavel_id);
         return '<tr data-id="' + f.id + '"' + (f.situacao==="novo" ? ' class="nova"' : '') + '>' +
           '<td class="nome-cel"><strong>' + esc(f.nome) + (foraDF(f) ? '<span class="fora">DDD ' + esc(ddd(f.whatsapp_norm)) + '</span>' : "") +
-            '</strong><small>' + esc(wppFmt(f.whatsapp_norm)) + (f.momento ? " · " + esc(f.momento) : "") + "</small></td>" +
+            '</strong><small>' + esc(wppFmt(f.whatsapp_norm)) + (f.momento ? " · " + esc(f.momento) : "") +
+            (f.email ? '<br><a href="mailto:' + esc(f.email) + '">' + esc(f.email) + "</a>" : "") + "</small></td>" +
           '<td data-r="Conselho">' + (f.cro ? esc(f.cro) : '<span class="muted">não informou</span>') + "</td>" +
           '<td data-r="Veio de">' + fonteHTML(f) + "</td>" +
           '<td data-r="Chegou" style="white-space:nowrap;font-size:.86rem">' + haQuanto(f.criado_em) + "</td>" +
@@ -597,6 +599,9 @@
       $("fi-nome").textContent = ATUAL.nome;
       $("fi-sub").textContent = wppFmt(ATUAL.whatsapp_norm) + (ATUAL.cro ? " · conselho " + ATUAL.cro : " · sem conselho") +
         " · chegou " + haQuanto(ATUAL.criado_em);
+      $("fi-email").innerHTML = ATUAL.email
+        ? 'E-mail: <a href="mailto:' + esc(ATUAL.email) + '">' + esc(ATUAL.email) + "</a>"
+        : "E-mail: não informado";
       aba("dados");
       $("ficha-bg").classList.add("on");
       document.body.style.overflow = "hidden";
