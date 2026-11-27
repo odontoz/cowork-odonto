@@ -110,6 +110,10 @@
               <input id="whatsapp" name="whatsapp" type="tel" required autocomplete="tel" inputmode="tel" placeholder="(61) 90000-0000">
             </div>
             <div class="campo">
+              <label for="email">E-mail *</label>
+              <input id="email" name="email" type="email" required autocomplete="email" inputmode="email" placeholder="seu@email.com">
+            </div>
+            <div class="campo">
               <label for="cro">Conselho de classe — nº (opcional)</label>
               <input id="cro" name="cro" type="text" placeholder="Ex.: 00000 (só o número)">
             </div>
@@ -229,9 +233,11 @@
       aviso.style.display = "none";
       var nome = document.getElementById("nome").value.trim();
       var whatsapp = document.getElementById("whatsapp").value.trim();
+      var email = document.getElementById("email").value.trim();
       var cro = document.getElementById("cro").value.trim();
       var momento = document.getElementById("momento").value;
       if (!nome || !whatsapp) { mostrar("Preencha nome e WhatsApp."); return; }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { mostrar("Informe um e-mail válido, por exemplo nome@dominio.com."); return; }
 
       var btn = form.querySelector("button[type=submit]");
       btn.disabled = true; btn.textContent = "Enviando…";
@@ -242,7 +248,7 @@
           var r = await window.EnjoyDB.client.rpc("registrar_lead", {
             p_nome: nome, p_whatsapp: whatsapp, p_cro: cro || null,
             p_momento: momento || null, p_origem: "site:visita",
-            p_utm: utm()
+            p_utm: utm(), p_email: email
           });
           if (r.error) throw r.error;
 
@@ -265,7 +271,7 @@
 
       // 2) Fallback SEM banco: abre WhatsApp com mensagem pré-preenchida
       var msg = "Olá! Quero agendar uma visita à ClinicShare.\n" +
-                "Nome: " + nome + "\nWhatsApp: " + whatsapp +
+                "Nome: " + nome + "\nWhatsApp: " + whatsapp + "\nE-mail: " + email +
                 (cro ? "\nConselho: " + cro : "") +
                 (momento ? "\nMomento: " + momento : "");
       window.open(window.ENJOY_BRAND.waLink(msg), "_blank");
