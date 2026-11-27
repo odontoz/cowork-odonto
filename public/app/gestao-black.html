@@ -154,8 +154,7 @@
     async function copiarImagem(pub){
       var url="/assets/black/arte-"+(pub==="B"?"B":"A")+".png";
       try {
-        var blob=await (await fetch(url,{cache:"no-store"})).blob();
-        await navigator.clipboard.write([new ClipboardItem({"image/png":blob})]);
+        await navigator.clipboard.write([new ClipboardItem({"image/png": fetch(url,{cache:"no-store"}).then(function(r){return r.blob();})})]);
         toast("Imagem copiada. No WhatsApp, cole com Ctrl+V (ou Cmd+V) e envie.");
       } catch(e){
         window.open(url,"_blank","noopener");
