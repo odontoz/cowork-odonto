@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Black ClinicShare — 40 horas por R$ 1.797</title>
+  <meta name="description" content="Só hoje, para clientes ClinicShare: 40 horas de consultório por R$ 1.797 (R$ 44,93/h). Pix à vista ou cartão em até 6x. Horas válidas por 90 dias.">
+  <meta name="robots" content="noindex">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="ClinicShare">
+  <meta property="og:title" content="Black ClinicShare: 40 horas por R$ 1.797 — só hoje">
+  <meta property="og:description" content="R$ 1.203 OFF contra a hora avulsa. R$ 44,93/h, horas válidas por 90 dias. Pix à vista ou cartão em até 6x. Só para clientes, até 23h59 de hoje.">
+  <meta property="og:image" content="https://clinicshare.net.br/assets/black/arte-B.png">
+  <meta property="og:url" content="https://clinicshare.net.br/public/app/black-40h.html">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#0E2A47">
+  <link rel="icon" type="image/png" sizes="32x32" href="../../assets/img/favicon-32.png">
+  <link rel="apple-touch-icon" href="../../assets/img/favicon-clinicshare.png">
+  <link rel="manifest" href="../../manifest.webmanifest">
+  <link rel="stylesheet" href="../../assets/css/base.css">
+  <script src="../../assets/js/brand.js" defer></script>
+  <style>
+    .oferta { background:#0E2A47; color:#fff; border-radius:16px; padding:22px 20px; margin-bottom:18px }
+    .oferta .selo { display:inline-block; background:#F5C542; color:#0E2A47; font-weight:800; font-size:.78rem;
+      letter-spacing:.06em; border-radius:999px; padding:4px 10px; margin-bottom:10px }
+    .oferta h1 { color:#fff; margin:0 0 6px; font-size:1.6rem; line-height:1.2 }
+    .oferta .preco { font-size:2.2rem; font-weight:800; margin:6px 0 2px }
+    .oferta .de { text-decoration:line-through; opacity:.7; font-size:1rem; margin-right:6px }
+    .oferta ul { margin:12px 0 0; padding-left:18px; line-height:1.6 }
+    .oferta .off { color:#F5C542; font-weight:800 }
+    .caixa { border:1px solid var(--linha); border-radius:12px; padding:16px; margin-bottom:16px; background:var(--branco) }
+    .parcelas { display:flex; flex-direction:column; gap:8px; margin-top:8px }
+    .parc { display:flex; align-items:center; justify-content:space-between; gap:10px;
+      border:1.5px solid var(--linha); background:var(--branco); border-radius:11px; padding:12px 14px; cursor:pointer }
+    .parc:hover, .parc.on { border-color:var(--azul) }
+    .parc.on { background:#eef4fd }
+    .parc .q, .parc .v { font-weight:700 }
+    .parc .tot { font-size:.8rem; color:var(--cinza) }
+    .parc .ck { width:16px;height:16px;border-radius:50%;border:2px solid var(--linha);flex:0 0 auto }
+    .parc.on .ck { border-color:var(--azul); background:radial-gradient(circle,var(--azul) 0 42%,transparent 46%) }
+    .parc-r { text-align:right; display:flex; flex-direction:column; line-height:1.25 }
+    .encerrada { text-align:center; padding:28px 16px }
+  </style>
+</head>
+<body data-no-wpp>
+  <header class="topbar">
+    <div class="container">
+      <a class="marca" href="index.html">Coworking <span>Odontológico</span></a>
+      <a class="muted" href="index.html">← Início</a>
+    </div>
+  </header>
+
+  <main class="container container-sm" style="padding:24px 16px" id="app" hidden>
+
+    <div class="oferta">
+      <span class="selo" id="o-selo">BLACK · SÓ HOJE</span>
+      <h1 id="o-titulo">40 horas de consultório</h1>
+      <div class="preco"><span class="de" id="o-de">R$ 3.000</span><span id="o-preco">R$ 1.797</span></div>
+      <div><span class="off" id="o-off">R$ 1.203 OFF</span> · <span id="o-hora">R$ 44,93 por hora</span></div>
+      <ul>
+        <li>Só para quem já é cliente ClinicShare.</li>
+        <li>Válido <strong>só hoje, até 23h59</strong>.</li>
+        <li>As horas entram no seu saldo e valem por <strong id="o-validade">90 dias</strong>.</li>
+        <li>Pix à vista sem acréscimo, ou cartão em até 6x.</li>
+      </ul>
+    </div>
+
+    <div id="erro" class="aviso aviso-atencao" style="display:none;margin-bottom:16px"></div>
+
+    <!-- sem sessão: a oferta aparece, a compra pede login -->
+    <div id="box-login" class="caixa" style="display:none">
+      <strong>Entre na sua conta para comprar</strong>
+      <p class="muted" style="margin:6px 0 12px">A oferta é só para clientes. Depois de entrar, abra este mesmo link de novo para finalizar.</p>
+      <a class="btn btn-primario btn-bloco" href="login.html">Entrar</a>
+    </div>
+
+    <div id="box-encerrada" class="caixa encerrada" style="display:none">
+      <strong style="font-size:1.2rem">Oferta encerrada</strong>
+      <p class="muted" style="margin:8px 0 14px">A Black das 40 horas valeu até 23h59 de 27/11. Os planos e a hora avulsa continuam disponíveis no app.</p>
+      <a class="btn btn-neutro" href="faturas.html">Ver planos</a>
+    </div>
+
+    <div id="aviso-contrato" class="aviso aviso-atencao" style="display:none;margin-bottom:16px;border:1px solid #e8cf8a">
+      <strong style="display:block;margin-bottom:6px">✍️ Assine o contrato para liberar a compra</strong>
+      <span>Seu contrato está pronto e esperando a sua assinatura. Assinando, a compra fica liberada.</span>
+      <div style="margin-top:12px"><a class="btn btn-primario" href="contrato.html">Ler e assinar o contrato</a></div>
+    </div>
+
+    <div id="conteudo" style="display:none">
+      <!-- PIX -->
+      <div class="caixa">
+        <div class="row-between"><strong>Pix à vista</strong><strong id="pix-valor"></strong></div>
+        <small class="muted">Sem acréscimo. As horas entram no saldo assim que o Pix for confirmado.</small>
+        <button class="btn btn-primario btn-bloco" id="btn-pix" style="margin-top:12px">Pagar com Pix</button>
+        <div id="pix-qr" style="display:none;margin-top:16px;text-align:center">
+          <img id="pix-img" alt="QR Code Pix" style="width:220px;max-width:100%;border:1px solid var(--linha);border-radius:8px;padding:8px;background:#fff">
+          <p class="muted" style="font-size:.85rem">Escaneie com o app do seu banco ou use o copia-e-cola.</p>
+          <div class="row" style="gap:8px">
+            <input id="pix-payload" type="text" readonly onclick="this.select()" style="flex:1;font-size:.8rem;color:var(--cinza)">
+            <button type="button" class="btn btn-neutro" id="pix-copiar">Copiar</button>
+          </div>
+          <p class="muted" style="margin:12px 0 0;font-size:.9rem" id="pix-status">Aguardando o pagamento… as horas entram sozinhas.</p>
+        </div>
+      </div>
+
+      <!-- CARTÃO -->
+      <div class="caixa">
+        <div class="row-between"><strong>Cartão em até 6x</strong><strong id="cartao-total"></strong></div>
+        <small class="muted">O valor no cartão inclui o custo do parcelamento (taxa do cartão). Sem acréscimo, só no Pix.</small>
+        <div class="parcelas" id="parcelas"></div>
+        <button class="btn btn-neutro btn-bloco" id="btn-cartao" style="margin-top:12px">Continuar para o pagamento seguro</button>
+        <p class="muted" style="text-align:center;font-size:.8rem;margin-top:10px">🔒 O cartão é digitado no ambiente seguro do Asaas. Aprovado o pagamento, as horas entram sozinhas.</p>
+      </div>
+    </div>
+  </main>
+
+  <script src="../../config/config.js" onerror="console.warn('config.js ausente — modo demonstração')"></script>
+  <script src="../../assets/vendor/supabase.js"></script>
+  <script src="../../assets/js/db.js"></script>
+  <script>
+  (function () {
+    // Pacote Black 40h (migration 0059). O produto se desliga sozinho às 23h59 de 27/11
+    // (pg_cron black-40h-desligar); produto inativo = "Oferta encerrada".
+    // ?teste=1 → produto de TESTE de R$ 5 (rascunho: a RLS só mostra para a gestão).
+    var PRODUTO_BLACK = "60b3f4ef-8f14-4811-ba23-45d3dec613b2";
+    var PRODUTO_TESTE = "692fa051-363d-4712-b042-338f10c6ae1f";
+    var FIM_OFERTA = new Date("2026-11-27T23:59:59-03:00");
+    var TAXA = 0.0349, FIXO = 0.49;   // mesmo repasse da Edge cobranca (cartao_parcelado)
+
+    var DB = window.EnjoyDB;
+    var app = document.getElementById("app");
+    var PRODUTO = null, SEL = 5, CONTRATO_PENDENTE = false, poll = null;
+
+    function brl(n) { return "R$ " + Number(n || 0).toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, "."); }
+    function brlInt(n) { var v = Number(n || 0); return v % 1 === 0 ? "R$ " + v.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ".") : brl(v); }
+    function mostrar(id, on) { document.getElementById(id).style.display = on === false ? "none" : "block"; }
+    function erro(msg) { var e = document.getElementById("erro"); e.textContent = msg; e.style.display = "block"; }
+    function bruto(liq) { return Math.round(((liq + FIXO) / (1 - TAXA)) * 100) / 100; }
+    function encerrar() { mostrar("conteudo", false); mostrar("box-encerrada"); document.getElementById("o-selo").textContent = "OFERTA ENCERRADA"; }
+
+    async function edge(fn, corpo) {
+      var s = await DB.sessao();
+      var r = await fetch(DB.config.SUPABASE_URL + "/functions/v1/" + fn, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + (s ? s.access_token : ""), "apikey": DB.config.SUPABASE_ANON_KEY },
+        body: JSON.stringify(corpo || {})
+      });
+      var j = {}; try { j = await r.json(); } catch (e) {}
+      return { status: r.status, body: j };
+    }
+
+    async function checarContrato(perfil) {
+      try {
+        var ct = await DB.client.from("contratos").select("id")
+          .eq("cliente_id", perfil.id).eq("status", "pendente_aceite").limit(1);
+        CONTRATO_PENDENTE = !ct.error && !!(ct.data && ct.data.length);
+        if (CONTRATO_PENDENTE) mostrar("aviso-contrato");
+      } catch (e) { /* não trava a tela; a Edge cobranca é quem decide */ }
+    }
+
+    function pintarOferta(p, valorHoraAvulsa) {
+      var horas = Number(p.regras && p.regras.horas_mes) || 40;
+      var dias = Number(p.regras && p.regras.validade_dias) || 90;
+      var avulsa = horas * valorHoraAvulsa;
+      document.getElementById("o-titulo").textContent = horas + " horas de consultório" + (p.regras && p.regras.teste ? " (TESTE)" : "");
+      document.getElementById("o-de").textContent = brlInt(avulsa);
+      document.getElementById("o-preco").textContent = brlInt(p.valor);
+      document.getElementById("o-off").textContent = brlInt(avulsa - Number(p.valor)) + " OFF";
+      document.getElementById("o-hora").textContent = brl(Math.round(Number(p.valor) * 100 / horas) / 100) + " por hora";
+      document.getElementById("o-validade").textContent = dias + " dias";
+    }
+
+    function renderParcelas() {
+      var b = bruto(Number(PRODUTO.valor));
+      document.getElementById("pix-valor").textContent = brl(PRODUTO.valor);
+      document.getElementById("cartao-total").textContent = brl(b);
+      var wrap = document.getElementById("parcelas"), h = "";
+      for (var n = 1; n <= 6; n++) {
+        h += '<div class="parc' + (n - 1 === SEL ? " on" : "") + '" data-i="' + (n - 1) + '">' +
+          '<div style="display:flex;align-items:center;gap:11px"><span class="ck"></span><span class="q">' + n + 'x</span></div>' +
+          '<div class="parc-r"><span class="v">' + brl(b / n) + '</span><span class="tot">total ' + brl(b) + '</span></div></div>';
+      }
+      wrap.innerHTML = h;
+      Array.prototype.forEach.call(wrap.querySelectorAll(".parc"), function (el) {
+        el.addEventListener("click", function () {
+          SEL = +el.dataset.i;
+          Array.prototype.forEach.call(wrap.querySelectorAll(".parc"), function (x, j) { x.classList.toggle("on", j === SEL); });
+        });
+      });
+    }
+
+    function travadoPorContrato() {
+      if (!CONTRATO_PENDENTE) return false;
+      erro("Assine o contrato para liberar a compra.");
+      return true;
+    }
+
+    document.getElementById("btn-pix").addEventListener("click", async function () {
+      if (travadoPorContrato()) return;
+      if (new Date() > FIM_OFERTA && !(PRODUTO.regras && PRODUTO.regras.teste)) return encerrar();
+      var b = this; b.disabled = true; b.textContent = "Gerando o Pix…";
+      var r = await edge("cobranca", { acao: "plano_pix", produto_id: PRODUTO.id });
+      b.disabled = false; b.textContent = "Pagar com Pix";
+      if (r.status === 404) return encerrar();
+      if (r.status !== 200 || !r.body.qr) return erro("Não foi possível gerar o Pix: " + (r.body.erro || r.status));
+      document.getElementById("pix-img").src = "data:image/png;base64," + r.body.qr.encodedImage;
+      document.getElementById("pix-payload").value = r.body.qr.payload || "";
+      mostrar("pix-qr");
+      document.getElementById("pix-qr").scrollIntoView({ behavior: "smooth", block: "center" });
+      var pgId = r.body.pagamento_id;
+      if (poll) clearInterval(poll);
+      if (pgId) poll = setInterval(async function () {
+        var q = await DB.client.from("pagamentos").select("status").eq("id", pgId).maybeSingle();
+        if (q.data && q.data.status === "pago") {
+          clearInterval(poll); poll = null;
+          document.getElementById("pix-status").innerHTML = "<strong style='color:var(--verde)'>Pagamento confirmado! As horas já estão no seu saldo.</strong>";
+        }
+      }, 4000);
+    });
+
+    document.getElementById("pix-copiar").addEventListener("click", function () {
+      var inp = document.getElementById("pix-payload"); inp.select();
+      try { navigator.clipboard.writeText(inp.value); } catch (e) { document.execCommand("copy"); }
+      this.textContent = "Copiado!"; var b = this; setTimeout(function () { b.textContent = "Copiar"; }, 2000);
+    });
+
+    document.getElementById("btn-cartao").addEventListener("click", async function () {
+      if (travadoPorContrato()) return;
+      if (new Date() > FIM_OFERTA && !(PRODUTO.regras && PRODUTO.regras.teste)) return encerrar();
+      var b = this; b.disabled = true; b.textContent = "Abrindo pagamento seguro…";
+      var r = await edge("cobranca", { acao: "cartao_parcelado", produto_id: PRODUTO.id, parcelas: SEL + 1 });
+      if (r.status === 200 && r.body.url) { location.href = r.body.url; return; }
+      b.disabled = false; b.textContent = "Continuar para o pagamento seguro";
+      if (r.status === 404) return encerrar();
+      erro(r.status === 503 ? "Pagamento online indisponível — fale com a equipe." : ("Não foi possível abrir o pagamento: " + (r.body.erro || r.status)));
+    });
+
+    async function iniciar() {
+      if (!(DB && DB.pronto)) { erro("Compra indisponível no modo demonstração."); app.hidden = false; return; }
+      var teste = new URLSearchParams(location.search).get("teste") === "1";
+      var s = await DB.sessao();
+      app.hidden = false;
+      if (!s) {
+        if (new Date() > FIM_OFERTA) encerrar(); else mostrar("box-login");
+        return;
+      }
+      var perfil = await DB.exigirLogin();
+      if (!perfil) return;
+      var id = teste ? PRODUTO_TESTE : PRODUTO_BLACK;
+      var r = await DB.client.from("produtos_preco").select("id,nome,valor,regras,tipo").eq("id", id).eq("ativo", true).maybeSingle();
+      var hp = await DB.client.from("produtos_preco").select("valor").eq("tipo", "hora").eq("ativo", true).limit(1);
+      var vHora = (hp.data && hp.data[0]) ? Number(hp.data[0].valor) : 75;
+      if (!r.data || (new Date() > FIM_OFERTA && !teste)) return encerrar();
+      PRODUTO = r.data;
+      pintarOferta(PRODUTO, vHora);
+      if (["aprovado", "ativo"].indexOf(perfil.status) === -1) {
+        erro("A oferta é para clientes com cadastro concluído. Conclua o seu cadastro para comprar horas.");
+        return;
+      }
+      await checarContrato(perfil);
+      mostrar("conteudo");
+      renderParcelas();
+    }
+
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", iniciar); else iniciar();
+  })();
+  </script>
+</body>
+</html>
